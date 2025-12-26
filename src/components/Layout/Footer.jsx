@@ -1,0 +1,67 @@
+import { Link } from 'react-router-dom'
+import { Facebook, Twitter, Instagram, Mail } from 'lucide-react'
+
+function Footer() {
+  return (
+    <footer className="footer">
+      <div className="container">
+        <div className="footer-content">
+          <div className="footer-section">
+            <h3>About Boutique</h3>
+            <p>Your destination for modern fashion and style. Discover the latest trends and timeless classics.</p>
+            <div className="social-links">
+              <a href="#" aria-label="Facebook"><Facebook size={20} /></a>
+              <a href="#" aria-label="Twitter"><Twitter size={20} /></a>
+              <a href="#" aria-label="Instagram"><Instagram size={20} /></a>
+              <a href="#" aria-label="Email"><Mail size={20} /></a>
+            </div>
+          </div>
+
+          <div className="footer-section">
+            <h3>Shop</h3>
+            <ul>
+              <li><Link to="/products/women">Women</Link></li>
+              <li><Link to="/products/men">Men</Link></li>
+              <li><Link to="/products/kids">Kids</Link></li>
+              <li><Link to="/products/accessories">Accessories</Link></li>
+              <li><Link to="/products/sale">Sale</Link></li>
+            </ul>
+          </div>
+
+          <div className="footer-section">
+            <h3>Customer Service</h3>
+            <ul>
+              <li><Link to="/size-guide">Size Guide</Link></li>
+              <li><Link to="/shipping">Shipping Info</Link></li>
+              <li><Link to="/returns">Returns</Link></li>
+              <li><Link to="/faq">FAQ</Link></li>
+              <li><Link to="/contact">Contact Us</Link></li>
+            </ul>
+          </div>
+
+          <div className="footer-section">
+            <h3>Account</h3>
+            <ul>
+              <li><Link to="/login">Sign In</Link></li>
+              <li><Link to="/register">Create Account</Link></li>
+              <li><Link to="/dashboard">My Account</Link></li>
+              <li><Link to="/wishlist">Wishlist</Link></li>
+              <li><Link to="/order-tracking">Track Order</Link></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <p>&copy; 2024 Boutique. All rights reserved.</p>
+          <div className="footer-links">
+            <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/terms">Terms of Service</Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+export default Footer
+
