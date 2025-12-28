@@ -21,8 +21,8 @@ function Products() {
   // Category subcategories mapping
   const categorySubcategories = {
     'Women': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories'],
-    'Men': ['Shirts', 'Pants', 'Jackets', 'Accessories'],
-    'Kids': ['Girls', 'Boys', 'Infants', 'Accessories']
+    'Teen': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories'],
+    'Girls': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories']
   }
 
   // Mock products data with subcategories
@@ -32,9 +32,10 @@ function Products() {
     { id: 3, name: 'Classic White Shirt', category: 'Women', subcategory: 'Tops', price: 49.99, image: 'https://via.placeholder.com/400x500/ff6b6b/ffffff?text=Shirt', rating: 4.8, reviews: 18 },
     { id: 4, name: 'Denim Jeans', category: 'Women', subcategory: 'Bottoms', price: 69.99, image: 'https://via.placeholder.com/400x500/4682b4/ffffff?text=Jeans', rating: 4.7, reviews: 22 },
     { id: 5, name: 'Casual T-Shirt', category: 'Women', subcategory: 'Tops', price: 39.99, originalPrice: 59.99, image: 'https://via.placeholder.com/400x500/2d5a5a/ffffff?text=T-Shirt', onSale: true, rating: 4.4, reviews: 12 },
-    { id: 6, name: 'Formal Shirt', category: 'Men', subcategory: 'Shirts', price: 59.99, image: 'https://via.placeholder.com/400x500/ff6b6b/ffffff?text=Formal', rating: 4.5, reviews: 20 },
-    { id: 7, name: 'Denim Pants', category: 'Men', subcategory: 'Pants', price: 79.99, image: 'https://via.placeholder.com/400x500/d2691e/ffffff?text=Denim', rating: 4.6, reviews: 18 },
-    { id: 8, name: 'Kids T-Shirt', category: 'Kids', subcategory: 'Boys', price: 29.99, image: 'https://via.placeholder.com/400x500/4682b4/ffffff?text=Kids', rating: 4.7, reviews: 15 }
+    { id: 6, name: 'Trendy Teen Dress', category: 'Teen', subcategory: 'Dresses', price: 59.99, image: 'https://via.placeholder.com/400x500/ff6b6b/ffffff?text=Teen+Dress', rating: 4.5, reviews: 20 },
+    { id: 7, name: 'Teen Casual Top', category: 'Teen', subcategory: 'Tops', price: 49.99, image: 'https://via.placeholder.com/400x500/d2691e/ffffff?text=Teen+Top', rating: 4.6, reviews: 18 },
+    { id: 8, name: 'Girls Pretty Dress', category: 'Girls', subcategory: 'Dresses', price: 39.99, image: 'https://via.placeholder.com/400x500/4682b4/ffffff?text=Girls+Dress', rating: 4.7, reviews: 15 },
+    { id: 9, name: 'Girls Fun T-Shirt', category: 'Girls', subcategory: 'Tops', price: 29.99, image: 'https://via.placeholder.com/400x500/2d5a5a/ffffff?text=Girls+T-Shirt', rating: 4.4, reviews: 12 }
   ]
 
   // Filter products based on category and subcategory

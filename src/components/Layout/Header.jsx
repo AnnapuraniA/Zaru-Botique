@@ -12,12 +12,12 @@ function Header() {
       subcategories: ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories']
     },
     {
-      name: 'Men',
-      subcategories: ['Shirts', 'Pants', 'Jackets', 'Accessories']
+      name: 'Teen',
+      subcategories: ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories']
     },
     {
-      name: 'Kids',
-      subcategories: ['Girls', 'Boys', 'Infants', 'Accessories']
+      name: 'Girls',
+      subcategories: ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories']
     }
   ]
 
@@ -54,7 +54,7 @@ function Header() {
       <div className="container">
         <div className="header-content">
           <Link to="/" className="logo">
-            <h1>Boutique</h1>
+            <h1>Zaru Boutique</h1>
           </Link>
 
           <nav className="main-nav">

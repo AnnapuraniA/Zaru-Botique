@@ -8,15 +8,15 @@ function SizeGuide() {
     XXL: { Bust: '96-100 cm', Waist: '80-84 cm', Hip: '104-108 cm', Indian: '38' }
   }
 
-  const menSizes = {
-    S: { Chest: '86-92 cm', Waist: '76-82 cm', Indian: '38' },
-    M: { Chest: '92-98 cm', Waist: '82-88 cm', Indian: '40' },
-    L: { Chest: '98-104 cm', Waist: '88-94 cm', Indian: '42' },
-    XL: { Chest: '104-110 cm', Waist: '94-100 cm', Indian: '44' },
-    XXL: { Chest: '110-116 cm', Waist: '100-106 cm', Indian: '46' }
+  const teenSizes = {
+    XS: { Bust: '72-76 cm', Waist: '56-60 cm', Hip: '80-84 cm', Indian: '26' },
+    S: { Bust: '76-80 cm', Waist: '60-64 cm', Hip: '84-88 cm', Indian: '28' },
+    M: { Bust: '80-84 cm', Waist: '64-68 cm', Hip: '88-92 cm', Indian: '30' },
+    L: { Bust: '84-88 cm', Waist: '68-72 cm', Hip: '92-96 cm', Indian: '32' },
+    XL: { Bust: '88-92 cm', Waist: '72-76 cm', Hip: '96-100 cm', Indian: '34' }
   }
 
-  const kidsSizes = {
+  const girlsSizes = {
     4: { Chest: '56-60 cm', Waist: '54-58 cm', Height: '96-106 cm', Age: '4-5 years' },
     6: { Chest: '60-64 cm', Waist: '58-62 cm', Height: '106-116 cm', Age: '6-7 years' },
     8: { Chest: '64-68 cm', Waist: '62-66 cm', Height: '116-126 cm', Age: '8-9 years' },
@@ -63,23 +63,25 @@ function SizeGuide() {
           </section>
 
           <section className="size-section">
-            <h2>Men's Sizes</h2>
+            <h2>Teen's Sizes</h2>
             <div className="size-table-wrapper">
               <table className="size-table">
                 <thead>
                   <tr>
                     <th>Size</th>
-                    <th>Chest (cm)</th>
+                    <th>Bust (cm)</th>
                     <th>Waist (cm)</th>
+                    <th>Hip (cm)</th>
                     <th>Indian Size</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(menSizes).map(([size, measurements]) => (
+                  {Object.entries(teenSizes).map(([size, measurements]) => (
                     <tr key={size}>
                       <td><strong>{size}</strong></td>
-                      <td>{measurements.Chest}</td>
+                      <td>{measurements.Bust}</td>
                       <td>{measurements.Waist}</td>
+                      <td>{measurements.Hip}</td>
                       <td>{measurements.Indian}</td>
                     </tr>
                   ))}
@@ -89,7 +91,7 @@ function SizeGuide() {
           </section>
 
           <section className="size-section">
-            <h2>Kids' Sizes</h2>
+            <h2>Girls' Sizes</h2>
             <div className="size-table-wrapper">
               <table className="size-table">
                 <thead>
@@ -102,7 +104,7 @@ function SizeGuide() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(kidsSizes).map(([size, measurements]) => (
+                  {Object.entries(girlsSizes).map(([size, measurements]) => (
                     <tr key={size}>
                       <td><strong>{size}</strong></td>
                       <td>{measurements.Chest}</td>
@@ -146,7 +148,7 @@ function SizeGuide() {
           <h2>Need Help?</h2>
           <p>If you're unsure about your size, our customer service team is here to help!</p>
           <div className="help-actions">
-            <a href="mailto:support@boutique.com" className="btn btn-primary">
+            <a href="mailto:support@zaruboutique.com" className="btn btn-primary">
               Contact Us
             </a>
             <a href="tel:+1234567890" className="btn btn-outline">

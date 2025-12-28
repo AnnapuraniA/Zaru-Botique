@@ -18,10 +18,10 @@ function Wishlist() {
     },
     {
       id: 2,
-      name: 'Classic Denim Jacket',
-      category: 'Men - Jackets',
-      price: 79.99,
-      image: 'https://via.placeholder.com/400x500/ff6b6b/ffffff?text=Jacket',
+      name: 'Trendy Teen Jacket',
+      category: 'Teen - Outerwear',
+      price: 69.99,
+      image: 'https://via.placeholder.com/400x500/ff6b6b/ffffff?text=Teen+Jacket',
       new: true,
       rating: 4.8,
       reviews: 18
