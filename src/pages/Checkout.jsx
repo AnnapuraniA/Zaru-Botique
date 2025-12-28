@@ -1,14 +1,17 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { CreditCard, Lock } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 function Checkout() {
+  const { user, isAuthenticated, getGuestId, addOrder } = useAuth()
+  const navigate = useNavigate()
   const [step, setStep] = useState(1)
+  const [cartItems, setCartItems] = useState([])
   const [formData, setFormData] = useState({
+    mobile: '',
     email: '',
-    firstName: '',
-    lastName: '',
-    phone: '',
+    name: '',
     address: '',
     city: '',
     state: '',
@@ -18,13 +21,32 @@ function Checkout() {
     cardNumber: '',
     cardName: '',
     cardExpiry: '',
-    cardCVC: '',
-    checkoutAsGuest: false
+    cardCVC: ''
   })
 
-  const cartItems = [
-    { id: 1, name: 'Elegant Summer Dress', price: 89.99, quantity: 2, image: 'https://via.placeholder.com/100x120/2d5a5a/ffffff?text=Dress' }
-  ]
+  // Load cart items
+  useEffect(() => {
+    loadCart()
+    if (isAuthenticated && user) {
+      // Pre-fill user info
+      setFormData(prev => ({
+        ...prev,
+        mobile: user.mobile || '',
+        email: user.email || '',
+        name: user.name || ''
+      }))
+    }
+  }, [user, isAuthenticated])
+
+  const loadCart = () => {
+    if (isAuthenticated && user) {
+      const userCart = JSON.parse(localStorage.getItem(`cart_${user.id}`) || '[]')
+      setCartItems(userCart)
+    } else {
+      const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
+      setCartItems(guestCart)
+    }
+  }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -43,10 +65,64 @@ function Checkout() {
     if (step < 3) setStep(step + 1)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Order placed:', formData)
-    // Handle order submission
+    
+    if (cartItems.length === 0) {
+      alert('Your cart is empty')
+      return
+    }
+
+    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const shipping = formData.shippingMethod === 'free' ? 0 : formData.shippingMethod === 'standard' ? 100 : 200
+    const tax = subtotal * 0.18
+    const total = subtotal + shipping + tax
+
+    const order = {
+      items: cartItems,
+      shippingAddress: {
+        name: formData.name,
+        mobile: formData.mobile,
+        email: formData.email,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode,
+        method: formData.shippingMethod
+      },
+      payment: {
+        method: formData.paymentMethod,
+        cardNumber: formData.cardNumber ? `****${formData.cardNumber.slice(-4)}` : '',
+        cardName: formData.cardName
+      },
+      subtotal,
+      shippingCost: shipping,
+      tax,
+      total,
+      tracking: `TRACK${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+    }
+
+    if (isAuthenticated && user) {
+      // Add order to user account
+      const orderWithId = addOrder(order)
+      // Clear user cart
+      localStorage.removeItem(`cart_${user.id}`)
+      navigate(`/order/${orderWithId.id}`)
+    } else {
+      // Save guest order
+      const guestOrders = JSON.parse(localStorage.getItem('guestOrders') || '[]')
+      const guestOrder = {
+        ...order,
+        id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        date: new Date().toISOString(),
+        status: 'Processing'
+      }
+      guestOrders.push(guestOrder)
+      localStorage.setItem('guestOrders', JSON.stringify(guestOrders))
+      // Clear guest cart
+      localStorage.removeItem('cart_guest')
+      navigate(`/order/${guestOrder.id}`)
+    }
   }
 
   return (
@@ -59,64 +135,49 @@ function Checkout() {
             {step === 1 && (
               <div className="checkout-step">
                 <h2>Shipping Information</h2>
-                {!formData.checkoutAsGuest && (
+                {!isAuthenticated && (
                   <p>
-                    Already have an account? <Link to="/login">Log in</Link>
+                    Have an account? <Link to="/dashboard">Log in</Link> to save your information
                   </p>
                 )}
-                <label className="checkbox-label">
+
+                <div className="form-group">
+                  <label>Mobile Number <span className="required">*</span></label>
                   <input
-                    type="checkbox"
-                    checked={formData.checkoutAsGuest}
-                    onChange={(e) => setFormData(prev => ({ ...prev, checkoutAsGuest: e.target.checked }))}
+                    type="tel"
+                    name="mobile"
+                    value={formData.mobile}
+                    onChange={handleChange}
+                    required
+                    placeholder="9876543210"
+                    pattern="[0-9]{10}"
+                    maxLength="10"
+                    disabled={isAuthenticated}
+                    className={isAuthenticated ? 'disabled-input' : ''}
                   />
-                  <span>Checkout as guest</span>
-                </label>
-
-                {!formData.checkoutAsGuest && (
-                  <div className="form-group">
-                    <label>Email *</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                )}
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>First Name *</label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Last Name *</label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
+                  {isAuthenticated && <small>Mobile number cannot be changed</small>}
                 </div>
 
                 <div className="form-group">
-                  <label>Phone *</label>
+                  <label>Full Name <span className="required">*</span></label>
                   <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
+                    type="text"
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
                     required
+                    placeholder="Your full name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Email Address <span className="optional">(Optional)</span></label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="your@email.com"
                   />
                 </div>
 

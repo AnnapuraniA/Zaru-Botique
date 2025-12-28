@@ -1,6 +1,21 @@
 import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import Newsletter from '../components/Newsletter/Newsletter'
 
 function Home() {
+  const [showNewsletter, setShowNewsletter] = useState(false)
+
+  useEffect(() => {
+    // Show newsletter modal after 3 seconds on first visit
+    const hasSeenNewsletter = localStorage.getItem('newsletterShown')
+    if (!hasSeenNewsletter) {
+      const timer = setTimeout(() => {
+        setShowNewsletter(true)
+        localStorage.setItem('newsletterShown', 'true')
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
 
   return (
     <div className="home-page">
@@ -22,6 +37,9 @@ function Home() {
         </div>
       </section>
 
+      {showNewsletter && (
+        <Newsletter onClose={() => setShowNewsletter(false)} />
+      )}
     </div>
   )
 }

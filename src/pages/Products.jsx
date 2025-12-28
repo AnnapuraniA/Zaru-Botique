@@ -25,17 +25,87 @@ function Products() {
     'Girls': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories']
   }
 
-  // Mock products data with subcategories
+  // Mock products data with subcategories - Comprehensive dummy data
   const allProducts = [
-    { id: 1, name: 'Elegant Summer Dress', category: 'Women', subcategory: 'Dresses', price: 89.99, originalPrice: 129.99, image: 'https://via.placeholder.com/400x500/2d5a5a/ffffff?text=Dress+1', onSale: true, rating: 4.5, reviews: 24 },
-    { id: 2, name: 'Floral Print Dress', category: 'Women', subcategory: 'Dresses', price: 79.99, image: 'https://via.placeholder.com/400x500/d2691e/ffffff?text=Floral', rating: 4.6, reviews: 15 },
-    { id: 3, name: 'Classic White Shirt', category: 'Women', subcategory: 'Tops', price: 49.99, image: 'https://via.placeholder.com/400x500/ff6b6b/ffffff?text=Shirt', rating: 4.8, reviews: 18 },
-    { id: 4, name: 'Denim Jeans', category: 'Women', subcategory: 'Bottoms', price: 69.99, image: 'https://via.placeholder.com/400x500/4682b4/ffffff?text=Jeans', rating: 4.7, reviews: 22 },
-    { id: 5, name: 'Casual T-Shirt', category: 'Women', subcategory: 'Tops', price: 39.99, originalPrice: 59.99, image: 'https://via.placeholder.com/400x500/2d5a5a/ffffff?text=T-Shirt', onSale: true, rating: 4.4, reviews: 12 },
-    { id: 6, name: 'Trendy Teen Dress', category: 'Teen', subcategory: 'Dresses', price: 59.99, image: 'https://via.placeholder.com/400x500/ff6b6b/ffffff?text=Teen+Dress', rating: 4.5, reviews: 20 },
-    { id: 7, name: 'Teen Casual Top', category: 'Teen', subcategory: 'Tops', price: 49.99, image: 'https://via.placeholder.com/400x500/d2691e/ffffff?text=Teen+Top', rating: 4.6, reviews: 18 },
-    { id: 8, name: 'Girls Pretty Dress', category: 'Girls', subcategory: 'Dresses', price: 39.99, image: 'https://via.placeholder.com/400x500/4682b4/ffffff?text=Girls+Dress', rating: 4.7, reviews: 15 },
-    { id: 9, name: 'Girls Fun T-Shirt', category: 'Girls', subcategory: 'Tops', price: 29.99, image: 'https://via.placeholder.com/400x500/2d5a5a/ffffff?text=Girls+T-Shirt', rating: 4.4, reviews: 12 }
+    // Women - Dresses
+    { id: 1, name: 'Elegant Summer Dress', category: 'Women', subcategory: 'Dresses', price: 89.99, originalPrice: 129.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', onSale: true, rating: 4.5, reviews: 24 },
+    { id: 2, name: 'Floral Print Maxi Dress', category: 'Women', subcategory: 'Dresses', price: 79.99, image: 'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=400&h=500&fit=crop', rating: 4.6, reviews: 15 },
+    { id: 3, name: 'Classic A-Line Dress', category: 'Women', subcategory: 'Dresses', price: 94.99, originalPrice: 119.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', onSale: true, rating: 4.7, reviews: 32 },
+    { id: 4, name: 'Evening Gown', category: 'Women', subcategory: 'Dresses', price: 149.99, image: 'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=400&h=500&fit=crop', rating: 4.8, reviews: 28 },
+    { id: 5, name: 'Casual Midi Dress', category: 'Women', subcategory: 'Dresses', price: 69.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', rating: 4.4, reviews: 19 },
+    
+    // Women - Tops
+    { id: 6, name: 'Classic White Shirt', category: 'Women', subcategory: 'Tops', price: 49.99, image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&h=500&fit=crop', rating: 4.8, reviews: 18 },
+    { id: 7, name: 'Casual T-Shirt', category: 'Women', subcategory: 'Tops', price: 39.99, originalPrice: 59.99, image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=500&fit=crop', onSale: true, rating: 4.4, reviews: 12 },
+    { id: 8, name: 'Silk Blouse', category: 'Women', subcategory: 'Tops', price: 89.99, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=500&fit=crop', rating: 4.9, reviews: 25 },
+    { id: 9, name: 'Crop Top', category: 'Women', subcategory: 'Tops', price: 34.99, image: 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400&h=500&fit=crop', rating: 4.3, reviews: 16 },
+    { id: 10, name: 'Knit Sweater', category: 'Women', subcategory: 'Tops', price: 79.99, originalPrice: 99.99, image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=500&fit=crop', onSale: true, rating: 4.6, reviews: 21 },
+    
+    // Women - Bottoms
+    { id: 11, name: 'Denim Jeans', category: 'Women', subcategory: 'Bottoms', price: 69.99, image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=500&fit=crop', rating: 4.7, reviews: 22 },
+    { id: 12, name: 'Wide Leg Trousers', category: 'Women', subcategory: 'Bottoms', price: 84.99, image: 'https://images.unsplash.com/photo-1594633313593-bab3825d0caf?w=400&h=500&fit=crop', rating: 4.5, reviews: 14 },
+    { id: 13, name: 'Pleated Skirt', category: 'Women', subcategory: 'Bottoms', price: 59.99, originalPrice: 79.99, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=500&fit=crop', onSale: true, rating: 4.6, reviews: 17 },
+    { id: 14, name: 'High-Waist Shorts', category: 'Women', subcategory: 'Bottoms', price: 44.99, image: 'https://images.unsplash.com/photo-1594633313593-bab3825d0caf?w=400&h=500&fit=crop', rating: 4.4, reviews: 13 },
+    
+    // Women - Outerwear
+    { id: 15, name: 'Classic Blazer', category: 'Women', subcategory: 'Outerwear', price: 129.99, image: 'https://images.unsplash.com/photo-1594633313593-bab3825d0caf?w=400&h=500&fit=crop', rating: 4.8, reviews: 26 },
+    { id: 16, name: 'Denim Jacket', category: 'Women', subcategory: 'Outerwear', price: 79.99, originalPrice: 99.99, image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=500&fit=crop', onSale: true, rating: 4.7, reviews: 20 },
+    { id: 17, name: 'Trench Coat', category: 'Women', subcategory: 'Outerwear', price: 149.99, image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=400&h=500&fit=crop', rating: 4.9, reviews: 30 },
+    
+    // Women - Accessories
+    { id: 18, name: 'Designer Handbag', category: 'Women', subcategory: 'Accessories', price: 149.99, originalPrice: 199.99, image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=400&h=500&fit=crop', onSale: true, rating: 4.9, reviews: 31 },
+    { id: 19, name: 'Leather Belt', category: 'Women', subcategory: 'Accessories', price: 39.99, image: 'https://images.unsplash.com/photo-1624222247344-550fb60583fd?w=400&h=500&fit=crop', rating: 4.5, reviews: 11 },
+    { id: 20, name: 'Silk Scarf', category: 'Women', subcategory: 'Accessories', price: 29.99, image: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=400&h=500&fit=crop', rating: 4.6, reviews: 9 },
+    
+    // Teen - Dresses
+    { id: 21, name: 'Trendy Teen Dress', category: 'Teen', subcategory: 'Dresses', price: 59.99, image: 'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=400&h=500&fit=crop', rating: 4.5, reviews: 20 },
+    { id: 22, name: 'Party Dress', category: 'Teen', subcategory: 'Dresses', price: 69.99, originalPrice: 89.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', onSale: true, rating: 4.7, reviews: 18 },
+    { id: 23, name: 'Casual Sundress', category: 'Teen', subcategory: 'Dresses', price: 54.99, image: 'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=400&h=500&fit=crop', rating: 4.4, reviews: 15 },
+    { id: 24, name: 'Formal Teen Dress', category: 'Teen', subcategory: 'Dresses', price: 79.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', rating: 4.6, reviews: 12 },
+    
+    // Teen - Tops
+    { id: 25, name: 'Teen Casual Top', category: 'Teen', subcategory: 'Tops', price: 49.99, image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=500&fit=crop', rating: 4.6, reviews: 18 },
+    { id: 26, name: 'Graphic T-Shirt', category: 'Teen', subcategory: 'Tops', price: 39.99, image: 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400&h=500&fit=crop', rating: 4.5, reviews: 22 },
+    { id: 27, name: 'Hoodie', category: 'Teen', subcategory: 'Tops', price: 64.99, originalPrice: 84.99, image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=500&fit=crop', onSale: true, rating: 4.8, reviews: 25 },
+    { id: 28, name: 'Crop Hoodie', category: 'Teen', subcategory: 'Tops', price: 54.99, image: 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400&h=500&fit=crop', rating: 4.4, reviews: 14 },
+    
+    // Teen - Bottoms
+    { id: 29, name: 'Skinny Jeans', category: 'Teen', subcategory: 'Bottoms', price: 59.99, image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=500&fit=crop', rating: 4.6, reviews: 19 },
+    { id: 30, name: 'Cargo Pants', category: 'Teen', subcategory: 'Bottoms', price: 64.99, image: 'https://images.unsplash.com/photo-1594633313593-bab3825d0caf?w=400&h=500&fit=crop', rating: 4.5, reviews: 16 },
+    { id: 31, name: 'Mini Skirt', category: 'Teen', subcategory: 'Bottoms', price: 44.99, originalPrice: 59.99, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=500&fit=crop', onSale: true, rating: 4.7, reviews: 13 },
+    
+    // Teen - Outerwear
+    { id: 32, name: 'Trendy Teen Jacket', category: 'Teen', subcategory: 'Outerwear', price: 69.99, image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=500&fit=crop', new: true, rating: 4.8, reviews: 18 },
+    { id: 33, name: 'Bomber Jacket', category: 'Teen', subcategory: 'Outerwear', price: 79.99, image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=400&h=500&fit=crop', rating: 4.6, reviews: 15 },
+    
+    // Teen - Accessories
+    { id: 34, name: 'Backpack', category: 'Teen', subcategory: 'Accessories', price: 49.99, image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=500&fit=crop', rating: 4.5, reviews: 17 },
+    { id: 35, name: 'Cap', category: 'Teen', subcategory: 'Accessories', price: 24.99, image: 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=400&h=500&fit=crop', rating: 4.3, reviews: 10 },
+    
+    // Girls - Dresses
+    { id: 36, name: 'Girls Pretty Dress', category: 'Girls', subcategory: 'Dresses', price: 39.99, image: 'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=400&h=500&fit=crop', rating: 4.7, reviews: 15 },
+    { id: 37, name: 'Princess Dress', category: 'Girls', subcategory: 'Dresses', price: 49.99, originalPrice: 69.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', onSale: true, rating: 4.8, reviews: 22 },
+    { id: 38, name: 'Floral Girls Dress', category: 'Girls', subcategory: 'Dresses', price: 34.99, image: 'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=400&h=500&fit=crop', rating: 4.6, reviews: 14 },
+    { id: 39, name: 'Party Dress', category: 'Girls', subcategory: 'Dresses', price: 44.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', rating: 4.5, reviews: 11 },
+    
+    // Girls - Tops
+    { id: 40, name: 'Girls Fun T-Shirt', category: 'Girls', subcategory: 'Tops', price: 29.99, image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&h=500&fit=crop', rating: 4.4, reviews: 12 },
+    { id: 41, name: 'Cartoon Print Top', category: 'Girls', subcategory: 'Tops', price: 34.99, image: 'https://images.unsplash.com/photo-1571945153237-4929e783af4a?w=400&h=500&fit=crop', rating: 4.6, reviews: 16 },
+    { id: 42, name: 'Ruffled Blouse', category: 'Girls', subcategory: 'Tops', price: 39.99, originalPrice: 54.99, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=500&fit=crop', onSale: true, rating: 4.7, reviews: 13 },
+    
+    // Girls - Bottoms
+    { id: 43, name: 'Denim Shorts', category: 'Girls', subcategory: 'Bottoms', price: 24.99, image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=500&fit=crop', rating: 4.5, reviews: 10 },
+    { id: 44, name: 'Tutu Skirt', category: 'Girls', subcategory: 'Bottoms', price: 29.99, image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=500&fit=crop', rating: 4.8, reviews: 18 },
+    { id: 45, name: 'Leggings', category: 'Girls', subcategory: 'Bottoms', price: 19.99, image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=500&fit=crop', rating: 4.4, reviews: 9 },
+    
+    // Girls - Outerwear
+    { id: 46, name: 'Pink Jacket', category: 'Girls', subcategory: 'Outerwear', price: 49.99, image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=500&fit=crop', rating: 4.6, reviews: 12 },
+    { id: 47, name: 'Cardigan', category: 'Girls', subcategory: 'Outerwear', price: 39.99, originalPrice: 54.99, image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=500&fit=crop', onSale: true, rating: 4.5, reviews: 11 },
+    
+    // Girls - Accessories
+    { id: 48, name: 'Hair Bows Set', category: 'Girls', subcategory: 'Accessories', price: 14.99, image: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=400&h=500&fit=crop', rating: 4.7, reviews: 8 },
+    { id: 49, name: 'Kids Backpack', category: 'Girls', subcategory: 'Accessories', price: 34.99, image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=500&fit=crop', rating: 4.6, reviews: 14 },
+    { id: 50, name: 'Sparkly Shoes', category: 'Girls', subcategory: 'Accessories', price: 44.99, image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400&h=500&fit=crop', rating: 4.8, reviews: 16 }
   ]
 
   // Filter products based on category and subcategory

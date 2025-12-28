@@ -1,13 +1,22 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Facebook, Twitter, Instagram, Mail } from 'lucide-react'
 
 function Footer() {
+  const navigate = useNavigate()
+
+  const handleSignIn = () => {
+    navigate('/dashboard', { state: { tab: 'login' } })
+  }
+
+  const handleCreateAccount = () => {
+    navigate('/dashboard', { state: { tab: 'register' } })
+  }
   return (
     <footer className="footer">
       <div className="container">
         <div className="footer-content">
           <div className="footer-section">
-            <h3>About Zaru Boutique</h3>
+            <h3>About Arudhra Boutique</h3>
             <p>Your destination for modern fashion and style. Discover the latest trends and timeless classics.</p>
             <div className="social-links">
               <a href="#" aria-label="Facebook"><Facebook size={20} /></a>
@@ -42,8 +51,8 @@ function Footer() {
           <div className="footer-section">
             <h3>Account</h3>
             <ul>
-              <li><Link to="/login">Sign In</Link></li>
-              <li><Link to="/register">Create Account</Link></li>
+              <li><button onClick={handleSignIn} className="footer-link-btn">Sign In</button></li>
+              <li><button onClick={handleCreateAccount} className="footer-link-btn">Create Account</button></li>
               <li><Link to="/dashboard">My Account</Link></li>
               <li><Link to="/wishlist">Wishlist</Link></li>
               <li><Link to="/order-tracking">Track Order</Link></li>
@@ -52,7 +61,7 @@ function Footer() {
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; 2024 Zaru Boutique. All rights reserved.</p>
+                <p>&copy; 2024 Arudhra Boutique. All rights reserved.</p>
           <div className="footer-links">
             <Link to="/privacy">Privacy Policy</Link>
             <Link to="/terms">Terms of Service</Link>

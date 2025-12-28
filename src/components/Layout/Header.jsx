@@ -1,10 +1,14 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
 
 function Header() {
+  const { isAuthenticated, user } = useAuth()
   const [expandedCategory, setExpandedCategory] = useState(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const isHomePage = location.pathname === '/'
 
   const categories = [
     {
@@ -50,11 +54,11 @@ function Header() {
   }
 
   return (
-    <header className="header">
+    <header className={`header ${!isHomePage ? 'header-footer-style' : ''}`}>
       <div className="container">
         <div className="header-content">
           <Link to="/" className="logo">
-            <h1>Zaru Boutique</h1>
+            <h1>Arudhra Boutique</h1>
           </Link>
 
           <nav className="main-nav">
@@ -111,7 +115,7 @@ function Header() {
             <Link to="/cart" className="icon-btn">
               <ShoppingCart size={20} />
             </Link>
-            <Link to="/dashboard" className="icon-btn">
+            <Link to="/dashboard" className="icon-btn" title={isAuthenticated ? user?.name || 'Profile' : 'Login/Register'}>
               <User size={20} />
             </Link>
           </div>
