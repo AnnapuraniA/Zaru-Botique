@@ -1,29 +1,69 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Mail, Download, Trash2, Send, Users, X } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
+import { adminNewsletterAPI } from '../../utils/adminApi'
 
 function Newsletter() {
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [showSendModal, setShowSendModal] = useState(false)
+  const [subscribers, setSubscribers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [sendForm, setSendForm] = useState({ subject: '', content: '' })
 
-  const [subscribers, setSubscribers] = useState([
-    { id: 1, email: 'priya@example.com', name: 'Priya Sharma', subscribedAt: '2024-01-10', status: 'active' },
-    { id: 2, email: 'ananya@example.com', name: 'Ananya Patel', subscribedAt: '2024-01-12', status: 'active' },
-    { id: 3, email: 'kavya@example.com', name: 'Kavya Reddy', subscribedAt: '2024-01-08', status: 'active' },
-    { id: 4, email: 'meera@example.com', name: 'Meera Singh', subscribedAt: '2024-01-15', status: 'active' },
-    { id: 5, email: 'sneha@example.com', name: 'Sneha Kumar', subscribedAt: '2024-01-05', status: 'unsubscribed' }
-  ])
+  useEffect(() => {
+    loadSubscribers()
+  }, [statusFilter])
 
-  const filteredSubscribers = subscribers.filter(sub =>
-    sub.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (sub.name && sub.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  )
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      loadSubscribers()
+    }, 500)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery])
 
-  const handleDelete = (id) => {
+  const loadSubscribers = async () => {
+    try {
+      setLoading(true)
+      const filters = {}
+      if (statusFilter) filters.status = statusFilter
+      if (searchQuery) filters.search = searchQuery
+      const data = await adminNewsletterAPI.getSubscribers(filters)
+      setSubscribers(data.subscribers || [])
+    } catch (err) {
+      console.error('Error loading subscribers:', err)
+      showError('Failed to load subscribers')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
+  const handleDelete = async (id) => {
     if (window.confirm('Remove this subscriber?')) {
-      setSubscribers(subscribers.filter(s => s.id !== id))
-      success('Subscriber removed')
+      try {
+        await adminNewsletterAPI.removeSubscriber(id)
+        await loadSubscribers()
+        success('Subscriber removed')
+      } catch (err) {
+        showError('Failed to remove subscriber')
+      }
+    }
+  }
+
+  const handleSendNewsletter = async () => {
+    if (!sendForm.subject || !sendForm.content) {
+      showError('Please fill in subject and content')
+      return
+    }
+    try {
+      await adminNewsletterAPI.send(sendForm.subject, sendForm.content)
+      setShowSendModal(false)
+      setSendForm({ subject: '', content: '' })
+      success('Newsletter sent successfully')
+    } catch (err) {
+      showError('Failed to send newsletter')
     }
   }
 
@@ -90,7 +130,11 @@ function Newsletter() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <select className="filter-select">
+        <select 
+          className="filter-select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
           <option value="">All Status</option>
           <option value="active">Active</option>
           <option value="unsubscribed">Unsubscribed</option>
@@ -109,7 +153,16 @@ function Newsletter() {
             </tr>
           </thead>
           <tbody>
-            {filteredSubscribers.map(subscriber => (
+            {loading ? (
+              <tr>
+                <td colSpan="5" className="text-center">Loading...</td>
+              </tr>
+            ) : subscribers.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="text-center">No subscribers found</td>
+              </tr>
+            ) : (
+              subscribers.map(subscriber => (
               <tr key={subscriber.id}>
                 <td>{subscriber.email}</td>
                 <td>{subscriber.name || '-'}</td>
@@ -125,7 +178,8 @@ function Newsletter() {
                   </button>
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -143,23 +197,35 @@ function Newsletter() {
             <div className="modal-body">
               <div className="form-group">
                 <label>Subject *</label>
-                <input type="text" placeholder="Newsletter Subject" required />
+                <input 
+                  type="text" 
+                  placeholder="Newsletter Subject" 
+                  value={sendForm.subject}
+                  onChange={(e) => setSendForm({ ...sendForm, subject: e.target.value })}
+                  required 
+                />
               </div>
               <div className="form-group">
                 <label>Message *</label>
-                <textarea rows="10" placeholder="Enter newsletter content..." required></textarea>
+                <textarea 
+                  rows="10" 
+                  placeholder="Enter newsletter content..." 
+                  value={sendForm.content}
+                  onChange={(e) => setSendForm({ ...sendForm, content: e.target.value })}
+                  required
+                />
               </div>
               <div className="form-group">
                 <label>Recipients</label>
-                <p className="text-muted">Will be sent to {activeSubscribers} active subscribers</p>
+                <p className="text-muted">Will be sent to {subscribers.filter(s => s.status === 'active').length} active subscribers</p>
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setShowSendModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => {
-                success('Newsletter sent successfully')
+              <button className="btn btn-outline" onClick={() => {
                 setShowSendModal(false)
-              }}>Send Newsletter</button>
+                setSendForm({ subject: '', content: '' })
+              }}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSendNewsletter}>Send Newsletter</button>
             </div>
           </div>
         </div>

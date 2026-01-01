@@ -1,12 +1,18 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../components/Toast/ToastContainer'
 
 function Login() {
+  const navigate = useNavigate()
+  const { login } = useAuth()
+  const { success, error: showError } = useToast()
   const [formData, setFormData] = useState({
-    email: '',
+    mobile: '',
     password: '',
     rememberMe: false
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -16,10 +22,39 @@ function Login() {
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Login:', formData)
-    // Handle login logic here
+    
+    if (!formData.mobile || formData.mobile.length !== 10 || !/^[0-9]+$/.test(formData.mobile)) {
+      showError('Please enter a valid 10-digit mobile number')
+      return
+    }
+    
+    if (!formData.password) {
+      showError('Please enter your password')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      await login(formData.mobile, formData.password)
+      success('Login successful! Welcome back!')
+      
+      // Handle remember me
+      if (formData.rememberMe) {
+        // Token is already stored in localStorage by AuthContext
+        // Could add additional logic here if needed
+      }
+      
+      // Navigate to dashboard or previous location
+      const from = new URLSearchParams(window.location.search).get('from') || '/dashboard'
+      navigate(from)
+    } catch (err) {
+      showError(err.message || 'Invalid mobile number or password')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -31,14 +66,16 @@ function Login() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
-              <label>Email Address</label>
+              <label>Mobile Number <span className="required">*</span></label>
               <input
-                type="email"
-                name="email"
-                value={formData.email}
+                type="tel"
+                name="mobile"
+                value={formData.mobile}
                 onChange={handleChange}
                 required
-                placeholder="your@email.com"
+                placeholder="9876543210"
+                pattern="[0-9]{10}"
+                maxLength="10"
               />
             </div>
 
@@ -69,8 +106,12 @@ function Login() {
               </Link>
             </div>
 
-            <button type="submit" className="btn btn-primary btn-large">
-              Sign In
+            <button 
+              type="submit" 
+              className="btn btn-primary btn-large"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
 

@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Save, Store, Truck, CreditCard, Mail, Globe } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
+import { adminSettingsAPI } from '../../utils/adminApi'
 
 function AdminSettings() {
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState({
     store: {
-      name: 'Arudhra Boutique',
+      name: 'Arudhra Fashions',
       email: 'support@arudhraboutique.com',
       phone: '+91 98765 43210',
       address: '123 Fashion Street, Mumbai, Maharashtra 400001, India'
@@ -27,8 +30,51 @@ function AdminSettings() {
     }
   })
 
-  const handleSave = () => {
-    success('Settings saved successfully')
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true)
+      const [storeSettings, shippingSettings, taxSettings, paymentSettings] = await Promise.all([
+        adminSettingsAPI.getAll('store'),
+        adminSettingsAPI.getAll('shipping'),
+        adminSettingsAPI.getAll('tax'),
+        adminSettingsAPI.getAll('payment')
+      ])
+
+      setSettings(prev => ({
+        ...prev,
+        store: { ...prev.store, ...storeSettings },
+        shipping: { ...prev.shipping, ...shippingSettings },
+        tax: { ...prev.tax, ...taxSettings },
+        payment: { ...prev.payment, ...paymentSettings }
+      }))
+    } catch (err) {
+      console.error('Error loading settings:', err)
+      showError('Failed to load settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      // Save all settings
+      await adminSettingsAPI.update({
+        ...settings.store,
+        ...settings.shipping,
+        ...settings.tax,
+        ...settings.payment
+      })
+      success('Settings saved successfully')
+    } catch (err) {
+      showError('Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const updateSetting = (section, key, value) => {
@@ -48,9 +94,9 @@ function AdminSettings() {
           <h1>Settings</h1>
           <p>Configure store settings and preferences</p>
         </div>
-        <button className="btn btn-primary" onClick={handleSave}>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving || loading}>
           <Save size={18} />
-          Save All Changes
+          {saving ? 'Saving...' : 'Save All Changes'}
         </button>
       </div>
 

@@ -1,31 +1,82 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Heart, ShoppingCart, Star, Eye, Share2, Facebook, Twitter, Instagram } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import QuickView from '../QuickView/QuickView'
 import { useToast } from '../Toast/ToastContainer'
+import { wishlistAPI, cartAPI } from '../../utils/api'
+import { useAuth } from '../../context/AuthContext'
 
 function ProductCard({ product }) {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [showQuickView, setShowQuickView] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
 
-  const handleWishlist = (e) => {
+  const productId = product._id || product.id
+
+  // Check if product is in wishlist
+  useEffect(() => {
+    if (isAuthenticated && productId) {
+      wishlistAPI.check(productId)
+        .then(result => setIsWishlisted(result.isInWishlist))
+        .catch(() => setIsWishlisted(false))
+    }
+  }, [isAuthenticated, productId])
+
+  const handleWishlist = async (e) => {
     e.preventDefault()
-    setIsWishlisted(!isWishlisted)
-    success(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist')
+    e.stopPropagation()
+    
+    if (!isAuthenticated) {
+      showError('Please login to add items to wishlist')
+      navigate('/dashboard', { state: { tab: 'login' } })
+      return
+    }
+
+    try {
+      if (isWishlisted) {
+        await wishlistAPI.remove(productId)
+        setIsWishlisted(false)
+        success('Removed from wishlist')
+      } else {
+        await wishlistAPI.add(productId)
+        setIsWishlisted(true)
+        success('Added to wishlist')
+      }
+    } catch (err) {
+      console.error('Failed to update wishlist:', err)
+      showError('Failed to update wishlist')
+    }
   }
 
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.preventDefault()
-    success('Added to cart!')
+    e.stopPropagation()
+    
+    if (!isAuthenticated) {
+      showError('Please login to add items to cart')
+      navigate('/dashboard', { state: { tab: 'login' } })
+      return
+    }
+
+    try {
+      await cartAPI.addItem(productId, 1)
+      success('Added to cart!')
+      // Dispatch cart update event
+      window.dispatchEvent(new Event('cartUpdated'))
+    } catch (err) {
+      console.error('Failed to add to cart:', err)
+      showError('Failed to add to cart')
+    }
   }
 
   const handleShare = (platform, e) => {
     e.preventDefault()
     e.stopPropagation()
-    const url = window.location.origin + `/product/${product.id}`
-    const text = `Check out ${product.name} at Arudhra Boutique!`
+    const url = window.location.origin + `/product/${productId}`
+    const text = `Check out ${product.name} at Arudhra Fashions!`
     
     const shareUrls = {
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
@@ -42,7 +93,7 @@ function ProductCard({ product }) {
   const handleCopyLink = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    const url = window.location.origin + `/product/${product.id}`
+    const url = window.location.origin + `/product/${productId}`
     navigator.clipboard.writeText(url)
     success('Link copied to clipboard!')
     setShowShareMenu(false)
@@ -51,9 +102,9 @@ function ProductCard({ product }) {
   return (
     <>
       <div className="product-card">
-        <Link to={`/product/${product.id}`} className="product-link">
+        <Link to={`/product/${productId}`} className="product-link">
           <div className="product-image-wrapper">
-            <img src={product.image} alt={product.name} />
+            <img src={product.images?.[0] || product.image} alt={product.name} />
             {product.onSale && <span className="badge sale-badge">Sale</span>}
             {product.new && <span className="badge new-badge">New</span>}
             <div className="product-card-actions">
@@ -110,25 +161,29 @@ function ProductCard({ product }) {
           </div>
         <div className="product-info">
           <h3 className="product-name">{product.name}</h3>
-          <p className="product-category">{product.category}</p>
-          <div className="product-rating">
-            <div className="stars">
-              {[...Array(5)].map((_, i) => (
-                <Star 
-                  key={i} 
-                  size={14} 
-                  fill={i < Math.floor(product.rating) ? '#ffc107' : 'none'}
-                  color="#ffc107"
-                />
-              ))}
+          <p className="product-category">
+            {product.category}{product.subcategory ? ` - ${product.subcategory}` : ''}
+          </p>
+          {product.rating && (
+            <div className="product-rating">
+              <div className="stars">
+                {[...Array(5)].map((_, i) => (
+                  <Star 
+                    key={i} 
+                    size={14} 
+                    fill={i < Math.floor(product.rating || 0) ? '#C89E7E' : 'none'}
+                    color="#C89E7E"
+                  />
+                ))}
+              </div>
+              <span className="rating-text">({product.reviews || 0})</span>
             </div>
-            <span className="rating-text">({product.reviews})</span>
-          </div>
+          )}
           <div className="product-price">
             {product.originalPrice && (
-              <span className="original-price">₹{product.originalPrice}</span>
+              <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
             )}
-            <span className="current-price">₹{product.price}</span>
+            <span className="current-price">₹{(product.price || 0).toFixed(2)}</span>
           </div>
         </div>
       </Link>

@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Download, FileText, Calendar, TrendingUp, DollarSign } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
+import { adminReportsAPI } from '../../utils/adminApi'
 
 function Reports() {
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
   const [reportType, setReportType] = useState('orders')
   const [dateRange, setDateRange] = useState('30days')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [generating, setGenerating] = useState(false)
 
   const reportTypes = [
     { id: 'orders', label: 'Orders Report', icon: FileText },
@@ -17,16 +19,62 @@ function Reports() {
     { id: 'inventory', label: 'Inventory Report', icon: FileText }
   ]
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     const reportName = reportTypes.find(r => r.id === reportType)?.label || 'Report'
-    const dateStr = dateRange === 'custom' 
-      ? `${startDate}_to_${endDate}` 
-      : dateRange
+    setGenerating(true)
     
-    // Simulate export
-    setTimeout(() => {
+    try {
+      let data
+      const customStart = dateRange === 'custom' ? startDate : null
+      const customEnd = dateRange === 'custom' ? endDate : null
+      
+      switch(reportType) {
+        case 'sales':
+          data = await adminReportsAPI.getSales(customStart, customEnd, format)
+          break
+        case 'customers':
+          data = await adminReportsAPI.getCustomers(format)
+          break
+        case 'products':
+          data = await adminReportsAPI.getProducts(format)
+          break
+        case 'orders':
+          data = await adminReportsAPI.getOrders(customStart, customEnd, null, format)
+          break
+        case 'inventory':
+          data = await adminReportsAPI.getInventory(format)
+          break
+        default:
+          throw new Error('Invalid report type')
+      }
+
+      if (format === 'csv') {
+        // CSV is returned as text, create download
+        const blob = new Blob([data], { type: 'text/csv' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${reportType}-report-${Date.now()}.csv`
+        a.click()
+        window.URL.revokeObjectURL(url)
+      } else {
+        // JSON - could be displayed or downloaded
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${reportType}-report-${Date.now()}.json`
+        a.click()
+        window.URL.revokeObjectURL(url)
+      }
+      
       success(`${reportName} exported as ${format.toUpperCase()} successfully`)
-    }, 500)
+    } catch (err) {
+      console.error('Error exporting report:', err)
+      showError('Failed to export report')
+    } finally {
+      setGenerating(false)
+    }
   }
 
   return (
@@ -102,17 +150,21 @@ function Reports() {
             <div className="form-group">
               <label>Export Format</label>
               <div className="export-format-buttons">
-                <button className="btn btn-outline" onClick={() => handleExport('csv')}>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => handleExport('csv')}
+                  disabled={generating}
+                >
                   <Download size={18} />
-                  Export CSV
+                  {generating ? 'Generating...' : 'Export CSV'}
                 </button>
-                <button className="btn btn-outline" onClick={() => handleExport('excel')}>
+                <button 
+                  className="btn btn-outline" 
+                  onClick={() => handleExport('json')}
+                  disabled={generating}
+                >
                   <Download size={18} />
-                  Export Excel
-                </button>
-                <button className="btn btn-outline" onClick={() => handleExport('pdf')}>
-                  <Download size={18} />
-                  Export PDF
+                  {generating ? 'Generating...' : 'Export JSON'}
                 </button>
               </div>
             </div>

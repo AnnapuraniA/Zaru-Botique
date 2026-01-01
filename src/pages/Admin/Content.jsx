@@ -1,9 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Save, Eye, Image as ImageIcon } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
+import { adminContentAPI } from '../../utils/adminApi'
 
 function Content() {
-  const { success } = useToast()
+  const navigate = useNavigate()
+  const { success, error: showError } = useToast()
+  const [loading, setLoading] = useState(true)
   const [heroContent, setHeroContent] = useState({
     title: 'Discover Your Style',
     description: 'Shop the latest fashion trends and timeless classics',
@@ -16,9 +20,32 @@ function Content() {
     backgroundImage: ''
   })
 
-  const handleSave = () => {
-    // Mock save
-    success('Home page content saved successfully')
+  useEffect(() => {
+    loadContent()
+  }, [])
+
+  const loadContent = async () => {
+    try {
+      setLoading(true)
+      const data = await adminContentAPI.getAll('hero')
+      if (data && data.hero) {
+        setHeroContent(prev => ({ ...prev, ...data.hero }))
+      }
+    } catch (err) {
+      console.error('Error loading content:', err)
+      showError('Failed to load content')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      await adminContentAPI.update('hero', heroContent)
+      success('Home page content saved successfully')
+    } catch (err) {
+      showError('Failed to save content')
+    }
   }
 
   return (
@@ -133,18 +160,28 @@ function Content() {
         <div className="content-section-card">
           <div className="section-header">
             <h2>Promotional Banners</h2>
-            <button className="btn btn-outline btn-small">Add Banner</button>
+            <button 
+              className="btn btn-outline btn-small"
+              onClick={() => navigate('/admin/banners')}
+            >
+              Manage Banners
+            </button>
           </div>
-          <p className="section-note">Manage promotional banners displayed on the home page</p>
+          <p className="section-note">Manage promotional banners displayed on the home page. Click to go to Banners page.</p>
         </div>
 
         {/* Featured Products Section */}
         <div className="content-section-card">
           <div className="section-header">
             <h2>Featured Products</h2>
-            <button className="btn btn-outline btn-small">Select Products</button>
+            <button 
+              className="btn btn-outline btn-small"
+              onClick={() => navigate('/admin/products')}
+            >
+              Manage Products
+            </button>
           </div>
-          <p className="section-note">Choose products to feature on the home page</p>
+          <p className="section-note">Mark products as "Featured" in the Products page to display them on the home page.</p>
         </div>
       </div>
     </div>

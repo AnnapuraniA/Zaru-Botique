@@ -31,113 +31,149 @@ function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedSections, setExpandedSections] = useState({})
 
-  const menuItems = [
+  const menuSections = [
     {
-      id: 'overview',
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      path: '/admin/dashboard',
-      exact: true
-    },
-    {
-      id: 'categories',
-      label: 'Categories',
-      icon: FolderTree,
-      path: '/admin/categories'
-    },
-    {
-      id: 'products',
-      label: 'Products',
-      icon: Package,
-      path: '/admin/products',
-      children: [
-        { label: 'All Products', path: '/admin/products' },
-        { label: 'Add Product', path: '/admin/products/add' }
+      id: 'main',
+      label: 'Main',
+      items: [
+        {
+          id: 'overview',
+          label: 'Dashboard',
+          icon: LayoutDashboard,
+          path: '/admin/dashboard',
+          exact: true
+        },
+        {
+          id: 'orders',
+          label: 'Orders',
+          icon: ShoppingBag,
+          path: '/admin/orders'
+        },
+        {
+          id: 'customers',
+          label: 'Customers',
+          icon: Users,
+          path: '/admin/customers'
+        }
       ]
     },
     {
-      id: 'orders',
-      label: 'Orders',
-      icon: ShoppingBag,
-      path: '/admin/orders'
+      id: 'catalog',
+      label: 'Catalog',
+      items: [
+        {
+          id: 'categories',
+          label: 'Categories',
+          icon: FolderTree,
+          path: '/admin/categories'
+        },
+        {
+          id: 'products',
+          label: 'Products',
+          icon: Package,
+          path: '/admin/products',
+          children: [
+            { label: 'All Products', path: '/admin/products' },
+            { label: 'Add Product', path: '/admin/products/add' }
+          ]
+        },
+        {
+          id: 'inventory',
+          label: 'Inventory',
+          icon: Boxes,
+          path: '/admin/inventory'
+        }
+      ]
     },
     {
-      id: 'customers',
-      label: 'Customers',
-      icon: Users,
-      path: '/admin/customers'
+      id: 'marketing',
+      label: 'Marketing',
+      items: [
+        {
+          id: 'discounts',
+          label: 'Discounts & Promotions',
+          icon: Tag,
+          path: '/admin/discounts'
+        },
+        {
+          id: 'coupons',
+          label: 'Coupon Codes',
+          icon: Ticket,
+          path: '/admin/coupons'
+        },
+        {
+          id: 'banners',
+          label: 'Banners & Sliders',
+          icon: ImageIcon,
+          path: '/admin/banners'
+        },
+        {
+          id: 'newsletter',
+          label: 'Newsletter',
+          icon: Mail,
+          path: '/admin/newsletter'
+        }
+      ]
     },
     {
       id: 'content',
-      label: 'Content',
-      icon: FileText,
-      path: '/admin/content'
-    },
-    {
-      id: 'queries',
-      label: 'Customer Queries',
-      icon: MessageSquare,
-      path: '/admin/queries'
-    },
-    {
-      id: 'analytics',
-      label: 'Analytics',
-      icon: BarChart3,
-      path: '/admin/analytics'
-    },
-    {
-      id: 'inventory',
-      label: 'Inventory',
-      icon: Boxes,
-      path: '/admin/inventory'
-    },
-    {
-      id: 'discounts',
-      label: 'Discounts & Promotions',
-      icon: Tag,
-      path: '/admin/discounts'
-    },
-    {
-      id: 'coupons',
-      label: 'Coupon Codes',
-      icon: Ticket,
-      path: '/admin/coupons'
-    },
-    {
-      id: 'banners',
-      label: 'Banners & Sliders',
-      icon: ImageIcon,
-      path: '/admin/banners'
-    },
-    {
-      id: 'newsletter',
-      label: 'Newsletter',
-      icon: Mail,
-      path: '/admin/newsletter'
-    },
-    {
-      id: 'returns',
-      label: 'Returns & Refunds',
-      icon: RotateCcw,
-      path: '/admin/returns'
-    },
-    {
-      id: 'email-templates',
-      label: 'Email Templates',
-      icon: FileTextIcon,
-      path: '/admin/email-templates'
+      label: 'Content & Communication',
+      items: [
+        {
+          id: 'content',
+          label: 'Content',
+          icon: FileText,
+          path: '/admin/content'
+        },
+        {
+          id: 'email-templates',
+          label: 'Email Templates',
+          icon: FileTextIcon,
+          path: '/admin/email-templates'
+        },
+        {
+          id: 'queries',
+          label: 'Customer Queries',
+          icon: MessageSquare,
+          path: '/admin/queries'
+        }
+      ]
     },
     {
       id: 'reports',
-      label: 'Reports & Export',
-      icon: Download,
-      path: '/admin/reports'
+      label: 'Reports & Analytics',
+      items: [
+        {
+          id: 'analytics',
+          label: 'Analytics',
+          icon: BarChart3,
+          path: '/admin/analytics'
+        },
+        {
+          id: 'reports',
+          label: 'Reports & Export',
+          icon: Download,
+          path: '/admin/reports'
+        },
+        {
+          id: 'returns',
+          label: 'Returns & Refunds',
+          icon: RotateCcw,
+          path: '/admin/returns'
+        }
+      ]
     },
     {
-      id: 'settings',
-      label: 'Settings',
-      icon: Settings,
-      path: '/admin/settings'
+      id: 'system',
+      label: 'System',
+      items: [
+        {
+          id: 'settings',
+          label: 'Settings',
+          icon: Settings,
+          path: '/admin/settings'
+        }
+      ]
     }
   ]
 
@@ -170,8 +206,11 @@ function AdminDashboard() {
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="admin-sidebar-header">
           <div className="admin-logo">
-            <h2>Arudhra Boutique</h2>
-            <span>Admin Panel</span>
+            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="admin-logo-img" />
+            <div>
+              <h2>Arudhra Fashions</h2>
+              <span>Admin Panel</span>
+            </div>
           </div>
           <button 
             className="sidebar-toggle"
@@ -183,46 +222,55 @@ function AdminDashboard() {
         </div>
 
         <nav className="admin-nav">
-          {menuItems.map(item => {
-            const Icon = item.icon
-            const hasChildren = item.children && item.children.length > 0
-            const isExpanded = expandedSections[item.id]
-            const active = isActive(item.path, item.exact)
+          {menuSections.map(section => (
+            <div key={section.id} className="nav-section">
+              {sidebarOpen && (
+                <div className="nav-section-label">
+                  {section.label}
+                </div>
+              )}
+              {section.items.map(item => {
+                const Icon = item.icon
+                const hasChildren = item.children && item.children.length > 0
+                const isExpanded = expandedSections[item.id]
+                const active = isActive(item.path, item.exact)
 
-            return (
-              <div key={item.id} className="nav-item-wrapper">
-                <button
-                  className={`nav-item ${active ? 'active' : ''}`}
-                  onClick={() => {
-                    if (hasChildren) {
-                      toggleSection(item.id)
-                    } else {
-                      navigate(item.path)
-                    }
-                  }}
-                >
-                  <Icon size={20} />
-                  {sidebarOpen && <span>{item.label}</span>}
-                  {sidebarOpen && hasChildren && (
-                    isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />
-                  )}
-                </button>
-                {sidebarOpen && hasChildren && isExpanded && (
-                  <div className="nav-submenu">
-                    {item.children.map((child, idx) => (
-                      <button
-                        key={idx}
-                        className={`nav-submenu-item ${isActive(child.path) ? 'active' : ''}`}
-                        onClick={() => navigate(child.path)}
-                      >
-                        {child.label}
-                      </button>
-                    ))}
+                return (
+                  <div key={item.id} className="nav-item-wrapper">
+                    <button
+                      className={`nav-item ${active ? 'active' : ''}`}
+                      onClick={() => {
+                        if (hasChildren) {
+                          toggleSection(item.id)
+                        } else {
+                          navigate(item.path)
+                        }
+                      }}
+                    >
+                      <Icon size={20} />
+                      {sidebarOpen && <span>{item.label}</span>}
+                      {sidebarOpen && hasChildren && (
+                        isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />
+                      )}
+                    </button>
+                    {sidebarOpen && hasChildren && isExpanded && (
+                      <div className="nav-submenu">
+                        {item.children.map((child, idx) => (
+                          <button
+                            key={idx}
+                            className={`nav-submenu-item ${isActive(child.path) ? 'active' : ''}`}
+                            onClick={() => navigate(child.path)}
+                          >
+                            {child.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )
-          })}
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="admin-sidebar-footer">

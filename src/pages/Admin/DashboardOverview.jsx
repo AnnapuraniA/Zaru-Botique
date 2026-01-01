@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Package, ShoppingBag, Users, TrendingUp, DollarSign, AlertCircle, ArrowUp, ArrowDown, MessageSquare } from 'lucide-react'
+import { adminDashboardAPI } from '../../utils/adminApi'
+import { useToast } from '../../components/Toast/ToastContainer'
 
 function DashboardOverview() {
   const [stats, setStats] = useState({
@@ -10,18 +12,41 @@ function DashboardOverview() {
     revenueChange: 0,
     ordersChange: 0
   })
+  const [recentOrders, setRecentOrders] = useState([])
+  const [topProducts, setTopProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { error: showError } = useToast()
 
   useEffect(() => {
-    // Mock data loading
-    setStats({
-      totalRevenue: 2456789,
-      totalOrders: 1245,
-      totalCustomers: 3420,
-      totalProducts: 156,
-      revenueChange: 12.5,
-      ordersChange: 8.3
-    })
+    loadDashboardData()
   }, [])
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
+      const [statsData, ordersData, productsData] = await Promise.all([
+        adminDashboardAPI.getStats(),
+        adminDashboardAPI.getRecentOrders(5),
+        adminDashboardAPI.getTopProducts()
+      ])
+
+      setStats({
+        totalRevenue: statsData.totalRevenue || 0,
+        totalOrders: statsData.totalOrders || 0,
+        totalCustomers: statsData.totalCustomers || 0,
+        totalProducts: statsData.totalProducts || 0,
+        revenueChange: statsData.revenueChange || 0,
+        ordersChange: statsData.ordersChange || 0
+      })
+      setRecentOrders(ordersData || [])
+      setTopProducts(productsData || [])
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
+      showError('Failed to load dashboard data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const statCards = [
     {
@@ -54,21 +79,6 @@ function DashboardOverview() {
     }
   ]
 
-  const recentOrders = [
-    { id: 'ORD-001', customer: 'Priya Sharma', amount: 3499, status: 'Processing', date: '2024-01-15' },
-    { id: 'ORD-002', customer: 'Ananya Patel', amount: 2499, status: 'Shipped', date: '2024-01-15' },
-    { id: 'ORD-003', customer: 'Kavya Reddy', amount: 1899, status: 'Delivered', date: '2024-01-14' },
-    { id: 'ORD-004', customer: 'Meera Singh', amount: 4599, status: 'Processing', date: '2024-01-14' },
-    { id: 'ORD-005', customer: 'Sneha Kumar', amount: 1299, status: 'Shipped', date: '2024-01-13' }
-  ]
-
-  const topProducts = [
-    { name: 'Elegant Summer Dress', sales: 245, revenue: 245000 },
-    { name: 'Designer Handbag', sales: 189, revenue: 378000 },
-    { name: 'Stylish Jeans', sales: 156, revenue: 280800 },
-    { name: 'Casual Summer Top', sales: 134, revenue: 120600 },
-    { name: 'Trendy Blazer', sales: 98, revenue: 244902 }
-  ]
 
   return (
     <div className="admin-page">
@@ -139,16 +149,22 @@ function DashboardOverview() {
             <h2>Top Selling Products</h2>
           </div>
           <div className="top-products-list">
-            {topProducts.map((product, index) => (
-              <div key={index} className="top-product-item">
-                <div className="product-rank">#{index + 1}</div>
-                <div className="product-info">
-                  <h4>{product.name}</h4>
-                  <p>{product.sales} sales</p>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '2rem' }}>Loading...</div>
+            ) : topProducts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem' }}>No sales data yet</div>
+            ) : (
+              topProducts.map((product, index) => (
+                <div key={index} className="top-product-item">
+                  <div className="product-rank">#{index + 1}</div>
+                  <div className="product-info">
+                    <h4>{product.name}</h4>
+                    <p>{product.sales} sales</p>
+                  </div>
+                  <div className="product-revenue">₹{product.revenue.toLocaleString()}</div>
                 </div>
-                <div className="product-revenue">₹{product.revenue.toLocaleString()}</div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -172,22 +188,36 @@ function DashboardOverview() {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map(order => (
-                <tr key={order.id}>
-                  <td><strong>{order.id}</strong></td>
-                  <td>{order.customer}</td>
-                  <td>₹{order.amount.toLocaleString()}</td>
-                  <td>
-                    <span className={`status-badge status-${order.status.toLowerCase()}`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td>{new Date(order.date).toLocaleDateString()}</td>
-                  <td>
-                    <button className="btn-link">View</button>
+              {loading ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
+                    Loading...
                   </td>
                 </tr>
-              ))}
+              ) : recentOrders.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
+                    No orders yet
+                  </td>
+                </tr>
+              ) : (
+                recentOrders.map(order => (
+                  <tr key={order.id}>
+                    <td><strong>{order.id}</strong></td>
+                    <td>{order.customer}</td>
+                    <td>₹{order.amount.toLocaleString()}</td>
+                    <td>
+                      <span className={`status-badge status-${order.status.toLowerCase()}`}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td>{new Date(order.date).toLocaleDateString()}</td>
+                    <td>
+                      <button className="btn-link">View</button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

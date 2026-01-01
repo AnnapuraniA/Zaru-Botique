@@ -116,7 +116,7 @@ function FAQ() {
 
         <div className="page-header">
           <h1>Frequently Asked Questions</h1>
-          <p>Find answers to common questions about shopping at Arudhra Boutique</p>
+          <p>Find answers to common questions about shopping at Arudhra Fashions</p>
         </div>
 
         <div className="faq-content">

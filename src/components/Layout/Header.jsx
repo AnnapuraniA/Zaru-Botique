@@ -2,10 +2,13 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { cartAPI } from '../../utils/api'
 
 function Header() {
   const { isAuthenticated, user } = useAuth()
   const [expandedCategory, setExpandedCategory] = useState(null)
+  const [cartCount, setCartCount] = useState(0)
+  const [isSticky, setIsSticky] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const isHomePage = location.pathname === '/'
@@ -28,6 +31,52 @@ function Header() {
   const toggleCategory = (categoryName) => {
     setExpandedCategory(expandedCategory === categoryName ? null : categoryName)
   }
+
+  // Load cart count
+  useEffect(() => {
+    const loadCartCount = async () => {
+      if (isAuthenticated) {
+        try {
+          const response = await cartAPI.get()
+          const count = (response.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0)
+          setCartCount(count)
+        } catch (err) {
+          console.error('Failed to load cart count:', err)
+        }
+      } else {
+        // Guest cart
+        const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
+        const count = guestCart.reduce((sum, item) => sum + (item.quantity || 1), 0)
+        setCartCount(count)
+      }
+    }
+    loadCartCount()
+    
+    // Listen for cart updates
+    const handleStorageChange = () => {
+      if (!isAuthenticated) {
+        const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
+        const count = guestCart.reduce((sum, item) => sum + (item.quantity || 1), 0)
+        setCartCount(count)
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('cartUpdated', loadCartCount)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('cartUpdated', loadCartCount)
+    }
+  }, [isAuthenticated])
+
+  // Sticky header on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsSticky(window.scrollY > 50)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   // Close accordion when clicking outside
   useEffect(() => {
@@ -54,11 +103,12 @@ function Header() {
   }
 
   return (
-    <header className={`header ${!isHomePage ? 'header-footer-style' : ''}`}>
+    <header className={`header ${!isHomePage ? 'header-footer-style' : ''} ${isSticky ? 'sticky' : ''}`}>
       <div className="container">
         <div className="header-content">
           <Link to="/" className="logo">
-            <h1>Arudhra Boutique</h1>
+            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="logo-img" />
+            <h1>Arudhra Fashions</h1>
           </Link>
 
           <nav className="main-nav">
@@ -114,6 +164,9 @@ function Header() {
             </Link>
             <Link to="/cart" className="icon-btn">
               <ShoppingCart size={20} />
+              {cartCount > 0 && (
+                <span className="badge show">{cartCount > 99 ? '99+' : cartCount}</span>
+              )}
             </Link>
             <Link to="/dashboard" className="icon-btn" title={isAuthenticated ? user?.name || 'Profile' : 'Login/Register'}>
               <User size={20} />

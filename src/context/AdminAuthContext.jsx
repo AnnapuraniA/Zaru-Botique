@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { adminAuthAPI } from '../utils/adminApi'
 
 const AdminAuthContext = createContext()
 
@@ -14,43 +15,60 @@ export function AdminAuthProvider({ children }) {
   const [admin, setAdmin] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Hardcoded admin credentials
-  const ADMIN_EMAIL = 'admin@arudhraboutique.com'
-  const ADMIN_PASSWORD = 'admin123'
-
   // Load admin session from localStorage
   useEffect(() => {
-    const storedAdmin = localStorage.getItem('adminSession')
-    if (storedAdmin) {
-      try {
-        setAdmin(JSON.parse(storedAdmin))
-      } catch (error) {
-        console.error('Error parsing admin session:', error)
-        localStorage.removeItem('adminSession')
+    const loadAdmin = async () => {
+      const storedToken = localStorage.getItem('adminToken')
+      const storedAdmin = localStorage.getItem('adminSession')
+      
+      if (storedToken && storedAdmin) {
+        try {
+          // Verify token is still valid by fetching admin info
+          const adminData = await adminAuthAPI.getMe()
+          setAdmin(adminData)
+        } catch (error) {
+          // Token invalid, clear storage
+          console.error('Admin session invalid:', error)
+          localStorage.removeItem('adminToken')
+          localStorage.removeItem('adminSession')
+          setAdmin(null)
+        }
       }
+      setLoading(false)
     }
-    setLoading(false)
+    
+    loadAdmin()
   }, [])
 
   const login = async (email, password) => {
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      const adminData = {
-        id: 'admin_001',
-        email: ADMIN_EMAIL,
-        name: 'Admin User',
-        role: 'Super Admin',
-        loginTime: new Date().toISOString()
-      }
-      setAdmin(adminData)
-      localStorage.setItem('adminSession', JSON.stringify(adminData))
+    try {
+      const adminData = await adminAuthAPI.login(email, password)
+      
+      // Store token and admin data
+      localStorage.setItem('adminToken', adminData.token)
+      localStorage.setItem('adminSession', JSON.stringify({
+        _id: adminData._id,
+        email: adminData.email,
+        name: adminData.name,
+        role: adminData.role
+      }))
+      
+      setAdmin({
+        _id: adminData._id,
+        email: adminData.email,
+        name: adminData.name,
+        role: adminData.role
+      })
+      
       return adminData
-    } else {
-      throw new Error('Invalid email or password')
+    } catch (error) {
+      throw new Error(error.message || 'Invalid email or password')
     }
   }
 
   const logout = () => {
     setAdmin(null)
+    localStorage.removeItem('adminToken')
     localStorage.removeItem('adminSession')
   }
 

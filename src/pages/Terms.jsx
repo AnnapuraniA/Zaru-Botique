@@ -20,7 +20,7 @@ function Terms() {
         <div className="policy-content">
           <section className="policy-section">
             <h2>1. Acceptance of Terms</h2>
-            <p>By accessing and using Arudhra Boutique's website and services, you accept and agree to be bound by these Terms of Service. If you do not agree, please do not use our services.</p>
+            <p>By accessing and using Arudhra Fashions's website and services, you accept and agree to be bound by these Terms of Service. If you do not agree, please do not use our services.</p>
           </section>
 
           <section className="policy-section">
@@ -86,7 +86,7 @@ function Terms() {
           <section className="policy-section">
             <h2>8. Intellectual Property</h2>
             <ul>
-              <li>All content on this website is owned by Arudhra Boutique</li>
+              <li>All content on this website is owned by Arudhra Fashions</li>
               <li>You may not reproduce, distribute, or create derivative works without permission</li>
               <li>Trademarks and logos are our property</li>
               <li>User-generated content may be used by us for promotional purposes</li>
@@ -108,12 +108,12 @@ function Terms() {
 
           <section className="policy-section">
             <h2>10. Limitation of Liability</h2>
-            <p>To the maximum extent permitted by law, Arudhra Boutique shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of our services.</p>
+            <p>To the maximum extent permitted by law, Arudhra Fashions shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of our services.</p>
           </section>
 
           <section className="policy-section">
             <h2>11. Indemnification</h2>
-            <p>You agree to indemnify and hold harmless Arudhra Boutique from any claims, damages, or expenses arising from your use of our services or violation of these terms.</p>
+            <p>You agree to indemnify and hold harmless Arudhra Fashions from any claims, damages, or expenses arising from your use of our services or violation of these terms.</p>
           </section>
 
           <section className="policy-section">

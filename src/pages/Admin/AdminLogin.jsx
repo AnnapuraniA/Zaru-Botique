@@ -33,7 +33,10 @@ function AdminLogin() {
     <div className="admin-login-page">
       <div className="admin-login-container">
         <div className="admin-login-header">
-          <h1>Arudhra Boutique</h1>
+          <div className="admin-login-logo">
+            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="admin-login-logo-img" />
+            <h1>Arudhra Fashions</h1>
+          </div>
           <h2>Admin Dashboard</h2>
           <p>Sign in to manage your store</p>
         </div>

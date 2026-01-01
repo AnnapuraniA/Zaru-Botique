@@ -2,35 +2,70 @@ import { useParams, Link } from 'react-router-dom'
 import { Package, Truck, CheckCircle, Clock } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useState, useEffect } from 'react'
+import { ordersAPI } from '../utils/api'
+import { useToast } from '../components/Toast/ToastContainer'
 
 function OrderTracking() {
-  const { id } = useParams()
-  const { user, isAuthenticated, getOrders } = useAuth()
+  const { id, tracking } = useParams()
+  const { isAuthenticated } = useAuth()
+  const { error: showError } = useToast()
   const [order, setOrder] = useState(null)
   const [guestOrder, setGuestOrder] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadOrder()
-  }, [id, user, isAuthenticated])
+  }, [id, tracking, isAuthenticated])
 
-  const loadOrder = () => {
-    if (isAuthenticated && user) {
-      const orders = getOrders()
-      const foundOrder = orders.find(o => o.id === id)
-      if (foundOrder) {
-        setOrder(foundOrder)
+  const loadOrder = async () => {
+    try {
+      setLoading(true)
+      
+      if (isAuthenticated) {
+        // Load order from API
+        try {
+          const orderData = await ordersAPI.getById(id || tracking)
+          setOrder(orderData)
+        } catch (err) {
+          console.error('Failed to load order:', err)
+          // Fallback to guest orders if API fails
+          const guestOrders = JSON.parse(localStorage.getItem('guestOrders') || '[]')
+          const foundOrder = guestOrders.find(o => (o.id === id || o.trackingNumber === tracking))
+          if (foundOrder) {
+            setGuestOrder(foundOrder)
+          }
+        }
+      } else {
+        // Load guest order from localStorage
+        const guestOrders = JSON.parse(localStorage.getItem('guestOrders') || '[]')
+        const foundOrder = guestOrders.find(o => (o.id === id || o.trackingNumber === tracking))
+        if (foundOrder) {
+          setGuestOrder(foundOrder)
+        }
       }
-    } else {
-      // Load guest order
-      const guestOrders = JSON.parse(localStorage.getItem('guestOrders') || '[]')
-      const foundOrder = guestOrders.find(o => o.id === id)
-      if (foundOrder) {
-        setGuestOrder(foundOrder)
-      }
+    } catch (err) {
+      console.error('Error loading order:', err)
+      showError('Failed to load order details')
+    } finally {
+      setLoading(false)
     }
   }
 
   const currentOrder = order || guestOrder
+
+  if (loading) {
+    return (
+      <div className="order-tracking-page">
+        <div className="container">
+          <div className="empty-state">
+            <Package size={48} />
+            <h2>Loading Order...</h2>
+            <p>Please wait while we fetch your order details.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!currentOrder) {
     return (

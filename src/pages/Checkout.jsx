@@ -2,12 +2,26 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CreditCard, Lock } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { cartAPI, ordersAPI, couponsAPI, settingsAPI } from '../utils/api'
+import { useToast } from '../components/Toast/ToastContainer'
 
 function Checkout() {
-  const { user, isAuthenticated, getGuestId, addOrder } = useAuth()
+  const { user, isAuthenticated, getGuestId } = useAuth()
   const navigate = useNavigate()
+  const { success, error: showError } = useToast()
   const [step, setStep] = useState(1)
   const [cartItems, setCartItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [couponCode, setCouponCode] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null)
+  const [couponError, setCouponError] = useState('')
+  const [validatingCoupon, setValidatingCoupon] = useState(false)
+  const [shippingCosts, setShippingCosts] = useState({
+    free: 0,
+    standard: 100,
+    express: 200
+  })
   const [formData, setFormData] = useState({
     mobile: '',
     email: '',
@@ -24,9 +38,10 @@ function Checkout() {
     cardCVC: ''
   })
 
-  // Load cart items
+  // Load cart items and settings
   useEffect(() => {
     loadCart()
+    loadShippingSettings()
     if (isAuthenticated && user) {
       // Pre-fill user info
       setFormData(prev => ({
@@ -38,13 +53,41 @@ function Checkout() {
     }
   }, [user, isAuthenticated])
 
-  const loadCart = () => {
-    if (isAuthenticated && user) {
-      const userCart = JSON.parse(localStorage.getItem(`cart_${user.id}`) || '[]')
-      setCartItems(userCart)
-    } else {
-      const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
-      setCartItems(guestCart)
+  const loadShippingSettings = async () => {
+    try {
+      const settings = await settingsAPI.getShipping()
+      if (settings) {
+        setShippingCosts(prev => ({
+          ...prev,
+          free: settings.freeShipping || 0,
+          standard: settings.standardShipping || 100,
+          express: settings.expressShipping || 200
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to load shipping settings:', err)
+      // Use defaults
+    }
+  }
+
+  const loadCart = async () => {
+    try {
+      setLoading(true)
+      if (isAuthenticated && user) {
+        // Load user cart from API
+        const response = await cartAPI.get()
+        setCartItems(response.items || [])
+      } else {
+        // Load guest cart from localStorage
+        const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
+        setCartItems(guestCart)
+      }
+    } catch (err) {
+      console.error('Failed to load cart:', err)
+      showError('Failed to load cart')
+      setCartItems([])
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -56,10 +99,49 @@ function Checkout() {
     }))
   }
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const shipping = formData.shippingMethod === 'free' ? 0 : formData.shippingMethod === 'standard' ? 100 : 200
+  // Calculate totals
+  const subtotal = cartItems.reduce((sum, item) => {
+    const price = item.product?.price || item.price || 0
+    return sum + (price * item.quantity)
+  }, 0)
+  const shipping = shippingCosts[formData.shippingMethod] || 0
   const tax = subtotal * 0.18
-  const total = subtotal + shipping + tax
+  const couponDiscount = appliedCoupon ? (appliedCoupon.discount || 0) : 0
+  const total = Math.max(0, subtotal + shipping + tax - couponDiscount)
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code')
+      return
+    }
+
+    setValidatingCoupon(true)
+    setCouponError('')
+
+    try {
+      const result = await couponsAPI.validate(couponCode, subtotal)
+      if (result.valid) {
+        setAppliedCoupon(result.coupon)
+        setCouponError('')
+        success('Coupon applied successfully!')
+      } else {
+        setCouponError('Invalid coupon code')
+        setAppliedCoupon(null)
+      }
+    } catch (err) {
+      console.error('Failed to validate coupon:', err)
+      setCouponError(err.message || 'Invalid coupon code')
+      setAppliedCoupon(null)
+    } finally {
+      setValidatingCoupon(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode('')
+    setCouponError('')
+  }
 
   const handleNext = () => {
     if (step < 3) setStep(step + 1)
@@ -69,60 +151,95 @@ function Checkout() {
     e.preventDefault()
     
     if (cartItems.length === 0) {
-      alert('Your cart is empty')
+      showError('Your cart is empty')
       return
     }
 
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    const shipping = formData.shippingMethod === 'free' ? 0 : formData.shippingMethod === 'standard' ? 100 : 200
-    const tax = subtotal * 0.18
-    const total = subtotal + shipping + tax
-
-    const order = {
-      items: cartItems,
-      shippingAddress: {
-        name: formData.name,
-        mobile: formData.mobile,
-        email: formData.email,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        zipCode: formData.zipCode,
-        method: formData.shippingMethod
-      },
-      payment: {
-        method: formData.paymentMethod,
-        cardNumber: formData.cardNumber ? `****${formData.cardNumber.slice(-4)}` : '',
-        cardName: formData.cardName
-      },
-      subtotal,
-      shippingCost: shipping,
-      tax,
-      total,
-      tracking: `TRACK${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+    if (!isAuthenticated) {
+      showError('Please login to place an order')
+      navigate('/dashboard', { state: { tab: 'login' } })
+      return
     }
 
-    if (isAuthenticated && user) {
-      // Add order to user account
-      const orderWithId = addOrder(order)
-      // Clear user cart
-      localStorage.removeItem(`cart_${user.id}`)
-      navigate(`/order/${orderWithId.id}`)
-    } else {
-      // Save guest order
-      const guestOrders = JSON.parse(localStorage.getItem('guestOrders') || '[]')
-      const guestOrder = {
-        ...order,
-        id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-        date: new Date().toISOString(),
-        status: 'Processing'
+    setSubmitting(true)
+
+    try {
+      // Prepare order items for API
+      const orderItems = cartItems.map(item => ({
+        productId: item.product?._id || item.productId || item.id,
+        quantity: item.quantity,
+        size: item.size,
+        color: item.color,
+        price: item.product?.price || item.price
+      }))
+
+      const orderData = {
+        items: orderItems,
+        shippingAddress: {
+          name: formData.name,
+          mobile: formData.mobile,
+          email: formData.email,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode
+        },
+        paymentMethod: formData.paymentMethod,
+        shippingMethod: formData.shippingMethod,
+        subtotal,
+        shippingCost: shipping,
+        tax,
+        couponCode: appliedCoupon?.code || null,
+        couponDiscount: couponDiscount,
+        total
       }
-      guestOrders.push(guestOrder)
-      localStorage.setItem('guestOrders', JSON.stringify(guestOrders))
-      // Clear guest cart
-      localStorage.removeItem('cart_guest')
-      navigate(`/order/${guestOrder.id}`)
+
+      // Create order via API
+      const order = await ordersAPI.create(orderData)
+      
+      // Clear cart
+      try {
+        await cartAPI.clear()
+      } catch (err) {
+        console.error('Failed to clear cart:', err)
+      }
+      
+      success('Order placed successfully!')
+      navigate(`/order/${order._id || order.id}`)
+    } catch (err) {
+      console.error('Failed to place order:', err)
+      showError(err.message || 'Failed to place order. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="checkout-page">
+        <div className="container">
+          <div className="loading-spinner">
+            <p>Loading checkout...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (cartItems.length === 0) {
+    return (
+      <div className="checkout-page">
+        <div className="container">
+          <div className="empty-cart">
+            <h2>Your cart is empty</h2>
+            <p>Add items to your cart before checkout</p>
+            <Link to="/products/women" className="btn btn-primary">
+              Continue Shopping
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -378,18 +495,63 @@ function Checkout() {
               <div className="checkout-step">
                 <h2>Review Your Order</h2>
                 <div className="order-items">
-                  {cartItems.map(item => (
-                    <div key={item.id} className="order-item">
-                      <img src={item.image} alt={item.name} />
-                      <div className="order-item-details">
-                        <h4>{item.name}</h4>
-                        <p>Quantity: {item.quantity}</p>
+                  {cartItems.map(item => {
+                    const product = item.product || item
+                    const productName = product.name || item.name
+                    const productImage = product.images?.[0] || product.image || item.image
+                    const productPrice = product.price || item.price || 0
+                    const itemId = item._id || item.id
+                    
+                    return (
+                      <div key={itemId} className="order-item">
+                        <img src={productImage} alt={productName} />
+                        <div className="order-item-details">
+                          <h4>{productName}</h4>
+                          <p>Quantity: {item.quantity}</p>
+                          {item.size && <p>Size: {item.size}</p>}
+                          {item.color && <p>Color: {item.color}</p>}
+                        </div>
+                        <span className="order-item-price">
+                          ₹{(productPrice * item.quantity).toFixed(2)}
+                        </span>
                       </div>
-                      <span className="order-item-price">
-                        ₹{(item.price * item.quantity).toFixed(2)}
-                      </span>
+                    )
+                  })}
+                </div>
+
+                {/* Coupon Section */}
+                <div className="coupon-section">
+                  {!appliedCoupon ? (
+                    <div className="coupon-input-group">
+                      <input
+                        type="text"
+                        placeholder="Enter coupon code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        className={couponError ? 'error' : ''}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={validatingCoupon}
+                        className="btn btn-outline"
+                      >
+                        {validatingCoupon ? 'Applying...' : 'Apply'}
+                      </button>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="coupon-applied">
+                      <span>Coupon: {appliedCoupon.code} - ₹{couponDiscount.toFixed(2)} off</span>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="btn-link"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                  {couponError && <p className="error-message">{couponError}</p>}
                 </div>
 
                 <div className="order-summary">
@@ -397,6 +559,12 @@ function Checkout() {
                     <span>Subtotal</span>
                     <span>₹{subtotal.toFixed(2)}</span>
                   </div>
+                  {appliedCoupon && (
+                    <div className="summary-row discount">
+                      <span>Coupon Discount</span>
+                      <span>-₹{couponDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="summary-row">
                     <span>Shipping</span>
                     <span>₹{shipping.toFixed(2)}</span>
@@ -416,8 +584,12 @@ function Checkout() {
                   <button type="button" onClick={() => setStep(2)} className="btn btn-outline">
                     Back
                   </button>
-                  <button type="submit" className="btn btn-primary btn-large">
-                    Place Order
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary btn-large"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Placing Order...' : 'Place Order'}
                   </button>
                 </form>
               </div>
@@ -428,22 +600,71 @@ function Checkout() {
             <div className="summary-card">
               <h3>Order Summary</h3>
               <div className="order-items-mini">
-                {cartItems.map(item => (
-                  <div key={item.id} className="order-item-mini">
-                    <img src={item.image} alt={item.name} />
-                    <div>
-                      <p>{item.name}</p>
-                      <span>Qty: {item.quantity}</span>
+                {cartItems.map(item => {
+                  const product = item.product || item
+                  const productName = product.name || item.name
+                  const productImage = product.images?.[0] || product.image || item.image
+                  const productPrice = product.price || item.price || 0
+                  const itemId = item._id || item.id
+                  
+                  return (
+                    <div key={itemId} className="order-item-mini">
+                      <img src={productImage} alt={productName} />
+                      <div>
+                        <p>{productName}</p>
+                        <span>Qty: {item.quantity}</span>
+                      </div>
+                      <span>₹{(productPrice * item.quantity).toFixed(2)}</span>
                     </div>
-                    <span>₹{(item.price * item.quantity).toFixed(2)}</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
               <div className="summary-divider"></div>
+              {/* Coupon Section in Sidebar */}
+              <div className="coupon-section">
+                {!appliedCoupon ? (
+                  <div className="coupon-input-group">
+                    <input
+                      type="text"
+                      placeholder="Coupon code"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      className={couponError ? 'error' : ''}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={validatingCoupon}
+                      className="btn btn-outline btn-small"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                ) : (
+                  <div className="coupon-applied">
+                    <span>{appliedCoupon.code}</span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="btn-link"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+                {couponError && <p className="error-message-small">{couponError}</p>}
+              </div>
+
               <div className="summary-row">
                 <span>Subtotal</span>
                 <span>₹{subtotal.toFixed(2)}</span>
               </div>
+              {appliedCoupon && (
+                <div className="summary-row discount">
+                  <span>Discount</span>
+                  <span>-₹{couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="summary-row">
                 <span>Shipping</span>
                 <span>₹{shipping.toFixed(2)}</span>

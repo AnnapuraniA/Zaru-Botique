@@ -52,8 +52,8 @@ function QuickView({ product, isOpen, onClose }) {
                   <Star 
                     key={i} 
                     size={16} 
-                    fill={i < Math.floor(product.rating) ? '#ffc107' : 'none'}
-                    color="#ffc107"
+                    fill={i < Math.floor(product.rating) ? '#C89E7E' : 'none'}
+                    color="#C89E7E"
                   />
                 ))}
               </div>

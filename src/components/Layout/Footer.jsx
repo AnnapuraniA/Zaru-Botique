@@ -16,7 +16,10 @@ function Footer() {
       <div className="container">
         <div className="footer-content">
           <div className="footer-section">
-            <h3>About Arudhra Boutique</h3>
+            <div className="footer-logo">
+              <img src="/Logo.png" alt="Arudhra Fashions Logo" className="footer-logo-img" />
+              <h3>About Arudhra Fashions</h3>
+            </div>
             <p>Your destination for modern fashion and style. Discover the latest trends and timeless classics.</p>
             <div className="social-links">
               <a href="#" aria-label="Facebook"><Facebook size={20} /></a>
@@ -61,7 +64,7 @@ function Footer() {
         </div>
 
         <div className="footer-bottom">
-                <p>&copy; 2024 Arudhra Boutique. All rights reserved.</p>
+                <p>&copy; 2024 Arudhra Fashions. All rights reserved.</p>
           <div className="footer-links">
             <Link to="/privacy">Privacy Policy</Link>
             <Link to="/terms">Terms of Service</Link>

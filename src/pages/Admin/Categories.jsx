@@ -1,76 +1,139 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Edit, Trash2, ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
+import { adminCategoriesAPI } from '../../utils/adminApi'
 
 function Categories() {
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
   const [expandedCategory, setExpandedCategory] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
+  const [editingSubcategory, setEditingSubcategory] = useState(null)
   const [newCategoryName, setNewCategoryName] = useState('')
+  const [showSubcategoryModal, setShowSubcategoryModal] = useState(false)
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false)
+  const [showEditSubcategoryModal, setShowEditSubcategoryModal] = useState(false)
+  const [subcategoryForm, setSubcategoryForm] = useState({ categoryId: '', name: '' })
+  const [editCategoryForm, setEditCategoryForm] = useState({ id: '', name: '' })
+  const [editSubcategoryForm, setEditSubcategoryForm] = useState({ id: '', name: '' })
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [categories, setCategories] = useState({
-    'Women': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories'],
-    'Teen': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories'],
-    'Girls': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories']
-  })
+  useEffect(() => {
+    loadCategories()
+  }, [])
 
-  const handleAddCategory = () => {
+  const loadCategories = async () => {
+    try {
+      setLoading(true)
+      const data = await adminCategoriesAPI.getAll()
+      setCategories(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error('Error loading categories:', err)
+      showError('Failed to load categories')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAddCategory = async () => {
     if (newCategoryName && newCategoryName.trim()) {
-      const categoryName = newCategoryName.trim()
-      if (categories[categoryName]) {
-        alert('Category already exists!')
-        return
+      try {
+        await adminCategoriesAPI.create({
+          name: newCategoryName.trim(),
+          description: '',
+          isActive: true
+        })
+        setNewCategoryName('')
+        setShowAddCategoryModal(false)
+        await loadCategories()
+        success('Category added successfully')
+      } catch (err) {
+        showError('Failed to add category')
       }
-      setCategories(prev => ({
-        ...prev,
-        [categoryName]: []
-      }))
-      setNewCategoryName('')
-      setShowAddCategoryModal(false)
-      success('Category added successfully')
     }
   }
 
-  const handleAddSubcategory = (category) => {
-    const newSub = prompt('Enter new subcategory name:')
-    if (newSub && newSub.trim()) {
-      setCategories(prev => ({
-        ...prev,
-        [category]: [...prev[category], newSub.trim()]
-      }))
-      success('Subcategory added successfully')
-    }
+  const handleAddSubcategory = (categoryId) => {
+    setSubcategoryForm({ categoryId, name: '' })
+    setShowSubcategoryModal(true)
   }
 
-  const handleDeleteCategory = (category) => {
-    if (window.confirm(`Delete category "${category}" and all its subcategories?`)) {
-      setCategories(prev => {
-        const newCategories = { ...prev }
-        delete newCategories[category]
-        return newCategories
+  const handleSubmitSubcategory = async () => {
+    if (!subcategoryForm.name.trim()) {
+      showError('Please enter subcategory name')
+      return
+    }
+    try {
+      await adminCategoriesAPI.addSubcategory(subcategoryForm.categoryId, {
+        name: subcategoryForm.name.trim(),
+        isActive: true
       })
-      success('Category deleted successfully')
+      await loadCategories()
+      setShowSubcategoryModal(false)
+      setSubcategoryForm({ categoryId: '', name: '' })
+      success('Subcategory added successfully')
+    } catch (err) {
+      showError('Failed to add subcategory')
     }
   }
 
-  const handleDeleteSubcategory = (category, subcategory) => {
-    if (window.confirm(`Delete "${subcategory}" from ${category}?`)) {
-      setCategories(prev => ({
-        ...prev,
-        [category]: prev[category].filter(sub => sub !== subcategory)
-      }))
-      success('Subcategory deleted successfully')
+  const handleDeleteCategory = async (categoryId) => {
+    const category = categories.find(c => c.id === categoryId)
+    if (!category) return
+    
+    if (window.confirm(`Delete category "${category.name}" and all its subcategories?`)) {
+      try {
+        await adminCategoriesAPI.delete(categoryId)
+        await loadCategories()
+        success('Category deleted successfully')
+      } catch (err) {
+        showError('Failed to delete category')
+      }
     }
   }
 
-  const handleEditSubcategory = (category, oldSub, newSub) => {
-    setCategories(prev => ({
-      ...prev,
-      [category]: prev[category].map(sub => sub === oldSub ? newSub : sub)
-    }))
-    success('Subcategory updated successfully')
+  const handleDeleteSubcategory = async (subcategoryId) => {
+    if (window.confirm('Delete this subcategory?')) {
+      try {
+        await adminCategoriesAPI.deleteSubcategory(subcategoryId)
+        await loadCategories()
+        success('Subcategory deleted successfully')
+      } catch (err) {
+        showError('Failed to delete subcategory')
+      }
+    }
+  }
+
+  const handleEditSubcategory = async (subcategoryId, oldName, newName) => {
+    if (newName && newName.trim() && newName !== oldName) {
+      try {
+        await adminCategoriesAPI.updateSubcategory(subcategoryId, {
+          name: newName.trim()
+        })
+        await loadCategories()
+        success('Subcategory updated successfully')
+      } catch (err) {
+        showError('Failed to update subcategory')
+      }
+    }
+  }
+
+  const handleEditSubcategoryFromForm = async () => {
+    if (editSubcategoryForm.name.trim()) {
+      await handleEditSubcategory(editSubcategoryForm.id, editSubcategoryForm.name, editSubcategoryForm.name.trim())
+    }
+  }
+
+  const handleEditCategory = async (categoryId, updates) => {
+    try {
+      await adminCategoriesAPI.update(categoryId, updates)
+      await loadCategories()
+      success('Category updated successfully')
+    } catch (err) {
+      showError('Failed to update category')
+    }
   }
 
   return (
@@ -125,69 +188,95 @@ function Categories() {
         </div>
       )}
 
-      <div className="categories-list">
-        {Object.keys(categories).map(category => (
-          <div key={category} className="category-card">
-            <div 
-              className="category-header"
-              onClick={() => setExpandedCategory(expandedCategory === category ? null : category)}
-            >
-              <div className="category-title-wrapper">
-                {expandedCategory === category ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                <h2>{category}</h2>
-                <span className="subcategory-count">{categories[category].length} subcategories</span>
-              </div>
-              <div className="category-actions" onClick={(e) => e.stopPropagation()}>
-                <button
-                  className="btn btn-outline btn-small"
-                  onClick={() => handleAddSubcategory(category)}
-                >
-                  <Plus size={16} />
-                  Add Subcategory
-                </button>
-                <button
-                  className="btn-icon danger"
-                  onClick={() => handleDeleteCategory(category)}
-                  title="Delete Category"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+      {loading ? (
+        <div className="loading-state">Loading categories...</div>
+      ) : (
+        <div className="categories-list">
+          {categories.length === 0 ? (
+            <div className="empty-state">
+              <p>No categories found. Add your first category to get started.</p>
             </div>
-
-            {expandedCategory === category && (
-              <div className="subcategories-list">
-                {categories[category].map((subcategory, index) => (
-                  <div key={index} className="subcategory-item">
-                    <span>{subcategory}</span>
-                    <div className="subcategory-actions">
-                      <button
-                        className="btn-icon"
-                        onClick={() => {
-                          const newName = prompt('Enter new name:', subcategory)
-                          if (newName && newName.trim() && newName !== subcategory) {
-                            handleEditSubcategory(category, subcategory, newName.trim())
-                          }
-                        }}
-                        title="Edit"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        className="btn-icon danger"
-                        onClick={() => handleDeleteSubcategory(category, subcategory)}
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+          ) : (
+            categories.map(category => (
+              <div key={category.id} className="category-card">
+                <div 
+                  className="category-header"
+                  onClick={() => setExpandedCategory(expandedCategory === category.id ? null : category.id)}
+                >
+                  <div className="category-title-wrapper">
+                    {expandedCategory === category.id ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                    <h2>{category.name}</h2>
+                    <span className="subcategory-count">
+                      {category.subcategories?.length || 0} subcategories
+                    </span>
                   </div>
-                ))}
+                  <div className="category-actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="btn btn-outline btn-small"
+                      onClick={() => handleAddSubcategory(category.id)}
+                    >
+                      <Plus size={16} />
+                      Add Subcategory
+                    </button>
+                    <button
+                      className="btn-icon"
+                      onClick={() => {
+                        setEditCategoryForm({ id: category.id, name: category.name })
+                        setShowEditCategoryModal(true)
+                      }}
+                      title="Edit Category"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      className="btn-icon danger"
+                      onClick={() => handleDeleteCategory(category.id)}
+                      title="Delete Category"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {expandedCategory === category.id && (
+                  <div className="subcategories-list">
+                    {category.subcategories && category.subcategories.length > 0 ? (
+                      category.subcategories.map((subcategory) => (
+                        <div key={subcategory.id} className="subcategory-item">
+                          <span>{subcategory.name}</span>
+                          <div className="subcategory-actions">
+                            <button
+                              className="btn-icon"
+                              onClick={() => {
+                                setEditSubcategoryForm({ id: subcategory.id, name: subcategory.name })
+                                setShowEditSubcategoryModal(true)
+                              }}
+                              title="Edit"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              className="btn-icon danger"
+                              onClick={() => handleDeleteSubcategory(subcategory.id)}
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="empty-subcategories">
+                        <p>No subcategories. Click "Add Subcategory" to add one.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }

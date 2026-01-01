@@ -1,57 +1,43 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, Edit, Trash2, X } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
+import { adminDiscountsAPI } from '../../utils/adminApi'
 
 function Discounts() {
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingDiscount, setEditingDiscount] = useState(null)
+  const [discounts, setDiscounts] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [discounts, setDiscounts] = useState([
-    { 
-      id: 1, 
-      code: 'SUMMER20', 
-      name: 'Summer Sale 20%', 
-      type: 'percentage', 
-      value: 20, 
-      minOrder: 1000, 
-      maxDiscount: 500, 
-      usageLimit: 100, 
-      used: 45, 
-      startDate: '2024-01-01', 
-      endDate: '2024-03-31', 
-      status: 'active' 
-    },
-    { 
-      id: 2, 
-      code: 'FLAT500', 
-      name: 'Flat ₹500 Off', 
-      type: 'fixed', 
-      value: 500, 
-      minOrder: 2000, 
-      maxDiscount: 500, 
-      usageLimit: 50, 
-      used: 12, 
-      startDate: '2024-01-15', 
-      endDate: '2024-02-15', 
-      status: 'active' 
-    },
-    { 
-      id: 3, 
-      code: 'NEWUSER', 
-      name: 'New User Discount', 
-      type: 'percentage', 
-      value: 15, 
-      minOrder: 500, 
-      maxDiscount: null, 
-      usageLimit: 1, 
-      used: 234, 
-      startDate: '2024-01-01', 
-      endDate: '2024-12-31', 
-      status: 'active' 
+  useEffect(() => {
+    loadDiscounts()
+  }, [statusFilter])
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      loadDiscounts()
+    }, 500)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery])
+
+  const loadDiscounts = async () => {
+    try {
+      setLoading(true)
+      const filters = {}
+      if (statusFilter) filters.status = statusFilter
+      if (searchQuery) filters.search = searchQuery
+      const data = await adminDiscountsAPI.getAll(filters)
+      setDiscounts(data.discounts || [])
+    } catch (err) {
+      console.error('Error loading discounts:', err)
+      showError('Failed to load discounts')
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
 
   const [formData, setFormData] = useState({
     code: '',
@@ -66,54 +52,114 @@ function Discounts() {
     status: 'active'
   })
 
-  const filteredDiscounts = discounts.filter(discount =>
-    discount.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    discount.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!formData.code || !formData.name || !formData.value) {
-      alert('Please fill in all required fields')
+      showError('Please fill in all required fields')
       return
     }
-    const newDiscount = {
-      id: discounts.length + 1,
-      ...formData,
-      value: parseFloat(formData.value),
-      minOrder: parseFloat(formData.minOrder) || 0,
-      maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
-      usageLimit: parseFloat(formData.usageLimit) || null,
-      used: 0
+    try {
+      await adminDiscountsAPI.create({
+        ...formData,
+        code: formData.code.toUpperCase(),
+        value: parseFloat(formData.value),
+        minOrder: formData.minOrder ? parseFloat(formData.minOrder) : 0,
+        maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
+        usageLimit: formData.usageLimit ? parseFloat(formData.usageLimit) : null,
+        startDate: formData.startDate || null,
+        endDate: formData.endDate || null
+      })
+      setShowAddModal(false)
+      setFormData({
+        code: '',
+        name: '',
+        type: 'percentage',
+        value: '',
+        minOrder: '',
+        maxDiscount: '',
+        usageLimit: '',
+        startDate: '',
+        endDate: '',
+        status: 'active'
+      })
+      await loadDiscounts()
+      success('Discount added successfully')
+    } catch (err) {
+      showError('Failed to add discount')
     }
-    setDiscounts([...discounts, newDiscount])
-    setShowAddModal(false)
-    setFormData({
-      code: '',
-      name: '',
-      type: 'percentage',
-      value: '',
-      minOrder: '',
-      maxDiscount: '',
-      usageLimit: '',
-      startDate: '',
-      endDate: '',
-      status: 'active'
-    })
-    success('Discount added successfully')
   }
 
-  const handleDelete = (id) => {
+  const handleUpdate = async () => {
+    if (!editingDiscount) return
+    try {
+      await adminDiscountsAPI.update(editingDiscount.id, {
+        ...formData,
+        code: formData.code.toUpperCase(),
+        value: parseFloat(formData.value),
+        minOrder: formData.minOrder ? parseFloat(formData.minOrder) : 0,
+        maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
+        usageLimit: formData.usageLimit ? parseFloat(formData.usageLimit) : null,
+        startDate: formData.startDate || null,
+        endDate: formData.endDate || null
+      })
+      setEditingDiscount(null)
+      setShowAddModal(false)
+      setFormData({
+        code: '',
+        name: '',
+        type: 'percentage',
+        value: '',
+        minOrder: '',
+        maxDiscount: '',
+        usageLimit: '',
+        startDate: '',
+        endDate: '',
+        status: 'active'
+      })
+      await loadDiscounts()
+      success('Discount updated successfully')
+    } catch (err) {
+      showError('Failed to update discount')
+    }
+  }
+
+
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this discount?')) {
-      setDiscounts(discounts.filter(d => d.id !== id))
-      success('Discount deleted successfully')
+      try {
+        await adminDiscountsAPI.delete(id)
+        await loadDiscounts()
+        success('Discount deleted successfully')
+      } catch (err) {
+        showError('Failed to delete discount')
+      }
     }
   }
 
-  const handleToggleStatus = (id) => {
-    setDiscounts(discounts.map(d => 
-      d.id === id ? { ...d, status: d.status === 'active' ? 'inactive' : 'active' } : d
-    ))
-    success('Discount status updated')
+  const handleToggleStatus = async (id) => {
+    try {
+      await adminDiscountsAPI.toggleStatus(id)
+      await loadDiscounts()
+      success('Discount status updated')
+    } catch (err) {
+      showError('Failed to update discount status')
+    }
+  }
+
+  const handleEdit = (discount) => {
+    setEditingDiscount(discount)
+    setFormData({
+      code: discount.code || '',
+      name: discount.name || '',
+      type: discount.type || 'percentage',
+      value: discount.value || discount.discount || '',
+      minOrder: discount.minOrder || discount.minPurchase || '',
+      maxDiscount: discount.maxDiscount || '',
+      usageLimit: discount.usageLimit || '',
+      startDate: discount.startDate ? discount.startDate.split('T')[0] : '',
+      endDate: discount.endDate ? discount.endDate.split('T')[0] : '',
+      status: discount.status || 'active'
+    })
+    setShowAddModal(true)
   }
 
   return (
@@ -123,7 +169,22 @@ function Discounts() {
           <h1>Discounts & Promotions</h1>
           <p>Manage discount codes and promotional offers</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+        <button className="btn btn-primary" onClick={() => {
+          setEditingDiscount(null)
+          setFormData({
+            code: '',
+            name: '',
+            type: 'percentage',
+            value: '',
+            minOrder: '',
+            maxDiscount: '',
+            usageLimit: '',
+            startDate: '',
+            endDate: '',
+            status: 'active'
+          })
+          setShowAddModal(true)
+        }}>
           <Plus size={18} />
           Add Discount
         </button>
@@ -139,7 +200,11 @@ function Discounts() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <select className="filter-select">
+        <select 
+          className="filter-select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
           <option value="">All Status</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
@@ -162,7 +227,16 @@ function Discounts() {
             </tr>
           </thead>
           <tbody>
-            {filteredDiscounts.map(discount => (
+            {loading ? (
+              <tr>
+                <td colSpan="8" className="text-center">Loading...</td>
+              </tr>
+            ) : discounts.length === 0 ? (
+              <tr>
+                <td colSpan="8" className="text-center">No discounts found</td>
+              </tr>
+            ) : (
+              discounts.map(discount => (
               <tr key={discount.id}>
                 <td><strong className="discount-code">{discount.code}</strong></td>
                 <td>{discount.name}</td>
@@ -197,7 +271,7 @@ function Discounts() {
                 </td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-icon" title="Edit" onClick={() => setEditingDiscount(discount)}>
+                    <button className="btn-icon" title="Edit" onClick={() => handleEdit(discount)}>
                       <Edit size={16} />
                     </button>
                     <button className="btn-icon danger" title="Delete" onClick={() => handleDelete(discount.id)}>
@@ -206,7 +280,8 @@ function Discounts() {
                   </div>
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -216,8 +291,23 @@ function Discounts() {
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add New Discount</h2>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>
+              <h2>{editingDiscount ? 'Edit Discount' : 'Add New Discount'}</h2>
+              <button className="modal-close" onClick={() => {
+                setShowAddModal(false)
+                setEditingDiscount(null)
+                setFormData({
+                  code: '',
+                  name: '',
+                  type: 'percentage',
+                  value: '',
+                  minOrder: '',
+                  maxDiscount: '',
+                  usageLimit: '',
+                  startDate: '',
+                  endDate: '',
+                  status: 'active'
+                })
+              }}>
                 <X size={20} />
               </button>
             </div>
@@ -335,7 +425,9 @@ function Discounts() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAdd}>Add Discount</button>
+              <button className="btn btn-primary" onClick={editingDiscount ? handleUpdate : handleAdd}>
+                {editingDiscount ? 'Update Discount' : 'Add Discount'}
+              </button>
             </div>
           </div>
         </div>

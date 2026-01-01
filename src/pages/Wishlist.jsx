@@ -1,85 +1,154 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { X, Heart, Share2, ShoppingCart, Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ProductCard from '../components/ProductCard/ProductCard'
+import { wishlistAPI, cartAPI } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
+import { useToast } from '../components/Toast/ToastContainer'
 
 function Wishlist() {
-  const [wishlistItems, setWishlistItems] = useState([
-    {
-      id: 1,
-      name: 'Elegant Summer Dress',
-      category: 'Women - Dresses',
-      price: 89.99,
-      originalPrice: 129.99,
-      image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop',
-      onSale: true,
-      rating: 4.5,
-      reviews: 24
-    },
-    {
-      id: 2,
-      name: 'Trendy Teen Jacket',
-      category: 'Teen - Outerwear',
-      price: 69.99,
-      image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=500&fit=crop',
-      new: true,
-      rating: 4.8,
-      reviews: 18
-    },
-    {
-      id: 3,
-      name: 'Designer Handbag',
-      category: 'Women - Accessories',
-      price: 149.99,
-      originalPrice: 199.99,
-      image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=400&h=500&fit=crop',
-      onSale: true,
-      rating: 4.9,
-      reviews: 31
-    },
-    {
-      id: 4,
-      name: 'Silk Blouse',
-      category: 'Women - Tops',
-      price: 89.99,
-      image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=500&fit=crop',
-      rating: 4.9,
-      reviews: 25
-    },
-    {
-      id: 5,
-      name: 'Princess Dress',
-      category: 'Girls - Dresses',
-      price: 49.99,
-      originalPrice: 69.99,
-      image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop',
-      onSale: true,
-      rating: 4.8,
-      reviews: 22
-    }
-  ])
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const { success, error: showError } = useToast()
+  const [wishlistItems, setWishlistItems] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const removeFromWishlist = (id) => {
-    setWishlistItems(items => items.filter(item => item.id !== id))
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadWishlist()
+    } else {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  const loadWishlist = async () => {
+    try {
+      setLoading(true)
+      const response = await wishlistAPI.getAll()
+      // Backend returns array directly, not wrapped in items
+      const items = Array.isArray(response) ? response : (response.items || [])
+      setWishlistItems(items)
+    } catch (err) {
+      console.error('Failed to load wishlist:', err)
+      showError('Failed to load wishlist')
+      setWishlistItems([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const addAllToCart = () => {
-    // This would add all items to cart - placeholder for now
-    console.log('Add all to cart')
+  const removeFromWishlist = async (productId) => {
+    if (!isAuthenticated) {
+      showError('Please login to manage wishlist')
+      navigate('/dashboard', { state: { tab: 'login' } })
+      return
+    }
+
+    try {
+      await wishlistAPI.remove(productId)
+      setWishlistItems(items => items.filter(item => {
+        const itemProductId = item.product?._id || item.productId || item._id
+        return itemProductId !== productId
+      }))
+      success('Removed from wishlist')
+    } catch (err) {
+      console.error('Failed to remove from wishlist:', err)
+      showError('Failed to remove from wishlist')
+    }
+  }
+
+  const addAllToCart = async () => {
+    if (!isAuthenticated) {
+      showError('Please login to add items to cart')
+      navigate('/dashboard', { state: { tab: 'login' } })
+      return
+    }
+
+    try {
+      for (const item of wishlistItems) {
+        const productId = item.product?._id || item.productId || item._id
+        await cartAPI.addItem(productId, 1)
+      }
+      success('All items added to cart!')
+    } catch (err) {
+      console.error('Failed to add items to cart:', err)
+      showError('Failed to add items to cart')
+    }
+  }
+
+  const addToCart = async (productId) => {
+    if (!isAuthenticated) {
+      showError('Please login to add items to cart')
+      navigate('/dashboard', { state: { tab: 'login' } })
+      return
+    }
+
+    try {
+      await cartAPI.addItem(productId, 1)
+      success('Added to cart!')
+    } catch (err) {
+      console.error('Failed to add to cart:', err)
+      showError('Failed to add to cart')
+    }
   }
 
   const shareWishlist = () => {
-    // This would share wishlist - placeholder for now
-    console.log('Share wishlist')
+    // Share wishlist functionality
+    if (navigator.share) {
+      navigator.share({
+        title: 'My Wishlist',
+        text: `Check out my wishlist with ${wishlistItems.length} items!`,
+        url: window.location.href
+      })
+    } else {
+      navigator.clipboard.writeText(window.location.href)
+      success('Wishlist link copied to clipboard!')
+    }
   }
 
-  const totalValue = wishlistItems.reduce((sum, item) => sum + item.price, 0)
+  const totalValue = wishlistItems.reduce((sum, item) => {
+    const product = item.product || item
+    return sum + (product.price || 0)
+  }, 0)
+  
   const totalSavings = wishlistItems.reduce((sum, item) => {
-    if (item.originalPrice) {
-      return sum + (item.originalPrice - item.price)
+    const product = item.product || item
+    if (product.originalPrice) {
+      return sum + (product.originalPrice - product.price)
     }
     return sum
   }, 0)
+
+  if (!isAuthenticated) {
+    return (
+      <div className="wishlist-page">
+        <div className="container">
+          <div className="empty-wishlist">
+            <div className="empty-wishlist-icon">
+              <Heart size={64} />
+            </div>
+            <h2>Please Login to View Wishlist</h2>
+            <p>Login to save items to your wishlist</p>
+            <Link to="/dashboard" className="btn btn-primary btn-large">
+              Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="wishlist-page">
+        <div className="container">
+          <div className="loading-spinner">
+            <p>Loading wishlist...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="wishlist-page">
@@ -149,66 +218,67 @@ function Wishlist() {
             {/* Products Grid */}
             <div className="wishlist-grid-container">
               <div className="wishlist-grid">
-                {wishlistItems.map(product => (
-                  <div key={product.id} className="wishlist-item-card">
-                    <div className="wishlist-item-image-wrapper">
-                      <Link to={`/product/${product.id}`} className="wishlist-item-link">
-                        <img src={product.image} alt={product.name} />
-                        {product.onSale && (
-                          <span className="wishlist-sale-badge">Sale</span>
-                        )}
-                        {product.new && (
-                          <span className="wishlist-new-badge">New</span>
-                        )}
-                      </Link>
-                      <button
-                        className="wishlist-remove-btn"
-                        onClick={() => removeFromWishlist(product.id)}
-                        aria-label="Remove from wishlist"
-                        title="Remove from wishlist"
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-                    <div className="wishlist-item-info">
-                      <Link to={`/product/${product.id}`} className="wishlist-item-name">
-                        <h3>{product.name}</h3>
-                      </Link>
-                      <p className="wishlist-item-category">{product.category}</p>
-                      <div className="wishlist-item-rating">
-                        <div className="rating-stars">
-                          {[...Array(5)].map((_, i) => (
-                            <span
-                              key={i}
-                              className={`star ${i < Math.floor(product.rating) ? 'filled' : ''}`}
-                            >
-                              ★
-                            </span>
-                          ))}
-                        </div>
-                        <span className="rating-text">({product.reviews})</span>
-                      </div>
-                      <div className="wishlist-item-price-section">
-                        {product.originalPrice && (
-                          <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
-                        )}
-                        <span className="current-price">₹{product.price.toFixed(2)}</span>
-                      </div>
-                      <div className="wishlist-item-actions">
-                        <Link
-                          to={`/product/${product.id}`}
-                          className="btn btn-primary btn-small"
-                        >
-                          View Details
+                {wishlistItems.map((item, index) => {
+                  // Backend returns populated products directly
+                  const product = item
+                  const productId = product._id || product.id
+                  const productName = product.name || 'Product'
+                  const productImage = product.images?.[0] || product.image
+                  const productPrice = product.price || 0
+                  const productOriginalPrice = product.originalPrice
+                  const productCategory = product.category ? `${product.category}${product.subcategory ? ` - ${product.subcategory}` : ''}` : ''
+                  
+                  return (
+                    <div key={productId || index} className="wishlist-item-card">
+                      <div className="wishlist-item-image-wrapper">
+                        <Link to={`/product/${productId}`} className="wishlist-item-link">
+                          <img src={productImage} alt={productName} />
+                          {product.onSale && (
+                            <span className="wishlist-sale-badge">Sale</span>
+                          )}
+                          {product.isNew && (
+                            <span className="wishlist-new-badge">New</span>
+                          )}
                         </Link>
-                        <button className="btn btn-outline btn-small">
-                          <ShoppingCart size={16} />
-                          Add to Cart
+                        <button
+                          className="wishlist-remove-btn"
+                          onClick={() => removeFromWishlist(productId)}
+                          aria-label="Remove from wishlist"
+                          title="Remove from wishlist"
+                        >
+                          <X size={18} />
                         </button>
                       </div>
+                      <div className="wishlist-item-info">
+                        <Link to={`/product/${productId}`} className="wishlist-item-name">
+                          <h3>{productName}</h3>
+                        </Link>
+                        <p className="wishlist-item-category">{productCategory}</p>
+                        <div className="wishlist-item-price-section">
+                          {productOriginalPrice && (
+                            <span className="original-price">₹{productOriginalPrice.toFixed(2)}</span>
+                          )}
+                          <span className="current-price">₹{productPrice.toFixed(2)}</span>
+                        </div>
+                        <div className="wishlist-item-actions">
+                          <Link
+                            to={`/product/${productId}`}
+                            className="btn btn-primary btn-small"
+                          >
+                            View Details
+                          </Link>
+                          <button 
+                            className="btn btn-outline btn-small"
+                            onClick={() => addToCart(productId)}
+                          >
+                            <ShoppingCart size={16} />
+                            Add to Cart
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </>

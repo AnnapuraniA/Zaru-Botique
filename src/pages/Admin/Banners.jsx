@@ -1,47 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, ArrowUp, ArrowDown, X } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
+import { adminBannersAPI } from '../../utils/adminApi'
 
 function Banners() {
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editingBanner, setEditingBanner] = useState(null)
+  const [banners, setBanners] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [banners, setBanners] = useState([
-    { 
-      id: 1, 
-      title: 'Summer Collection Sale', 
-      subtitle: 'Up to 50% off on selected items', 
-      image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=400&fit=crop',
-      link: '/products/women',
-      position: 1,
-      visible: true,
-      startDate: '2024-01-01',
-      endDate: '2024-03-31'
-    },
-    { 
-      id: 2, 
-      title: 'New Arrivals', 
-      subtitle: 'Discover the latest fashion trends', 
-      image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&h=400&fit=crop',
-      link: '/products/teen',
-      position: 2,
-      visible: true,
-      startDate: '2024-01-15',
-      endDate: '2024-04-15'
-    },
-    { 
-      id: 3, 
-      title: 'Free Shipping', 
-      subtitle: 'On orders above ₹2000', 
-      image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=400&fit=crop',
-      link: '/shipping',
-      position: 3,
-      visible: false,
-      startDate: '2024-01-01',
-      endDate: '2024-12-31'
+  useEffect(() => {
+    loadBanners()
+  }, [])
+
+  const loadBanners = async () => {
+    try {
+      setLoading(true)
+      const data = await adminBannersAPI.getAll()
+      setBanners(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error('Error loading banners:', err)
+      showError('Failed to load banners')
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
 
   const [formData, setFormData] = useState({
     title: '',
@@ -55,62 +40,87 @@ function Banners() {
   })
 
   const filteredBanners = banners.filter(banner =>
-    banner.title.toLowerCase().includes(searchQuery.toLowerCase())
+    !searchQuery || banner.title?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!formData.title || !formData.image) {
-      alert('Please fill in all required fields')
+      showError('Please fill in all required fields')
       return
     }
-    const newBanner = {
-      id: banners.length + 1,
-      ...formData,
-      position: banners.length + 1
+    try {
+      await adminBannersAPI.create({
+        ...formData,
+        startDate: formData.startDate || null,
+        endDate: formData.endDate || null
+      })
+      setShowAddModal(false)
+      setFormData({
+        title: '',
+        subtitle: '',
+        image: '',
+        link: '',
+        position: banners.length + 1,
+        visible: true,
+        startDate: '',
+        endDate: ''
+      })
+      await loadBanners()
+      success('Banner added successfully')
+    } catch (err) {
+      showError('Failed to add banner')
     }
-    setBanners([...banners, newBanner])
-    setShowAddModal(false)
-    setFormData({
-      title: '',
-      subtitle: '',
-      image: '',
-      link: '',
-      position: banners.length + 2,
-      visible: true,
-      startDate: '',
-      endDate: ''
-    })
-    success('Banner added successfully')
   }
 
-  const handleDelete = (id) => {
+  const handleUpdate = async () => {
+    if (!editingBanner) return
+    try {
+      await adminBannersAPI.update(editingBanner.id, {
+        ...formData,
+        startDate: formData.startDate || null,
+        endDate: formData.endDate || null
+      })
+      setEditingBanner(null)
+      setShowAddModal(false)
+      setFormData({
+        title: '',
+        subtitle: '',
+        image: '',
+        link: '',
+        position: banners.length + 1,
+        visible: true,
+        startDate: '',
+        endDate: ''
+      })
+      await loadBanners()
+      success('Banner updated successfully')
+    } catch (err) {
+      showError('Failed to update banner')
+    }
+  }
+
+  const handleDelete = async (id) => {
     if (window.confirm('Delete this banner?')) {
-      setBanners(banners.filter(b => b.id !== id))
-      success('Banner deleted successfully')
+      try {
+        await adminBannersAPI.delete(id)
+        await loadBanners()
+        success('Banner deleted successfully')
+      } catch (err) {
+        showError('Failed to delete banner')
+      }
     }
   }
 
-  const handleToggleVisibility = (id) => {
-    setBanners(banners.map(b => 
-      b.id === id ? { ...b, visible: !b.visible } : b
-    ))
-    success('Banner visibility updated')
-  }
-
-  const handleMove = (id, direction) => {
-    const index = banners.findIndex(b => b.id === id)
-    if (direction === 'up' && index > 0) {
-      const newBanners = [...banners]
-      [newBanners[index], newBanners[index - 1]] = [newBanners[index - 1], newBanners[index]]
-      setBanners(newBanners)
-      success('Banner position updated')
-    } else if (direction === 'down' && index < banners.length - 1) {
-      const newBanners = [...banners]
-      [newBanners[index], newBanners[index + 1]] = [newBanners[index + 1], newBanners[index]]
-      setBanners(newBanners)
-      success('Banner position updated')
+  const handleToggleVisibility = async (id) => {
+    try {
+      await adminBannersAPI.toggleVisibility(id)
+      await loadBanners()
+      success('Banner visibility updated')
+    } catch (err) {
+      showError('Failed to update banner visibility')
     }
   }
+
 
   return (
     <div className="admin-page">
@@ -119,7 +129,20 @@ function Banners() {
           <h1>Banner & Slider Management</h1>
           <p>Manage promotional banners and homepage sliders</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+        <button className="btn btn-primary" onClick={() => {
+          setEditingBanner(null)
+          setFormData({
+            title: '',
+            subtitle: '',
+            image: '',
+            link: '',
+            position: banners.length + 1,
+            visible: true,
+            startDate: '',
+            endDate: ''
+          })
+          setShowAddModal(true)
+        }}>
           <Plus size={18} />
           Add Banner
         </button>
@@ -143,7 +166,12 @@ function Banners() {
       </div>
 
       <div className="banners-grid">
-        {filteredBanners.map(banner => (
+        {loading ? (
+          <div className="loading-state">Loading banners...</div>
+        ) : filteredBanners.length === 0 ? (
+          <div className="empty-state">No banners found</div>
+        ) : (
+          filteredBanners.map(banner => (
           <div key={banner.id} className="banner-card">
             <div className="banner-image-preview">
               <img src={banner.image} alt={banner.title} />
@@ -182,7 +210,7 @@ function Banners() {
                 >
                   <ArrowDown size={16} />
                 </button>
-                <button className="btn-icon" title="Edit">
+                <button className="btn-icon" title="Edit" onClick={() => handleEdit(banner)}>
                   <Edit size={16} />
                 </button>
                 <button className="btn-icon danger" title="Delete" onClick={() => handleDelete(banner.id)}>
@@ -199,8 +227,21 @@ function Banners() {
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add New Banner</h2>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>
+              <h2>{editingBanner ? 'Edit Banner' : 'Add New Banner'}</h2>
+              <button className="modal-close" onClick={() => {
+                setShowAddModal(false)
+                setEditingBanner(null)
+                setFormData({
+                  title: '',
+                  subtitle: '',
+                  image: '',
+                  link: '',
+                  position: banners.length + 1,
+                  visible: true,
+                  startDate: '',
+                  endDate: ''
+                })
+              }}>
                 <X size={20} />
               </button>
             </div>
@@ -274,7 +315,9 @@ function Banners() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAdd}>Add Banner</button>
+              <button className="btn btn-primary" onClick={editingBanner ? handleUpdate : handleAdd}>
+                {editingBanner ? 'Update Banner' : 'Add Banner'}
+              </button>
             </div>
           </div>
         </div>

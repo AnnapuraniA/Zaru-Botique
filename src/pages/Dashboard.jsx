@@ -4,14 +4,21 @@ import { Package, User, Heart, MapPin, CreditCard, Settings, LogOut, Lock, Truck
 import { useAuth } from '../context/AuthContext'
 import ConfirmationModal from '../components/Modal/ConfirmationModal'
 import { useToast } from '../components/Toast/ToastContainer'
+import { ordersAPI, addressesAPI, paymentAPI, cartAPI } from '../utils/api'
 
 function Dashboard() {
-  const { user, logout, isAuthenticated, login, register, resetPassword, getOrders, updateProfile, mergeCart } = useAuth()
+  const { user, logout, isAuthenticated, login, register, resetPassword, updateProfile, mergeCart } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { success: showSuccessToast, error: showError } = useToast()
   const [activeTab, setActiveTab] = useState(isAuthenticated ? 'orders' : 'login')
+  const [orders, setOrders] = useState([])
+  const [addresses, setAddresses] = useState([])
+  const [paymentMethods, setPaymentMethods] = useState([])
+  const [loading, setLoading] = useState(false)
   const [showAddAddress, setShowAddAddress] = useState(false)
   const [showAddPayment, setShowAddPayment] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [newAddress, setNewAddress] = useState({
     type: 'Home',
     name: user?.name || '',
@@ -37,9 +44,18 @@ function Dashboard() {
     mobile: user?.mobile || ''
   })
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [showResetPassword, setShowResetPassword] = useState(false)
   const [searchOrderQuery, setSearchOrderQuery] = useState('')
+
+  // Load data when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadOrders()
+      loadAddresses()
+      loadPaymentMethods()
+    }
+  }, [isAuthenticated])
 
   // Update profile form when user changes
   useEffect(() => {
@@ -60,14 +76,50 @@ function Dashboard() {
     }
   }, [location.state])
 
+  const loadOrders = async () => {
+    try {
+      setLoading(true)
+      const response = await ordersAPI.getAll()
+      // Backend returns array directly, not wrapped in orders property
+      setOrders(Array.isArray(response) ? response : (response.orders || []))
+    } catch (err) {
+      console.error('Failed to load orders:', err)
+      setOrders([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadAddresses = async () => {
+    try {
+      const response = await addressesAPI.getAll()
+      // Backend returns array directly
+      setAddresses(Array.isArray(response) ? response : (response.addresses || []))
+    } catch (err) {
+      console.error('Failed to load addresses:', err)
+      setAddresses([])
+    }
+  }
+
+  const loadPaymentMethods = async () => {
+    try {
+      const response = await paymentAPI.getAll()
+      // Backend returns array directly
+      setPaymentMethods(Array.isArray(response) ? response : (response.paymentMethods || []))
+    } catch (err) {
+      console.error('Failed to load payment methods:', err)
+      setPaymentMethods([])
+    }
+  }
+
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
+    setSuccessMessage('')
     
     try {
       await login(loginForm.mobile, loginForm.password)
-      setSuccess('Login successful!')
+      showSuccessToast('Login successful!')
       setActiveTab('orders')
       // Merge guest cart
       const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
@@ -76,27 +128,30 @@ function Dashboard() {
       }
     } catch (err) {
       setError(err.message)
+      showError(err.message)
     }
   }
 
   const handleRegister = async (e) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
+    setSuccessMessage('')
     
     if (registerForm.password !== registerForm.confirmPassword) {
       setError('Passwords do not match')
+      showError('Passwords do not match')
       return
     }
     
     if (registerForm.password.length < 8) {
       setError('Password must be at least 8 characters')
+      showError('Password must be at least 8 characters')
       return
     }
     
     try {
       await register(registerForm.mobile, registerForm.password, registerForm.name, registerForm.email)
-      setSuccess('Registration successful!')
+      showSuccessToast('Registration successful!')
       setActiveTab('orders')
       // Merge guest cart
       const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
@@ -105,32 +160,36 @@ function Dashboard() {
       }
     } catch (err) {
       setError(err.message)
+      showError(err.message)
     }
   }
 
   const handleResetPassword = async (e) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
+    setSuccessMessage('')
     
     if (resetForm.newPassword !== resetForm.confirmPassword) {
       setError('Passwords do not match')
+      showError('Passwords do not match')
       return
     }
     
     if (resetForm.newPassword.length < 8) {
       setError('Password must be at least 8 characters')
+      showError('Password must be at least 8 characters')
       return
     }
     
     try {
       await resetPassword(resetForm.mobile, resetForm.newPassword)
-      setSuccess('Password reset successful! You can now login.')
+      showSuccessToast('Password reset successful! You can now login.')
       setShowResetPassword(false)
       setActiveTab('login')
       setResetForm({ mobile: '', newPassword: '', confirmPassword: '' })
     } catch (err) {
       setError(err.message)
+      showError(err.message)
     }
   }
 
@@ -140,21 +199,22 @@ function Dashboard() {
     navigate('/')
   }
 
-  const handleUpdateProfile = (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
+    setSuccessMessage('')
     
     try {
-      updateProfile(profileForm)
-      setSuccess('Profile updated successfully!')
+      await updateProfile(profileForm)
+      showSuccessToast('Profile updated successfully!')
     } catch (err) {
       setError(err.message)
+      showError(err.message)
     }
   }
 
 
-  const orders = isAuthenticated ? getOrders() : []
+  // Orders are loaded from API
 
   return (
     <div className="user-dashboard-page">
@@ -246,7 +306,7 @@ function Dashboard() {
               <div className="dashboard-section">
                 <h2>Login</h2>
                 {error && <div className="alert alert-error">{error}</div>}
-                {success && <div className="alert alert-success">{success}</div>}
+                {successMessage && <div className="alert alert-success">{successMessage}</div>}
                 <form onSubmit={handleLogin} className="auth-form">
                   <div className="form-group">
                     <label>Mobile Number</label>
@@ -347,7 +407,7 @@ function Dashboard() {
               <div className="dashboard-section">
                 <h2>Create Account</h2>
                 {error && <div className="alert alert-error">{error}</div>}
-                {success && <div className="alert alert-success">{success}</div>}
+                {successMessage && <div className="alert alert-success">{successMessage}</div>}
                 <form onSubmit={handleRegister} className="auth-form">
                   <div className="form-group">
                     <label>Mobile Number <span className="required">*</span></label>
@@ -424,40 +484,58 @@ function Dashboard() {
                   </div>
                 ) : (
                   <div className="orders-list">
-                    {orders.map(order => (
-                      <div key={order.id} className="order-card">
-                        <div className="order-header">
-                          <div>
-                            <h3>Order {order.id}</h3>
-                            <p className="order-date">Placed on {new Date(order.date).toLocaleDateString()}</p>
-                          </div>
-                          <span className={`order-status ${order.status.toLowerCase()}`}>
-                            {order.status}
-                          </span>
-                        </div>
-                        <div className="order-details">
-                          <p>{order.items?.length || 0} item(s) • Total: ₹{order.total?.toFixed(2) || '0.00'}</p>
-                          {order.tracking && (
-                            <p className="tracking">
-                              Tracking: <strong>{order.tracking}</strong>
-                            </p>
-                          )}
-                        </div>
-                        <div className="order-actions">
-                          <Link to={`/order/${order.id}`} className="btn btn-outline">
-                            View Details
-                          </Link>
-                          {order.status === 'Delivered' && (
-                            <button className="btn btn-outline">Reorder</button>
-                          )}
-                          {order.tracking && (
-                            <Link to={`/track/${order.tracking}`} className="btn btn-primary">
-                              Track Order
-                            </Link>
-                          )}
-                        </div>
+                    {loading ? (
+                      <div className="loading-spinner">
+                        <p>Loading orders...</p>
                       </div>
-                    ))}
+                    ) : orders.length === 0 ? (
+                      <div className="empty-state">
+                        <Package size={48} />
+                        <h3>No orders yet</h3>
+                        <p>Start shopping to see your orders here</p>
+                        <Link to="/products/women" className="btn btn-primary">
+                          Start Shopping
+                        </Link>
+                      </div>
+                    ) : (
+                      orders.map(order => {
+                        const orderId = order._id || order.id
+                        return (
+                          <div key={orderId} className="order-card">
+                            <div className="order-header">
+                              <div>
+                                <h3>Order {orderId.slice(-8).toUpperCase()}</h3>
+                                <p className="order-date">Placed on {new Date(order.createdAt || order.date).toLocaleDateString()}</p>
+                              </div>
+                              <span className={`order-status ${(order.status || 'Processing').toLowerCase()}`}>
+                                {order.status || 'Processing'}
+                              </span>
+                            </div>
+                            <div className="order-details">
+                              <p>{order.items?.length || 0} item(s) • Total: ₹{(order.total || 0).toFixed(2)}</p>
+                              {order.trackingNumber && (
+                                <p className="tracking">
+                                  Tracking: <strong>{order.trackingNumber}</strong>
+                                </p>
+                              )}
+                            </div>
+                            <div className="order-actions">
+                              <Link to={`/order/${orderId}`} className="btn btn-outline">
+                                View Details
+                              </Link>
+                              {order.status === 'Delivered' && (
+                                <button className="btn btn-outline">Reorder</button>
+                              )}
+                              {order.trackingNumber && (
+                                <Link to={`/track/${order.trackingNumber}`} className="btn btn-primary">
+                                  Track Order
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
                   </div>
                 )}
               </div>
@@ -468,7 +546,7 @@ function Dashboard() {
               <div className="dashboard-section">
                 <h2>Profile Information</h2>
                 {error && <div className="alert alert-error">{error}</div>}
-                {success && <div className="alert alert-success">{success}</div>}
+                {successMessage && <div className="alert alert-success">{successMessage}</div>}
                 <form onSubmit={handleUpdateProfile} className="profile-form">
                   <div className="form-group">
                     <label>Full Name</label>
@@ -510,21 +588,62 @@ function Dashboard() {
               <div className="dashboard-section">
                 <h2>Saved Addresses</h2>
                 <div className="addresses-list">
-                  {user?.addresses && user.addresses.length > 0 ? (
-                    user.addresses.map(address => (
-                      <div key={address.id} className="address-card">
+                  {addresses.length > 0 ? (
+                    addresses.map(address => (
+                      <div key={address._id || address.id} className="address-card">
                         <div className="address-header">
-                          <h3>{address.type}</h3>
+                          <h3>{address.type || 'Home'}</h3>
                           {address.isDefault && <span className="default-badge">Default</span>}
                         </div>
                         <p>{address.name}</p>
                         <p>{address.address}</p>
-                        <p>{address.city}, {address.state} {address.zip}</p>
+                        <p>{address.city}, {address.state} {address.zipCode || address.zip}</p>
                         <div className="address-actions">
-                          <button className="btn btn-outline">Edit</button>
-                          <button className="btn btn-outline">Delete</button>
+                          <button 
+                            className="btn btn-outline"
+                            onClick={async () => {
+                              try {
+                                await addressesAPI.update(address._id || address.id, { ...address })
+                                loadAddresses()
+                                showSuccessToast('Address updated')
+                              } catch (err) {
+                                showError('Failed to update address')
+                              }
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            className="btn btn-outline"
+                            onClick={async () => {
+                              if (window.confirm('Delete this address?')) {
+                                try {
+                                  await addressesAPI.delete(address._id || address.id)
+                                  loadAddresses()
+                                  showSuccessToast('Address deleted')
+                                } catch (err) {
+                                  showError('Failed to delete address')
+                                }
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
                           {!address.isDefault && (
-                            <button className="btn btn-primary">Set as Default</button>
+                            <button 
+                              className="btn btn-primary"
+                              onClick={async () => {
+                                try {
+                                  await addressesAPI.update(address._id || address.id, { isDefault: true })
+                                  loadAddresses()
+                                  showSuccessToast('Default address updated')
+                                } catch (err) {
+                                  showError('Failed to update default address')
+                                }
+                              }}
+                            >
+                              Set as Default
+                            </button>
                           )}
                         </div>
                       </div>
@@ -545,29 +664,33 @@ function Dashboard() {
                   <div className="add-address-form">
                     <h3>Add New Address</h3>
                     {error && <div className="alert alert-error">{error}</div>}
-                    {success && <div className="alert alert-success">{success}</div>}
-                    <form onSubmit={(e) => {
+                    {successMessage && <div className="alert alert-success">{successMessage}</div>}
+                    <form onSubmit={async (e) => {
                       e.preventDefault()
                       setError('')
-                      setSuccess('')
-                      const addresses = user?.addresses || []
-                      const newAddr = {
-                        ...newAddress,
-                        id: `addr_${Date.now()}`,
-                        isDefault: addresses.length === 0
+                      setSuccessMessage('')
+                      try {
+                        const addressData = {
+                          ...newAddress,
+                          isDefault: addresses.length === 0
+                        }
+                        await addressesAPI.add(addressData)
+                        loadAddresses()
+                        showSuccessToast('Address added successfully!')
+                        setShowAddAddress(false)
+                        setNewAddress({
+                          type: 'Home',
+                          name: user?.name || '',
+                          address: '',
+                          city: '',
+                          state: '',
+                          zip: '',
+                          isDefault: false
+                        })
+                      } catch (err) {
+                        console.error('Failed to add address:', err)
+                        setError('Failed to add address')
                       }
-                      updateProfile({ addresses: [...addresses, newAddr] })
-                      setSuccess('Address added successfully!')
-                      setShowAddAddress(false)
-                      setNewAddress({
-                        type: 'Home',
-                        name: user?.name || '',
-                        address: '',
-                        city: '',
-                        state: '',
-                        zip: '',
-                        isDefault: false
-                      })
                     }}>
                       <div className="form-group">
                         <label>Address Type</label>
@@ -660,17 +783,40 @@ function Dashboard() {
               <div className="dashboard-section">
                 <h2>Payment Methods</h2>
                 <div className="payment-methods">
-                  {user?.paymentMethods && user.paymentMethods.length > 0 ? (
-                    user.paymentMethods.map(method => (
-                      <div key={method.id} className="payment-card">
+                  {paymentMethods.length > 0 ? (
+                    paymentMethods.map(method => (
+                      <div key={method._id || method.id} className="payment-card">
                         <CreditCard size={24} />
                         <div>
                           <p>•••• •••• •••• {method.last4}</p>
                           <span>Expires {method.expMonth}/{method.expYear}</span>
                         </div>
                         <div className="payment-actions">
-                          <button className="btn btn-outline">Edit</button>
-                          <button className="btn btn-outline">Delete</button>
+                          <button 
+                            className="btn btn-outline"
+                            onClick={async () => {
+                              // Edit functionality - could open a modal
+                              showError('Edit functionality coming soon')
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            className="btn btn-outline"
+                            onClick={async () => {
+                              if (window.confirm('Delete this payment method?')) {
+                                try {
+                                  await paymentAPI.delete(method._id || method.id)
+                                  loadPaymentMethods()
+                                  showSuccessToast('Payment method deleted')
+                                } catch (err) {
+                                  showError('Failed to delete payment method')
+                                }
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
                         </div>
                       </div>
                     ))
@@ -689,27 +835,34 @@ function Dashboard() {
                 ) : (
                   <div className="add-payment-form">
                     <h3>Add New Payment Method</h3>
-                    <form onSubmit={(e) => {
+                    <form onSubmit={async (e) => {
                       e.preventDefault()
-                      const paymentMethods = user?.paymentMethods || []
-                      const last4 = newPayment.cardNumber.slice(-4)
-                      const newMethod = {
-                        id: `pay_${Date.now()}`,
-                        last4,
-                        expMonth: newPayment.expMonth,
-                        expYear: newPayment.expYear,
-                        cardName: newPayment.cardName
+                      setError('')
+                      setSuccessMessage('')
+                      try {
+                        const last4 = newPayment.cardNumber.slice(-4)
+                        const paymentData = {
+                          last4,
+                          expMonth: newPayment.expMonth,
+                          expYear: newPayment.expYear,
+                          cardName: newPayment.cardName,
+                          cardNumber: `****${last4}` // Don't store full card number
+                        }
+                        await paymentAPI.add(paymentData)
+                        loadPaymentMethods()
+                        showSuccessToast('Payment method added successfully!')
+                        setShowAddPayment(false)
+                        setNewPayment({
+                          cardNumber: '',
+                          cardName: '',
+                          expMonth: '',
+                          expYear: '',
+                          cvv: ''
+                        })
+                      } catch (err) {
+                        console.error('Failed to add payment method:', err)
+                        setError('Failed to add payment method')
                       }
-                      updateProfile({ paymentMethods: [...paymentMethods, newMethod] })
-                      setSuccess('Payment method added successfully!')
-                      setShowAddPayment(false)
-                      setNewPayment({
-                        cardNumber: '',
-                        cardName: '',
-                        expMonth: '',
-                        expYear: '',
-                        cvv: ''
-                      })
                     }}>
                       <div className="form-group">
                         <label>Cardholder Name</label>
@@ -841,15 +994,16 @@ function Dashboard() {
                 {/* Orders List */}
                 <div className="track-orders-container">
                   {(() => {
-                    const allOrders = getOrders()
-                    const filteredOrders = allOrders.filter(order => {
+                    const filteredOrders = orders.filter(order => {
                       if (!searchOrderQuery.trim()) return true
                       const query = searchOrderQuery.toLowerCase()
+                      const orderId = (order._id || order.id || '').toString().toLowerCase()
+                      const orderDate = new Date(order.createdAt || order.date).toLocaleDateString().toLowerCase()
                       return (
-                        order.id.toLowerCase().includes(query) ||
-                        order.tracking?.toLowerCase().includes(query) ||
-                        order.status.toLowerCase().includes(query) ||
-                        order.date.toLowerCase().includes(query)
+                        orderId.includes(query) ||
+                        order.trackingNumber?.toLowerCase().includes(query) ||
+                        (order.status || '').toLowerCase().includes(query) ||
+                        orderDate.includes(query)
                       )
                     })
 
@@ -870,33 +1024,35 @@ function Dashboard() {
 
                     return (
                       <div className="track-orders-list">
-                        {filteredOrders.map(order => (
-                          <div key={order.id} className="track-order-card">
-                            <div className="order-card-header">
-                              <div className="order-header-left">
-                                <h3>Order {order.id}</h3>
-                                <p className="order-date">Placed on {new Date(order.date).toLocaleDateString()}</p>
-                                {order.tracking && (
-                                  <p className="tracking-info">
-                                    <strong>Tracking:</strong> {order.tracking}
-                                  </p>
-                                )}
+                        {filteredOrders.map(order => {
+                          const orderId = order._id || order.id
+                          return (
+                            <div key={orderId} className="track-order-card">
+                              <div className="order-card-header">
+                                <div className="order-header-left">
+                                  <h3>Order {orderId.slice(-8).toUpperCase()}</h3>
+                                  <p className="order-date">Placed on {new Date(order.createdAt || order.date).toLocaleDateString()}</p>
+                                  {order.trackingNumber && (
+                                    <p className="tracking-info">
+                                      <strong>Tracking:</strong> {order.trackingNumber}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="order-status-badge">
+                                  <span className={`status-text ${(order.status || 'Processing').toLowerCase()}`}>
+                                    {order.status || 'Processing'}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="order-status-badge">
-                                <span className={`status-text ${order.status.toLowerCase()}`}>
-                                  {order.status}
-                                </span>
-                              </div>
-                            </div>
 
                             <div className="order-card-body">
                               <div className="status-timeline-compact">
                                 <div className="timeline-compact">
                                   {[
                                     { label: 'Placed', status: 'completed' },
-                                    { label: 'Processing', status: order.status === 'processing' || order.status === 'shipped' || order.status === 'delivered' ? 'completed' : 'pending' },
-                                    { label: 'Shipped', status: order.status === 'shipped' || order.status === 'delivered' ? 'completed' : 'pending' },
-                                    { label: 'Delivered', status: order.status === 'delivered' ? 'completed' : 'pending' }
+                                    { label: 'Processing', status: (order.status?.toLowerCase() === 'processing' || order.status?.toLowerCase() === 'shipped' || order.status?.toLowerCase() === 'delivered') ? 'completed' : 'pending' },
+                                    { label: 'Shipped', status: (order.status?.toLowerCase() === 'shipped' || order.status?.toLowerCase() === 'delivered') ? 'completed' : 'pending' },
+                                    { label: 'Delivered', status: order.status?.toLowerCase() === 'delivered' ? 'completed' : 'pending' }
                                   ].map((step, index) => (
                                     <div key={index} className={`timeline-step-compact ${step.status}`}>
                                       <div className="timeline-marker-compact">
@@ -917,9 +1073,13 @@ function Dashboard() {
                                   {order.items?.length || 0} item(s)
                                 </div>
                                 <div className="items-images">
-                                  {order.items?.slice(0, 3).map((item, idx) => (
-                                    <img key={idx} src={item.image} alt={item.name} className="item-preview-img" />
-                                  ))}
+                                  {order.items?.slice(0, 3).map((item, idx) => {
+                                    const product = item.product || item
+                                    const image = product?.images?.[0] || product?.image || item.image
+                                    return (
+                                      <img key={idx} src={image} alt={product?.name || item.name} className="item-preview-img" />
+                                    )
+                                  })}
                                   {order.items?.length > 3 && (
                                     <div className="more-items">+{order.items.length - 3}</div>
                                   )}
@@ -929,17 +1089,17 @@ function Dashboard() {
                               <div className="order-summary-compact">
                                 <div className="summary-row-compact">
                                   <span>Total:</span>
-                                  <span className="total-amount">₹{order.total?.toFixed(2) || '0.00'}</span>
+                                  <span className="total-amount">₹{(order.total || 0).toFixed(2)}</span>
                                 </div>
                               </div>
                             </div>
 
                             <div className="order-card-actions">
-                              <Link to={`/order/${order.id}`} className="btn btn-primary btn-small">
+                              <Link to={`/order/${orderId}`} className="btn btn-primary btn-small">
                                 View Details
                               </Link>
-                              {order.tracking && (
-                                <Link to={`/track/${order.tracking}`} className="btn btn-outline btn-small">
+                              {order.trackingNumber && (
+                                <Link to={`/track/${order.trackingNumber}`} className="btn btn-outline btn-small">
                                   <Truck size={16} />
                                   Track
                                 </Link>
@@ -951,7 +1111,8 @@ function Dashboard() {
                               )}
                             </div>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )
                   })()}
@@ -1008,7 +1169,8 @@ function Dashboard() {
                   isOpen={showDeleteModal}
                   onClose={() => setShowDeleteModal(false)}
                   onConfirm={() => {
-                    showErrorToast('Account deletion is not available in demo mode')
+                    showError('Account deletion is not available in demo mode')
+                    setShowDeleteModal(false)
                   }}
                   title="Delete Account"
                   message="Are you sure you want to delete your account? This action cannot be undone. All your data, orders, and preferences will be permanently deleted."

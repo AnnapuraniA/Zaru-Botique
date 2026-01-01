@@ -2,63 +2,127 @@ import { Link } from 'react-router-dom'
 import { Trash2, Plus, Minus } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { cartAPI } from '../utils/api'
+import { useToast } from '../components/Toast/ToastContainer'
 
 function Cart() {
   const { user, isAuthenticated, getGuestId } = useAuth()
+  const { success, error: showError } = useToast()
   const [cartItems, setCartItems] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Load cart from localStorage
+  // Load cart from API or localStorage
   useEffect(() => {
     loadCart()
   }, [user, isAuthenticated])
 
-  const loadCart = () => {
-    if (isAuthenticated && user) {
-      // Load user cart
-      const userCart = JSON.parse(localStorage.getItem(`cart_${user.id}`) || '[]')
-      setCartItems(userCart)
-    } else {
-      // Load guest cart
-      const guestId = getGuestId()
-      const guestCart = JSON.parse(localStorage.getItem(`cart_guest`) || '[]')
-      setCartItems(guestCart)
+  const loadCart = async () => {
+    try {
+      setLoading(true)
+      if (isAuthenticated && user) {
+        // Load user cart from API
+        const response = await cartAPI.get()
+        setCartItems(response.items || [])
+      } else {
+        // Load guest cart from localStorage
+        const guestCart = JSON.parse(localStorage.getItem(`cart_guest`) || '[]')
+        setCartItems(guestCart)
+      }
+    } catch (err) {
+      console.error('Failed to load cart:', err)
+      showError('Failed to load cart')
+      setCartItems([])
+    } finally {
+      setLoading(false)
     }
   }
 
-  const saveCart = (items) => {
-    if (isAuthenticated && user) {
-      localStorage.setItem(`cart_${user.id}`, JSON.stringify(items))
-    } else {
-      localStorage.setItem('cart_guest', JSON.stringify(items))
-    }
-  }
-
-  const updateQuantity = (id, change) => {
-    setCartItems(items => {
-      const updated = items.map(item => {
-        if (item.id === id) {
-          const newQuantity = item.quantity + change
-          return { ...item, quantity: Math.max(1, newQuantity) }
+  const updateQuantity = async (itemId, change) => {
+    if (isAuthenticated) {
+      try {
+        const item = cartItems.find(i => i._id === itemId || i.id === itemId)
+        if (!item) return
+        
+        const newQuantity = item.quantity + change
+        if (newQuantity < 1) {
+          await removeItem(itemId)
+          return
         }
-        return item
+        
+        await cartAPI.updateItem(itemId, newQuantity)
+        setCartItems(items =>
+          items.map(i =>
+            (i._id === itemId || i.id === itemId)
+              ? { ...i, quantity: newQuantity }
+              : i
+          )
+        )
+        // Dispatch cart update event
+        window.dispatchEvent(new Event('cartUpdated'))
+      } catch (err) {
+        console.error('Failed to update quantity:', err)
+        showError('Failed to update quantity')
+      }
+    } else {
+      // Guest cart - update localStorage
+      setCartItems(items => {
+        const updated = items.map(item => {
+          if ((item._id === itemId || item.id === itemId)) {
+            const newQuantity = item.quantity + change
+            return { ...item, quantity: Math.max(1, newQuantity) }
+          }
+          return item
+        })
+        localStorage.setItem('cart_guest', JSON.stringify(updated))
+        return updated
       })
-      saveCart(updated)
-      return updated
-    })
+    }
   }
 
-  const removeItem = (id) => {
-    setCartItems(items => {
-      const updated = items.filter(item => item.id !== id)
-      saveCart(updated)
-      return updated
-    })
+  const removeItem = async (itemId) => {
+    if (isAuthenticated) {
+      try {
+        await cartAPI.removeItem(itemId)
+        setCartItems(items => items.filter(i => i._id !== itemId && i.id !== itemId))
+        success('Item removed from cart')
+        // Dispatch cart update event
+        window.dispatchEvent(new Event('cartUpdated'))
+      } catch (err) {
+        console.error('Failed to remove item:', err)
+        showError('Failed to remove item')
+      }
+    } else {
+      // Guest cart - update localStorage
+      setCartItems(items => {
+        const updated = items.filter(item => item._id !== itemId && item.id !== itemId)
+        localStorage.setItem('cart_guest', JSON.stringify(updated))
+        // Dispatch cart update event
+        window.dispatchEvent(new Event('cartUpdated'))
+        return updated
+      })
+    }
   }
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  // Calculate totals
+  const subtotal = cartItems.reduce((sum, item) => {
+    const price = item.product?.price || item.price || 0
+    return sum + (price * item.quantity)
+  }, 0)
   const shipping = subtotal >= 2000 ? 0 : 100
   const tax = subtotal * 0.18 // 18% GST
   const total = subtotal + shipping + tax
+
+  if (loading) {
+    return (
+      <div className="cart-page">
+        <div className="container">
+          <div className="loading-spinner">
+            <p>Loading cart...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="cart-page">
@@ -75,39 +139,49 @@ function Cart() {
         ) : (
           <div className="cart-layout">
             <div className="cart-items">
-              {cartItems.map(item => (
-                <div key={`${item.id}-${item.size}-${item.color}`} className="cart-item">
-                  <img src={item.image} alt={item.name} />
-                  <div className="cart-item-details">
-                    <h3>{item.name}</h3>
-                    <p className="cart-item-meta">
-                      Size: {item.size} • Color: {item.color}
-                    </p>
-                    <p className="cart-item-price">₹{item.price.toFixed(2)}</p>
-                  </div>
-                  <div className="cart-item-controls">
-                    <div className="quantity-controls">
-                      <button onClick={() => updateQuantity(item.id, -1)}>
-                        <Minus size={16} />
-                      </button>
-                      <span>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)}>
-                        <Plus size={16} />
+              {cartItems.map(item => {
+                const itemId = item._id || item.id
+                const product = item.product || item
+                const productName = product.name || item.name
+                const productImage = product.images?.[0] || product.image || item.image
+                const productPrice = product.price || item.price || 0
+                const size = item.size || 'N/A'
+                const color = item.color || 'N/A'
+                
+                return (
+                  <div key={itemId} className="cart-item">
+                    <img src={productImage} alt={productName} />
+                    <div className="cart-item-details">
+                      <h3>{productName}</h3>
+                      <p className="cart-item-meta">
+                        Size: {size} • Color: {color}
+                      </p>
+                      <p className="cart-item-price">₹{productPrice.toFixed(2)}</p>
+                    </div>
+                    <div className="cart-item-controls">
+                      <div className="quantity-controls">
+                        <button onClick={() => updateQuantity(itemId, -1)}>
+                          <Minus size={16} />
+                        </button>
+                        <span>{item.quantity}</span>
+                        <button onClick={() => updateQuantity(itemId, 1)}>
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                      <div className="cart-item-total">
+                        ₹{(productPrice * item.quantity).toFixed(2)}
+                      </div>
+                      <button
+                        className="remove-btn"
+                        onClick={() => removeItem(itemId)}
+                        aria-label="Remove item"
+                      >
+                        <Trash2 size={18} />
                       </button>
                     </div>
-                    <div className="cart-item-total">
-                      ₹{(item.price * item.quantity).toFixed(2)}
-                    </div>
-                    <button
-                      className="remove-btn"
-                      onClick={() => removeItem(item.id)}
-                      aria-label="Remove item"
-                    >
-                      <Trash2 size={18} />
-                    </button>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <div className="cart-summary">

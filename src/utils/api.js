@@ -1,0 +1,313 @@
+// API Configuration
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+
+// Helper function to get auth token
+const getToken = () => {
+  return localStorage.getItem('token')
+}
+
+// Helper function to get headers
+const getHeaders = (includeAuth = true) => {
+  const headers = {
+    'Content-Type': 'application/json'
+  }
+  
+  if (includeAuth) {
+    const token = getToken()
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+  }
+  
+  return headers
+}
+
+// Generic API call function
+const apiCall = async (endpoint, options = {}) => {
+  const { method = 'GET', body, includeAuth = true } = options
+  
+  const config = {
+    method,
+    headers: getHeaders(includeAuth)
+  }
+  
+  if (body) {
+    config.body = JSON.stringify(body)
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
+    
+    // Check if response is ok before parsing JSON
+    if (!response.ok) {
+      let errorMessage = 'Something went wrong'
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorMessage
+      } catch (e) {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`
+      }
+      throw new Error(errorMessage)
+    }
+    
+    // Handle empty responses
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json()
+      return data
+    }
+    
+    return {}
+  } catch (error) {
+    console.error('API Error:', error)
+    // Don't throw network errors that break the app
+    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      throw new Error('Unable to connect to server. Please check your connection.')
+    }
+    throw error
+  }
+}
+
+// Auth API
+export const authAPI = {
+  register: (mobile, password, name, email) =>
+    apiCall('/auth/register', {
+      method: 'POST',
+      body: { mobile, password, name, email },
+      includeAuth: false
+    }),
+  
+  login: (mobile, password) =>
+    apiCall('/auth/login', {
+      method: 'POST',
+      body: { mobile, password },
+      includeAuth: false
+    }),
+  
+  resetPassword: (mobile, newPassword) =>
+    apiCall('/auth/reset-password', {
+      method: 'POST',
+      body: { mobile, newPassword },
+      includeAuth: false
+    }),
+  
+  getMe: () => apiCall('/auth/me'),
+  
+  updateProfile: (updates) =>
+    apiCall('/auth/profile', {
+      method: 'PUT',
+      body: updates
+    })
+}
+
+// Products API
+export const productsAPI = {
+  getAll: (filters = {}) => {
+    const queryParams = new URLSearchParams()
+    Object.keys(filters).forEach(key => {
+      if (filters[key] !== undefined && filters[key] !== null && filters[key] !== '') {
+        if (Array.isArray(filters[key])) {
+          filters[key].forEach(val => queryParams.append(key, val))
+        } else {
+          queryParams.append(key, filters[key])
+        }
+      }
+    })
+    const queryString = queryParams.toString()
+    return apiCall(`/products${queryString ? `?${queryString}` : ''}`, { includeAuth: false })
+  },
+  
+  getById: (id) => apiCall(`/products/${id}`, { includeAuth: false }),
+  
+  getRelated: (id) => apiCall(`/products/${id}/related`, { includeAuth: false }),
+  
+  getReviews: (productId) => apiCall(`/products/${productId}/reviews`, { includeAuth: false }),
+  
+  addReview: (productId, rating, comment) =>
+    apiCall(`/products/${productId}/reviews`, {
+      method: 'POST',
+      body: { rating, comment }
+    })
+}
+
+// Cart API
+export const cartAPI = {
+  get: () => apiCall('/cart'),
+  
+  addItem: (productId, quantity, size, color) =>
+    apiCall('/cart', {
+      method: 'POST',
+      body: { productId, quantity, size, color }
+    }),
+  
+  updateItem: (itemId, quantity) =>
+    apiCall(`/cart/${itemId}`, {
+      method: 'PUT',
+      body: { quantity }
+    }),
+  
+  removeItem: (itemId) =>
+    apiCall(`/cart/${itemId}`, {
+      method: 'DELETE'
+    }),
+  
+  clear: () =>
+    apiCall('/cart', {
+      method: 'DELETE'
+    })
+}
+
+// Orders API
+export const ordersAPI = {
+  create: (orderData) =>
+    apiCall('/orders', {
+      method: 'POST',
+      body: orderData
+    }),
+  
+  getAll: () => apiCall('/orders'),
+  
+  getById: (id) => apiCall(`/orders/${id}`)
+}
+
+// Wishlist API
+export const wishlistAPI = {
+  getAll: () => apiCall('/wishlist'),
+  
+  add: (productId) =>
+    apiCall('/wishlist', {
+      method: 'POST',
+      body: { productId }
+    }),
+  
+  remove: (productId) =>
+    apiCall(`/wishlist/${productId}`, {
+      method: 'DELETE'
+    }),
+  
+  check: (productId) => apiCall(`/wishlist/check/${productId}`)
+}
+
+// Addresses API
+export const addressesAPI = {
+  getAll: () => apiCall('/addresses'),
+  
+  add: (addressData) =>
+    apiCall('/addresses', {
+      method: 'POST',
+      body: addressData
+    }),
+  
+  update: (id, addressData) =>
+    apiCall(`/addresses/${id}`, {
+      method: 'PUT',
+      body: addressData
+    }),
+  
+  delete: (id) =>
+    apiCall(`/addresses/${id}`, {
+      method: 'DELETE'
+    })
+}
+
+// Payment Methods API
+export const paymentAPI = {
+  getAll: () => apiCall('/payment-methods'),
+  
+  add: (paymentData) =>
+    apiCall('/payment-methods', {
+      method: 'POST',
+      body: paymentData
+    }),
+  
+  delete: (id) =>
+    apiCall(`/payment-methods/${id}`, {
+      method: 'DELETE'
+    })
+}
+
+// Banners API
+export const bannersAPI = {
+  getAll: () => apiCall('/banners', { includeAuth: false })
+}
+
+// Coupons API
+export const couponsAPI = {
+  validate: (code, orderTotal) => {
+    const queryParams = new URLSearchParams()
+    if (orderTotal) queryParams.append('orderTotal', orderTotal)
+    return apiCall(`/coupons/validate/${code}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`, { includeAuth: false })
+  }
+}
+
+// Settings API
+export const settingsAPI = {
+  get: (category) => {
+    if (category) {
+      return apiCall(`/settings/${category}`, { includeAuth: false })
+    }
+    return apiCall('/settings', { includeAuth: false })
+  },
+  getShipping: () => apiCall('/settings/shipping', { includeAuth: false }),
+  getContact: () => apiCall('/settings/contact', { includeAuth: false })
+}
+
+// Contact API
+export const contactAPI = {
+  submit: (formData) =>
+    apiCall('/contact', {
+      method: 'POST',
+      body: formData,
+      includeAuth: false
+    })
+}
+
+// Returns API
+export const returnsAPI = {
+  getAll: () => apiCall('/returns'),
+  create: (returnData) =>
+    apiCall('/returns', {
+      method: 'POST',
+      body: returnData
+    }),
+  getById: (id) => apiCall(`/returns/${id}`)
+}
+
+// Newsletter API
+export const newsletterAPI = {
+  subscribe: (email, name) =>
+    apiCall('/newsletter/subscribe', {
+      method: 'POST',
+      body: { email, name },
+      includeAuth: false
+    }),
+  unsubscribe: (email) =>
+    apiCall('/newsletter/unsubscribe', {
+      method: 'POST',
+      body: { email },
+      includeAuth: false
+    })
+}
+
+// Content API
+export const contentAPI = {
+  getHero: () => apiCall('/content/hero', { includeAuth: false })
+}
+
+export default {
+  authAPI,
+  productsAPI,
+  cartAPI,
+  ordersAPI,
+  wishlistAPI,
+  addressesAPI,
+  paymentAPI,
+  bannersAPI,
+  couponsAPI,
+  settingsAPI,
+  contactAPI,
+  returnsAPI,
+  newsletterAPI,
+  contentAPI
+}
+

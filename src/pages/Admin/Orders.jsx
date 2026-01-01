@@ -1,30 +1,55 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Eye, Package, Truck, CheckCircle } from 'lucide-react'
+import { adminOrdersAPI } from '../../utils/adminApi'
+import { useToast } from '../../components/Toast/ToastContainer'
 
 function Orders() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { success, error: showError } = useToast()
 
-  const orders = [
-    { id: 'ORD-001', customer: 'Priya Sharma', email: 'priya@example.com', mobile: '9876543210', amount: 3499, status: 'Processing', date: '2024-01-15', items: 2 },
-    { id: 'ORD-002', customer: 'Ananya Patel', email: 'ananya@example.com', mobile: '9876543211', amount: 2499, status: 'Shipped', date: '2024-01-15', items: 1 },
-    { id: 'ORD-003', customer: 'Kavya Reddy', email: 'kavya@example.com', mobile: '9876543212', amount: 1899, status: 'Delivered', date: '2024-01-14', items: 3 },
-    { id: 'ORD-004', customer: 'Meera Singh', email: 'meera@example.com', mobile: '9876543213', amount: 4599, status: 'Processing', date: '2024-01-14', items: 1 },
-    { id: 'ORD-005', customer: 'Sneha Kumar', email: 'sneha@example.com', mobile: '9876543214', amount: 1299, status: 'Shipped', date: '2024-01-13', items: 2 }
-  ]
+  const statusOptions = ['Processing', 'Shipped', 'Delivered', 'Cancelled', 'Returned']
+
+  useEffect(() => {
+    loadOrders()
+  }, [statusFilter])
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true)
+      const filters = {}
+      if (statusFilter) {
+        filters.status = statusFilter
+      }
+      if (searchQuery) {
+        filters.search = searchQuery
+      }
+      const data = await adminOrdersAPI.getAll(filters)
+      setOrders(data.orders || [])
+    } catch (err) {
+      console.error('Error loading orders:', err)
+      showError('Failed to load orders')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         order.customer.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = !statusFilter || order.status === statusFilter
-    return matchesSearch && matchesStatus
+    if (!searchQuery) return true
+    return order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           order.customer.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const statusOptions = ['Processing', 'Shipped', 'Delivered', 'Cancelled']
-
-  const updateOrderStatus = (orderId, newStatus) => {
-    // Mock update
-    console.log(`Updating order ${orderId} to ${newStatus}`)
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await adminOrdersAPI.updateStatus(orderId, newStatus)
+      await loadOrders()
+      success('Order status updated successfully')
+    } catch (err) {
+      showError('Failed to update order status')
+    }
   }
 
   return (
@@ -97,37 +122,51 @@ function Orders() {
             </tr>
           </thead>
           <tbody>
-            {filteredOrders.map(order => (
-              <tr key={order.id}>
-                <td><strong>{order.id}</strong></td>
-                <td>{order.customer}</td>
-                <td>
-                  <div className="contact-info">
-                    <p>{order.mobile}</p>
-                    <p className="text-muted">{order.email}</p>
-                  </div>
-                </td>
-                <td>{order.items}</td>
-                <td>₹{order.amount.toLocaleString()}</td>
-                <td>
-                  <select
-                    className={`status-select status-${order.status.toLowerCase()}`}
-                    value={order.status}
-                    onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                  >
-                    {statusOptions.map(status => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
-                </td>
-                <td>{new Date(order.date).toLocaleDateString()}</td>
-                <td>
-                  <button className="btn-icon" title="View Details">
-                    <Eye size={16} />
-                  </button>
+            {loading ? (
+              <tr>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
+                  Loading orders...
                 </td>
               </tr>
-            ))}
+            ) : filteredOrders.length === 0 ? (
+              <tr>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
+                  No orders found
+                </td>
+              </tr>
+            ) : (
+              filteredOrders.map(order => (
+                <tr key={order.id}>
+                  <td><strong>{order.id}</strong></td>
+                  <td>{order.customer}</td>
+                  <td>
+                    <div className="contact-info">
+                      <p>{order.mobile}</p>
+                      <p className="text-muted">{order.email}</p>
+                    </div>
+                  </td>
+                  <td>{order.items}</td>
+                  <td>₹{order.amount.toLocaleString()}</td>
+                  <td>
+                    <select
+                      className={`status-select status-${order.status.toLowerCase()}`}
+                      value={order.status}
+                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                    >
+                      {statusOptions.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>{new Date(order.date).toLocaleDateString()}</td>
+                  <td>
+                    <button className="btn-icon" title="View Details" onClick={() => window.location.href = `/order/${order.id}`}>
+                      <Eye size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

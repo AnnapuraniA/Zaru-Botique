@@ -20,7 +20,7 @@ function Privacy() {
         <div className="policy-content">
           <section className="policy-section">
             <h2>1. Introduction</h2>
-            <p>Arudhra Boutique ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our services.</p>
+            <p>Arudhra Fashions ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our services.</p>
           </section>
 
           <section className="policy-section">

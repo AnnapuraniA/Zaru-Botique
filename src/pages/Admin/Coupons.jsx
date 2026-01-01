@@ -1,56 +1,43 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, Edit, Trash2, Copy, X } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
+import { adminCouponsAPI } from '../../utils/adminApi'
 
 function Coupons() {
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editingCoupon, setEditingCoupon] = useState(null)
+  const [coupons, setCoupons] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [coupons, setCoupons] = useState([
-    { 
-      id: 1, 
-      code: 'WELCOME10', 
-      description: '10% off for new customers', 
-      discount: 10, 
-      type: 'percentage', 
-      minPurchase: 1000, 
-      maxDiscount: 200, 
-      validFrom: '2024-01-01', 
-      validUntil: '2024-12-31', 
-      usageLimit: 1000, 
-      used: 234, 
-      status: 'active' 
-    },
-    { 
-      id: 2, 
-      code: 'SAVE500', 
-      description: 'Flat ₹500 off on orders above ₹3000', 
-      discount: 500, 
-      type: 'fixed', 
-      minPurchase: 3000, 
-      maxDiscount: 500, 
-      validFrom: '2024-01-15', 
-      validUntil: '2024-02-15', 
-      usageLimit: 500, 
-      used: 89, 
-      status: 'active' 
-    },
-    { 
-      id: 3, 
-      code: 'FREESHIP', 
-      description: 'Free shipping on all orders', 
-      discount: 0, 
-      type: 'free_shipping', 
-      minPurchase: 0, 
-      maxDiscount: null, 
-      validFrom: '2024-01-01', 
-      validUntil: '2024-06-30', 
-      usageLimit: null, 
-      used: 456, 
-      status: 'active' 
+  useEffect(() => {
+    loadCoupons()
+  }, [statusFilter])
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      loadCoupons()
+    }, 500)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery])
+
+  const loadCoupons = async () => {
+    try {
+      setLoading(true)
+      const filters = {}
+      if (statusFilter) filters.status = statusFilter
+      if (searchQuery) filters.search = searchQuery
+      const data = await adminCouponsAPI.getAll(filters)
+      setCoupons(data.coupons || [])
+    } catch (err) {
+      console.error('Error loading coupons:', err)
+      showError('Failed to load coupons')
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
 
   const [formData, setFormData] = useState({
     code: '',
@@ -65,46 +52,82 @@ function Coupons() {
     status: 'active'
   })
 
-  const filteredCoupons = coupons.filter(coupon =>
-    coupon.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    coupon.description.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const handleAdd = () => {
-    if (!formData.code || !formData.description) {
-      alert('Please fill in all required fields')
+  const handleAdd = async () => {
+    if (!formData.code || !formData.description || !formData.discount) {
+      showError('Please fill in all required fields')
       return
     }
-    const newCoupon = {
-      id: coupons.length + 1,
-      ...formData,
-      discount: parseFloat(formData.discount) || 0,
-      minPurchase: parseFloat(formData.minPurchase) || 0,
-      maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
-      usageLimit: formData.usageLimit ? parseFloat(formData.usageLimit) : null,
-      used: 0
+    try {
+      await adminCouponsAPI.create({
+        ...formData,
+        discount: parseFloat(formData.discount),
+        minPurchase: formData.minPurchase ? parseFloat(formData.minPurchase) : 0,
+        maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
+        usageLimit: formData.usageLimit ? parseFloat(formData.usageLimit) : null,
+        validFrom: formData.validFrom || null,
+        validUntil: formData.validUntil || null
+      })
+      setShowAddModal(false)
+      setFormData({
+        code: '',
+        description: '',
+        type: 'percentage',
+        discount: '',
+        minPurchase: '',
+        maxDiscount: '',
+        validFrom: '',
+        validUntil: '',
+        usageLimit: '',
+        status: 'active'
+      })
+      await loadCoupons()
+      success('Coupon code added successfully')
+    } catch (err) {
+      showError('Failed to add coupon')
     }
-    setCoupons([...coupons, newCoupon])
-    setShowAddModal(false)
-    setFormData({
-      code: '',
-      description: '',
-      type: 'percentage',
-      discount: '',
-      minPurchase: '',
-      maxDiscount: '',
-      validFrom: '',
-      validUntil: '',
-      usageLimit: '',
-      status: 'active'
-    })
-    success('Coupon code added successfully')
   }
 
-  const handleDelete = (id) => {
+  const handleUpdate = async () => {
+    if (!editingCoupon) return
+    try {
+      await adminCouponsAPI.update(editingCoupon.id, {
+        ...formData,
+        discount: parseFloat(formData.discount),
+        minPurchase: formData.minPurchase ? parseFloat(formData.minPurchase) : 0,
+        maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
+        usageLimit: formData.usageLimit ? parseFloat(formData.usageLimit) : null,
+        validFrom: formData.validFrom || null,
+        validUntil: formData.validUntil || null
+      })
+      setEditingCoupon(null)
+      setFormData({
+        code: '',
+        description: '',
+        type: 'percentage',
+        discount: '',
+        minPurchase: '',
+        maxDiscount: '',
+        validFrom: '',
+        validUntil: '',
+        usageLimit: '',
+        status: 'active'
+      })
+      await loadCoupons()
+      success('Coupon updated successfully')
+    } catch (err) {
+      showError('Failed to update coupon')
+    }
+  }
+
+  const handleDelete = async (id) => {
     if (window.confirm('Delete this coupon code?')) {
-      setCoupons(coupons.filter(c => c.id !== id))
-      success('Coupon deleted successfully')
+      try {
+        await adminCouponsAPI.delete(id)
+        await loadCoupons()
+        success('Coupon deleted successfully')
+      } catch (err) {
+        showError('Failed to delete coupon')
+      }
     }
   }
 
@@ -113,11 +136,31 @@ function Coupons() {
     success('Coupon code copied!')
   }
 
-  const handleToggleStatus = (id) => {
-    setCoupons(coupons.map(c => 
-      c.id === id ? { ...c, status: c.status === 'active' ? 'inactive' : 'active' } : c
-    ))
-    success('Coupon status updated')
+  const handleToggleStatus = async (id) => {
+    try {
+      await adminCouponsAPI.toggleStatus(id)
+      await loadCoupons()
+      success('Coupon status updated')
+    } catch (err) {
+      showError('Failed to update coupon status')
+    }
+  }
+
+  const handleEdit = (coupon) => {
+    setEditingCoupon(coupon)
+    setFormData({
+      code: coupon.code || '',
+      description: coupon.description || '',
+      type: coupon.type || 'percentage',
+      discount: coupon.discount || '',
+      minPurchase: coupon.minPurchase || '',
+      maxDiscount: coupon.maxDiscount || '',
+      validFrom: coupon.validFrom ? coupon.validFrom.split('T')[0] : '',
+      validUntil: coupon.validUntil ? coupon.validUntil.split('T')[0] : '',
+      usageLimit: coupon.usageLimit || '',
+      status: coupon.status || 'active'
+    })
+    setShowAddModal(true)
   }
 
   return (
@@ -127,7 +170,22 @@ function Coupons() {
           <h1>Coupon Codes</h1>
           <p>Create and manage discount coupon codes</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+        <button className="btn btn-primary" onClick={() => {
+          setEditingCoupon(null)
+          setFormData({
+            code: '',
+            description: '',
+            type: 'percentage',
+            discount: '',
+            minPurchase: '',
+            maxDiscount: '',
+            validFrom: '',
+            validUntil: '',
+            usageLimit: '',
+            status: 'active'
+          })
+          setShowAddModal(true)
+        }}>
           <Plus size={18} />
           Add Coupon
         </button>
@@ -166,7 +224,16 @@ function Coupons() {
             </tr>
           </thead>
           <tbody>
-            {filteredCoupons.map(coupon => (
+            {loading ? (
+              <tr>
+                <td colSpan="8" className="text-center">Loading...</td>
+              </tr>
+            ) : coupons.length === 0 ? (
+              <tr>
+                <td colSpan="8" className="text-center">No coupons found</td>
+              </tr>
+            ) : (
+              coupons.map(coupon => (
               <tr key={coupon.id}>
                 <td>
                   <div className="coupon-code-cell">
@@ -217,7 +284,7 @@ function Coupons() {
                 </td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-icon" title="Edit">
+                    <button className="btn-icon" title="Edit" onClick={() => handleEdit(coupon)}>
                       <Edit size={16} />
                     </button>
                     <button className="btn-icon danger" title="Delete" onClick={() => handleDelete(coupon.id)}>
@@ -226,7 +293,8 @@ function Coupons() {
                   </div>
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -236,8 +304,23 @@ function Coupons() {
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add New Coupon</h2>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>
+              <h2>{editingCoupon ? 'Edit Coupon' : 'Add New Coupon'}</h2>
+              <button className="modal-close" onClick={() => {
+                setShowAddModal(false)
+                setEditingCoupon(null)
+                setFormData({
+                  code: '',
+                  description: '',
+                  type: 'percentage',
+                  discount: '',
+                  minPurchase: '',
+                  maxDiscount: '',
+                  validFrom: '',
+                  validUntil: '',
+                  usageLimit: '',
+                  status: 'active'
+                })
+              }}>
                 <X size={20} />
               </button>
             </div>
@@ -358,7 +441,9 @@ function Coupons() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAdd}>Add Coupon</button>
+              <button className="btn btn-primary" onClick={editingCoupon ? handleUpdate : handleAdd}>
+                {editingCoupon ? 'Update Coupon' : 'Add Coupon'}
+              </button>
             </div>
           </div>
         </div>

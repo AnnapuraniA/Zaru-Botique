@@ -1,94 +1,218 @@
-import { useParams, Link } from 'react-router-dom'
-import { useState } from 'react'
-import { Heart, ShoppingCart, Star, Share2, Minus, Plus, ChevronLeft, ChevronRight, Check, Package, Truck, RotateCcw, Shield, Facebook, Twitter, Instagram } from 'lucide-react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Heart, ShoppingCart, Star, Share2, Minus, Plus, ChevronLeft, ChevronRight, Check, Package, Truck, RotateCcw, Shield, Facebook, Twitter, Instagram, GitCompare } from 'lucide-react'
 import ProductCard from '../components/ProductCard/ProductCard'
 import { useToast } from '../components/Toast/ToastContainer'
+import { productsAPI, cartAPI, wishlistAPI } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
 
 function ProductDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
+  const [product, setProduct] = useState(null)
+  const [reviews, setReviews] = useState([])
+  const [relatedProducts, setRelatedProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [selectedSize, setSelectedSize] = useState('M')
-  const [selectedColor, setSelectedColor] = useState('Burgundy')
+  const [selectedColor, setSelectedColor] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [activeTab, setActiveTab] = useState('details')
   const [showShareMenu, setShowShareMenu] = useState(false)
-  const { success } = useToast()
+  const { success, error: showError } = useToast()
 
-  // Mock product data
-  const product = {
-    id: 1,
-    name: 'Elegant Summer Dress',
-    category: 'Women - Dresses',
-    price: 89.99,
-    originalPrice: 129.99,
-    image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&h=800&fit=crop',
-    images: [
-      'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&h=800&fit=crop',
-      'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=600&h=800&fit=crop',
-      'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&h=800&fit=crop',
-      'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=600&h=800&fit=crop'
-    ],
-    onSale: true,
-    rating: 4.5,
-    reviews: 24,
-    brand: 'Arudhra Boutique',
-    material: '100% Premium Cotton',
-    care: 'Machine Wash Cold, Tumble Dry Low',
-    sizes: ['XS', 'S', 'M', 'L', 'XL'],
-    colors: [
-      { name: 'Burgundy', value: '#800020' },
-      { name: 'Gold', value: '#D4AF37' },
-      { name: 'Deep Burgundy', value: '#5C0018' },
-      { name: 'Light Burgundy', value: '#A02040' }
-    ],
-    inStock: true,
-    stockCount: 15,
-    description: 'A beautiful summer dress perfect for any occasion. Made from high-quality cotton for comfort and style. This elegant piece features a flattering A-line silhouette with delicate floral patterns that add a touch of sophistication to your wardrobe.',
-    fullDescription: 'This elegant summer dress is crafted from premium 100% cotton fabric, ensuring breathability and comfort throughout the day. The A-line silhouette flatters all body types, while the delicate floral print adds a feminine touch. Perfect for brunches, garden parties, or casual outings. The dress features a comfortable fit with adjustable straps and a flared hem that moves beautifully with every step.',
-    specifications: {
-      'Fabric': '100% Premium Cotton',
-      'Fit': 'Regular Fit',
-      'Length': 'Knee Length',
-      'Sleeve': 'Sleeveless',
-      'Pattern': 'Floral Print',
-      'Neckline': 'Round Neck',
-      'Care Instructions': 'Machine Wash Cold, Tumble Dry Low, Iron on Low Heat'
-    },
-    shippingInfo: {
-      'Free Shipping': 'On orders above ₹2000',
-      'Standard Delivery': '5-7 business days',
-      'Express Delivery': '2-3 business days (₹200)',
-      'Returns': '30 days return policy',
-      'Exchange': 'Easy exchange available'
+  // Fetch product data
+  useEffect(() => {
+    const fetchProductData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // Fetch product
+        const productData = await productsAPI.getById(id)
+        setProduct(productData)
+        
+        // Set default color if available
+        if (productData.colors && productData.colors.length > 0) {
+          setSelectedColor(typeof productData.colors[0] === 'string' 
+            ? productData.colors[0] 
+            : productData.colors[0].name || productData.colors[0].value)
+        }
+        
+        // Set default size if available
+        if (productData.sizes && productData.sizes.length > 0) {
+          setSelectedSize(productData.sizes[0])
+        }
+        
+        // Fetch reviews
+        try {
+          const reviewsData = await productsAPI.getReviews(id)
+          // Backend returns array directly, not wrapped in reviews property
+          setReviews(Array.isArray(reviewsData) ? reviewsData : (reviewsData.reviews || []))
+        } catch (err) {
+          console.error('Failed to fetch reviews:', err)
+          setReviews([])
+        }
+        
+        // Fetch related products
+        try {
+          const relatedData = await productsAPI.getRelated(id)
+          // Backend returns array directly, not wrapped in products property
+          setRelatedProducts(Array.isArray(relatedData) ? relatedData : (relatedData.products || []))
+        } catch (err) {
+          console.error('Failed to fetch related products:', err)
+          setRelatedProducts([])
+        }
+        
+        // Check if product is in wishlist (if authenticated)
+        if (isAuthenticated) {
+          try {
+            const wishlist = await wishlistAPI.getAll()
+            setIsWishlisted(wishlist.some(item => item.product?._id === id || item.productId === id))
+          } catch (err) {
+            console.error('Failed to check wishlist:', err)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch product:', err)
+        setError('Failed to load product. Please try again later.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    if (id) {
+      fetchProductData()
+    }
+  }, [id, isAuthenticated])
+
+  const nextImage = () => {
+    if (product && product.images && product.images.length > 0) {
+      setSelectedImageIndex((prev) => (prev + 1) % product.images.length)
     }
   }
 
-  // Mock reviews
-  const reviews = [
-    { id: 1, name: 'Priya Sharma', rating: 5, date: '2024-01-15', comment: 'Absolutely love this dress! The fit is perfect and the quality is excellent. Highly recommend!' },
-    { id: 2, name: 'Anjali Patel', rating: 4, date: '2024-01-10', comment: 'Beautiful dress, very comfortable. The material is soft and breathable. Only wish it came in more colors.' },
-    { id: 3, name: 'Meera Reddy', rating: 5, date: '2024-01-05', comment: 'Perfect for summer! The floral pattern is elegant and the dress is very well made. Great value for money.' }
-  ]
-
-  // Mock related products
-  const relatedProducts = [
-    { id: 2, name: 'Floral Print Maxi Dress', category: 'Women', subcategory: 'Dresses', price: 79.99, image: 'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=400&h=500&fit=crop', rating: 4.6, reviews: 15 },
-    { id: 3, name: 'Classic A-Line Dress', category: 'Women', subcategory: 'Dresses', price: 94.99, originalPrice: 119.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', onSale: true, rating: 4.7, reviews: 32 },
-    { id: 4, name: 'Evening Gown', category: 'Women', subcategory: 'Dresses', price: 149.99, image: 'https://images.unsplash.com/photo-1566479179817-1c6d2c05b93e?w=400&h=500&fit=crop', rating: 4.8, reviews: 28 },
-    { id: 5, name: 'Casual Midi Dress', category: 'Women', subcategory: 'Dresses', price: 69.99, image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop', rating: 4.4, reviews: 19 }
-  ]
-
-  const nextImage = () => {
-    setSelectedImageIndex((prev) => (prev + 1) % product.images.length)
-  }
-
   const prevImage = () => {
-    setSelectedImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length)
+    if (product && product.images && product.images.length > 0) {
+      setSelectedImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length)
+    }
   }
 
-  const handleAddToCart = () => {
-    console.log('Add to cart:', { id, size: selectedSize, color: selectedColor, quantity })
+  const handleAddToCart = async () => {
+    if (!isAuthenticated) {
+      showError('Please login to add items to cart')
+      navigate('/dashboard', { state: { tab: 'login' } })
+      return
+    }
+    
+    try {
+      await cartAPI.addItem(id, quantity, selectedSize, selectedColor)
+      success('Product added to cart!')
+      // Dispatch cart update event
+      window.dispatchEvent(new Event('cartUpdated'))
+    } catch (err) {
+      console.error('Failed to add to cart:', err)
+      showError('Failed to add product to cart')
+    }
+  }
+
+  const handleToggleWishlist = async () => {
+    if (!isAuthenticated) {
+      showError('Please login to add items to wishlist')
+      navigate('/dashboard', { state: { tab: 'login' } })
+      return
+    }
+    
+    try {
+      if (isWishlisted) {
+        await wishlistAPI.remove(id)
+        setIsWishlisted(false)
+        success('Removed from wishlist')
+      } else {
+        await wishlistAPI.add(id)
+        setIsWishlisted(true)
+        success('Added to wishlist')
+      }
+    } catch (err) {
+      console.error('Failed to update wishlist:', err)
+      showError('Failed to update wishlist')
+    }
+  }
+
+  // Check if product is in compare list
+  useEffect(() => {
+    if (id) {
+      const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
+      setIsInCompare(compareIds.includes(id))
+    }
+  }, [id])
+
+  const handleToggleCompare = () => {
+    const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
+    
+    if (isInCompare) {
+      // Remove from compare
+      const updatedIds = compareIds.filter(itemId => itemId !== id)
+      localStorage.setItem('compareItems', JSON.stringify(updatedIds))
+      setIsInCompare(false)
+      success('Removed from compare')
+    } else {
+      // Add to compare (max 4 items)
+      if (compareIds.length >= 4) {
+        showError('You can compare up to 4 products at a time')
+        return
+      }
+      const updatedIds = [...compareIds, id]
+      localStorage.setItem('compareItems', JSON.stringify(updatedIds))
+      setIsInCompare(true)
+      success('Added to compare')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="product-detail-page">
+        <div className="container">
+          <div className="loading-spinner">
+            <p>Loading product...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !product) {
+    return (
+      <div className="product-detail-page">
+        <div className="container">
+          <div className="error-message">
+            <p>{error || 'Product not found'}</p>
+            <Link to="/products" className="btn btn-primary">Back to Products</Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Normalize product data for display
+  const productImages = product.images && product.images.length > 0 
+    ? product.images 
+    : product.image 
+      ? [product.image] 
+      : ['https://via.placeholder.com/600x800']
+  
+  const productColors = product.colors || []
+  const productSizes = product.sizes || []
+  
+  const shippingInfo = {
+    'Free Shipping': 'On orders above ₹2000',
+    'Standard Delivery': '5-7 business days',
+    'Express Delivery': '2-3 business days (₹200)',
+    'Returns': '30 days return policy',
+    'Exchange': 'Easy exchange available'
   }
 
   return (
@@ -98,10 +222,22 @@ function ProductDetail() {
         <nav className="breadcrumb">
           <Link to="/">Home</Link>
           <span>/</span>
-          <Link to="/products/women">Women</Link>
-          <span>/</span>
-          <Link to="/products/women/dresses">Dresses</Link>
-          <span>/</span>
+          {product.category && (
+            <>
+              <Link to={`/products/${product.category.toLowerCase()}`}>
+                {product.category}
+              </Link>
+              <span>/</span>
+            </>
+          )}
+          {product.subcategory && (
+            <>
+              <Link to={`/products/${product.category?.toLowerCase()}/${product.subcategory.toLowerCase()}`}>
+                {product.subcategory}
+              </Link>
+              <span>/</span>
+            </>
+          )}
           <span>{product.name}</span>
         </nav>
 
@@ -109,27 +245,38 @@ function ProductDetail() {
           <div className="product-images">
             <div className="main-image-wrapper">
               <div className="main-image">
-                <img src={product.images[selectedImageIndex]} alt={product.name} />
+                <img 
+                  src={productImages[selectedImageIndex]} 
+                  alt={product.name}
+                  className="fade-in"
+                  key={selectedImageIndex}
+                />
                 {product.onSale && <span className="sale-badge">Sale</span>}
-                <button className="image-nav-btn prev-btn" onClick={prevImage} aria-label="Previous image">
-                  <ChevronLeft size={24} />
-                </button>
-                <button className="image-nav-btn next-btn" onClick={nextImage} aria-label="Next image">
-                  <ChevronRight size={24} />
-                </button>
+                {productImages.length > 1 && (
+                  <>
+                    <button className="image-nav-btn prev-btn" onClick={prevImage} aria-label="Previous image">
+                      <ChevronLeft size={24} />
+                    </button>
+                    <button className="image-nav-btn next-btn" onClick={nextImage} aria-label="Next image">
+                      <ChevronRight size={24} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-            <div className="thumbnail-images">
-              {product.images.map((img, idx) => (
-                <button
-                  key={idx}
-                  className={`thumbnail-btn ${selectedImageIndex === idx ? 'active' : ''}`}
-                  onClick={() => setSelectedImageIndex(idx)}
-                >
-                  <img src={img} alt={`${product.name} ${idx + 1}`} />
-                </button>
-              ))}
-            </div>
+            {productImages.length > 1 && (
+              <div className="thumbnail-images">
+                {productImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    className={`thumbnail-btn ${selectedImageIndex === idx ? 'active' : ''}`}
+                    onClick={() => setSelectedImageIndex(idx)}
+                  >
+                    <img src={img} alt={`${product.name} ${idx + 1}`} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="product-info">
@@ -144,8 +291,8 @@ function ProductDetail() {
                         <Star
                           key={i}
                           size={18}
-                          fill={i < Math.floor(product.rating) ? '#ffc107' : 'none'}
-                          color="#ffc107"
+                          fill={i < Math.floor(product.rating) ? '#C89E7E' : 'none'}
+                          color="#C89E7E"
                         />
                       ))}
                     </div>
@@ -174,7 +321,7 @@ function ProductDetail() {
                       </button>
                       <button onClick={() => {
                         const url = window.location.href
-                        const text = `Check out ${product.name} at Arudhra Boutique!`
+                        const text = `Check out ${product.name} at Arudhra Fashions!`
                         window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
                         setShowShareMenu(false)
                         success('Sharing on Twitter...')
@@ -233,43 +380,53 @@ function ProductDetail() {
             <p className="product-description">{product.description}</p>
 
             <div className="product-options">
-              <div className="option-group">
-                <label>Size</label>
-                <div className="size-options">
-                  {product.sizes.map(size => (
-                    <button
-                      key={size}
-                      className={`size-btn ${selectedSize === size ? 'active' : ''}`}
-                      onClick={() => setSelectedSize(size)}
-                    >
-                      {size}
-                    </button>
-                  ))}
+              {productSizes.length > 0 && (
+                <div className="option-group">
+                  <label>Size</label>
+                  <div className="size-options">
+                    {productSizes.map(size => (
+                      <button
+                        key={size}
+                        className={`size-btn ${selectedSize === size ? 'active' : ''}`}
+                        onClick={() => setSelectedSize(size)}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                  <Link to="/size-guide" className="size-guide-link">
+                    Size Guide
+                  </Link>
                 </div>
-                <Link to="/size-guide" className="size-guide-link">
-                  Size Guide
-                </Link>
-              </div>
+              )}
 
-              <div className="option-group">
-                <label>Color</label>
-                <div className="color-options">
-                  {product.colors.map(color => (
-                    <button
-                      key={color.name}
-                      className={`color-btn ${selectedColor === color.name ? 'active' : ''}`}
-                      onClick={() => setSelectedColor(color.name)}
-                      title={color.name}
-                    >
-                      <span 
-                        className="color-swatch"
-                        style={{ backgroundColor: color.value }}
-                      ></span>
-                      {selectedColor === color.name && <span className="check-mark">✓</span>}
-                    </button>
-                  ))}
+              {productColors.length > 0 && (
+                <div className="option-group">
+                  <label>Color</label>
+                  <div className="color-options">
+                    {productColors.map((color, idx) => {
+                      const colorName = typeof color === 'string' ? color : (color.name || color.value || `Color ${idx + 1}`)
+                      const colorValue = typeof color === 'string' ? color : (color.value || color.name || '#000000')
+                      const isSelected = selectedColor === colorName
+                      
+                      return (
+                        <button
+                          key={colorName}
+                          className={`color-btn ${isSelected ? 'active' : ''}`}
+                          onClick={() => setSelectedColor(colorName)}
+                          title={colorName}
+                        >
+                          <span 
+                            className="color-swatch"
+                            style={{ backgroundColor: colorValue }}
+                          ></span>
+                          {isSelected && <span className="check-mark">✓</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="option-group">
                 <label>Quantity</label>
@@ -292,10 +449,17 @@ function ProductDetail() {
               </button>
               <button
                 className="btn btn-outline"
-                onClick={() => setIsWishlisted(!isWishlisted)}
+                onClick={handleToggleWishlist}
               >
                 <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
                 Wishlist
+              </button>
+              <button 
+                className="btn btn-outline"
+                onClick={handleToggleCompare}
+              >
+                <GitCompare size={20} fill={isInCompare ? 'currentColor' : 'none'} />
+                {isInCompare ? 'In Compare' : 'Compare'}
               </button>
               <button className="btn btn-outline">
                 <Share2 size={20} />
@@ -380,16 +544,20 @@ function ProductDetail() {
             {activeTab === 'specifications' && (
               <div className="tab-panel">
                 <h3>Product Specifications</h3>
-                <table className="specifications-table">
-                  <tbody>
-                    {Object.entries(product.specifications).map(([key, value]) => (
-                      <tr key={key}>
-                        <td><strong>{key}</strong></td>
-                        <td>{value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {product.specifications && Object.keys(product.specifications).length > 0 ? (
+                  <table className="specifications-table">
+                    <tbody>
+                      {Object.entries(product.specifications).map(([key, value]) => (
+                        <tr key={key}>
+                          <td><strong>{key}</strong></td>
+                          <td>{value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p>No specifications available for this product.</p>
+                )}
               </div>
             )}
 
@@ -397,7 +565,7 @@ function ProductDetail() {
               <div className="tab-panel">
                 <h3>Shipping & Returns</h3>
                 <div className="shipping-info">
-                  {Object.entries(product.shippingInfo).map(([key, value]) => (
+                  {Object.entries(shippingInfo).map(([key, value]) => (
                     <div key={key} className="shipping-item">
                       <Truck size={20} />
                       <div>
@@ -422,8 +590,8 @@ function ProductDetail() {
                           <Star
                             key={i}
                             size={20}
-                            fill={i < Math.floor(product.rating) ? '#ffc107' : 'none'}
-                            color="#ffc107"
+                            fill={i < Math.floor(product.rating) ? '#C89E7E' : 'none'}
+                            color="#C89E7E"
                           />
                         ))}
                       </div>
@@ -432,27 +600,39 @@ function ProductDetail() {
                   </div>
                 </div>
                 <div className="reviews-list">
-                  {reviews.map(review => (
-                    <div key={review.id} className="review-item">
-                      <div className="review-header">
-                        <div>
-                          <strong>{review.name}</strong>
-                          <div className="review-rating">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                size={14}
-                                fill={i < review.rating ? '#ffc107' : 'none'}
-                                color="#ffc107"
-                              />
-                            ))}
+                  {reviews.length > 0 ? (
+                    reviews.map(review => {
+                      const reviewId = review._id || review.id
+                      const reviewerName = review.userName || review.user?.name || review.name || 'Anonymous'
+                      const reviewDate = review.createdAt 
+                        ? new Date(review.createdAt).toLocaleDateString() 
+                        : review.date || 'N/A'
+                      
+                      return (
+                        <div key={reviewId} className="review-item">
+                          <div className="review-header">
+                            <div>
+                              <strong>{reviewerName}</strong>
+                              <div className="review-rating">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    size={14}
+                                    fill={i < (review.rating || 0) ? '#C89E7E' : 'none'}
+                                    color="#C89E7E"
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <span className="review-date">{reviewDate}</span>
                           </div>
+                          <p className="review-comment">{review.comment || ''}</p>
                         </div>
-                        <span className="review-date">{review.date}</span>
-                      </div>
-                      <p className="review-comment">{review.comment}</p>
-                    </div>
-                  ))}
+                      )
+                    })
+                  ) : (
+                    <p>No reviews yet. Be the first to review this product!</p>
+                  )}
                 </div>
               </div>
             )}
@@ -464,7 +644,7 @@ function ProductDetail() {
           <h2>You May Also Like</h2>
           <div className="related-products-grid grid-4">
             {relatedProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product._id || product.id} product={product} />
             ))}
           </div>
         </div>

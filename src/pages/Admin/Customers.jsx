@@ -1,22 +1,45 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Eye, Mail, Phone, Package, Calendar, Users } from 'lucide-react'
+import { adminCustomersAPI } from '../../utils/adminApi'
+import { useToast } from '../../components/Toast/ToastContainer'
 
 function Customers() {
   const [searchQuery, setSearchQuery] = useState('')
+  const [customers, setCustomers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { error: showError } = useToast()
 
-  const customers = [
-    { id: 'CUST-001', name: 'Priya Sharma', email: 'priya@example.com', mobile: '9876543210', orders: 5, totalSpent: 12499, joined: '2023-06-15', status: 'active' },
-    { id: 'CUST-002', name: 'Ananya Patel', email: 'ananya@example.com', mobile: '9876543211', orders: 3, totalSpent: 8999, joined: '2023-08-20', status: 'active' },
-    { id: 'CUST-003', name: 'Kavya Reddy', email: 'kavya@example.com', mobile: '9876543212', orders: 8, totalSpent: 18999, joined: '2023-05-10', status: 'active' },
-    { id: 'CUST-004', name: 'Meera Singh', email: 'meera@example.com', mobile: '9876543213', orders: 2, totalSpent: 4599, joined: '2023-11-05', status: 'active' },
-    { id: 'CUST-005', name: 'Sneha Kumar', email: 'sneha@example.com', mobile: '9876543214', orders: 1, totalSpent: 1299, joined: '2024-01-01', status: 'active' }
-  ]
+  useEffect(() => {
+    loadCustomers()
+  }, [])
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    customer.mobile.includes(searchQuery)
-  )
+  const loadCustomers = async () => {
+    try {
+      setLoading(true)
+      const filters = {}
+      if (searchQuery) {
+        filters.search = searchQuery
+      }
+      const data = await adminCustomersAPI.getAll(filters)
+      setCustomers(data.customers || [])
+    } catch (err) {
+      console.error('Error loading customers:', err)
+      showError('Failed to load customers')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (searchQuery !== undefined) {
+        loadCustomers()
+      }
+    }, 500)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery])
+
+  const filteredCustomers = customers
 
   return (
     <div className="admin-page">
@@ -50,7 +73,7 @@ function Customers() {
         <div className="stat-mini-card">
           <Package size={24} />
           <div>
-            <h3>{customers.reduce((sum, c) => sum + c.orders, 0)}</h3>
+            <h3>{customers.reduce((sum, c) => sum + (c.orders || 0), 0)}</h3>
             <p>Total Orders</p>
           </div>
         </div>
@@ -71,31 +94,45 @@ function Customers() {
             </tr>
           </thead>
           <tbody>
-            {filteredCustomers.map(customer => (
-              <tr key={customer.id}>
-                <td><strong>{customer.id}</strong></td>
-                <td>{customer.name}</td>
-                <td>
-                  <div className="contact-info">
-                    <p><Phone size={14} /> {customer.mobile}</p>
-                    <p className="text-muted"><Mail size={14} /> {customer.email}</p>
-                  </div>
-                </td>
-                <td>{customer.orders}</td>
-                <td>₹{customer.totalSpent.toLocaleString()}</td>
-                <td>{new Date(customer.joined).toLocaleDateString()}</td>
-                <td>
-                  <span className={`status-badge status-${customer.status}`}>
-                    {customer.status}
-                  </span>
-                </td>
-                <td>
-                  <button className="btn-icon" title="View Details">
-                    <Eye size={16} />
-                  </button>
+            {loading ? (
+              <tr>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
+                  Loading customers...
                 </td>
               </tr>
-            ))}
+            ) : filteredCustomers.length === 0 ? (
+              <tr>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
+                  No customers found
+                </td>
+              </tr>
+            ) : (
+              filteredCustomers.map(customer => (
+                <tr key={customer.id}>
+                  <td><strong>{customer.id}</strong></td>
+                  <td>{customer.name}</td>
+                  <td>
+                    <div className="contact-info">
+                      <p><Phone size={14} /> {customer.mobile}</p>
+                      <p className="text-muted"><Mail size={14} /> {customer.email || 'N/A'}</p>
+                    </div>
+                  </td>
+                  <td>{customer.orders || 0}</td>
+                  <td>₹{(customer.totalSpent || 0).toLocaleString()}</td>
+                  <td>{new Date(customer.joined).toLocaleDateString()}</td>
+                  <td>
+                    <span className={`status-badge status-${customer.status || 'active'}`}>
+                      {customer.status || 'active'}
+                    </span>
+                  </td>
+                  <td>
+                    <button className="btn-icon" title="View Details" onClick={() => window.location.href = `/admin/customers/${customer.id}`}>
+                      <Eye size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

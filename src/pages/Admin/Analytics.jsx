@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TrendingUp, DollarSign, ShoppingBag, Users, Download } from 'lucide-react'
+import { useToast } from '../../components/Toast/ToastContainer'
+import { adminAnalyticsAPI } from '../../utils/adminApi'
 
 function Analytics() {
+  const { error: showError } = useToast()
   const [selectedPeriod, setSelectedPeriod] = useState('30days')
-
-  const analytics = {
+  const [loading, setLoading] = useState(true)
+  const [analytics, setAnalytics] = useState({
     revenue: {
       total: 2456789,
       change: 12.5,
@@ -24,23 +27,68 @@ function Analytics() {
       value: 1973,
       change: -2.1
     }
-  }
-
-  const topProducts = [
+  })
+  const [topProducts, setTopProducts] = useState([
     { name: 'Elegant Summer Dress', sales: 245, revenue: 245000, growth: 15.5 },
     { name: 'Designer Handbag', sales: 189, revenue: 378000, growth: 22.3 },
     { name: 'Stylish Jeans', sales: 156, revenue: 280800, growth: 8.7 },
     { name: 'Casual Summer Top', sales: 134, revenue: 120600, growth: -5.2 },
     { name: 'Trendy Blazer', sales: 98, revenue: 244902, growth: 18.9 }
-  ]
-
-  const topCategories = [
+  ])
+  const [topCategories, setTopCategories] = useState([
     { name: 'Dresses', revenue: 856000, orders: 456, percentage: 35 },
     { name: 'Tops', revenue: 642000, orders: 342, percentage: 26 },
     { name: 'Accessories', revenue: 478000, orders: 234, percentage: 19 },
     { name: 'Bottoms', revenue: 312000, orders: 156, percentage: 13 },
     { name: 'Outerwear', revenue: 168000, orders: 84, percentage: 7 }
-  ]
+  ])
+
+  useEffect(() => {
+    loadAnalytics()
+  }, [selectedPeriod])
+
+  const loadAnalytics = async () => {
+    try {
+      setLoading(true)
+      const [revenueData, salesData, customersData, productsData, categoriesData] = await Promise.all([
+        adminAnalyticsAPI.getRevenue(selectedPeriod),
+        adminAnalyticsAPI.getSales(selectedPeriod),
+        adminAnalyticsAPI.getCustomers(selectedPeriod),
+        adminAnalyticsAPI.getProducts(selectedPeriod),
+        adminAnalyticsAPI.getCategories(selectedPeriod)
+      ])
+
+      setAnalytics({
+        revenue: {
+          total: revenueData.totalRevenue || 0,
+          change: revenueData.change || 0,
+          chart: [] // Chart data would need separate endpoint
+        },
+        orders: {
+          total: salesData.totalOrders || 0,
+          change: salesData.change || 0,
+          chart: []
+        },
+        customers: {
+          total: customersData.totalCustomers || 0,
+          change: customersData.change || 0,
+          chart: []
+        },
+        averageOrder: {
+          value: salesData.averageOrderValue || 0,
+          change: 0
+        }
+      })
+
+      setTopProducts(productsData.topProducts || [])
+      setTopCategories(categoriesData.categories || [])
+    } catch (err) {
+      console.error('Error loading analytics:', err)
+      showError('Failed to load analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="admin-page">

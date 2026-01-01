@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Mail, Phone, MapPin, Clock, ArrowLeft } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
+import { contactAPI, settingsAPI } from '../utils/api'
+import { useToast } from '../components/Toast/ToastContainer'
 
 function Contact() {
   const navigate = useNavigate()
+  const { success, error: showError } = useToast()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -13,16 +16,43 @@ function Contact() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [contactInfo, setContactInfo] = useState({
+    email: 'support@arudhraboutique.com',
+    phone: '+91 98765 43210',
+    address: '123 Fashion Street, Mumbai, Maharashtra 400001, India',
+    hours: 'Monday - Saturday: 10 AM - 8 PM\nSunday: 11 AM - 6 PM'
+  })
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    loadContactInfo()
+  }, [])
+
+  const loadContactInfo = async () => {
+    try {
+      const settings = await settingsAPI.getContact()
+      if (settings && Object.keys(settings).length > 0) {
+        setContactInfo(prev => ({ ...prev, ...settings }))
+      }
+    } catch (err) {
+      console.error('Failed to load contact info:', err)
+      // Use default values if API fails
+    }
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
+    
+    try {
+      await contactAPI.submit(formData)
       setSubmitted(true)
       setFormData({ name: '', email: '', mobile: '', subject: '', message: '' })
-    }, 1500)
+    } catch (error) {
+      console.error('Failed to submit contact form:', error)
+      showError('Failed to submit your message. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleChange = (e) => {
@@ -58,8 +88,8 @@ function Contact() {
                 <Mail size={24} />
               </div>
               <h3>Email Us</h3>
-              <p>support@arudhraboutique.com</p>
-              <p>info@arudhraboutique.com</p>
+              {contactInfo.email && <p>{contactInfo.email}</p>}
+              {contactInfo.email2 && <p>{contactInfo.email2}</p>}
             </div>
 
             <div className="info-card">
@@ -67,9 +97,9 @@ function Contact() {
                 <Phone size={24} />
               </div>
               <h3>Call Us</h3>
-              <p>+91 98765 43210</p>
-              <p>+91 98765 43211</p>
-              <p className="info-note">Mon-Sat: 9 AM - 8 PM IST</p>
+              {contactInfo.phone && <p>{contactInfo.phone}</p>}
+              {contactInfo.phone2 && <p>{contactInfo.phone2}</p>}
+              {contactInfo.phoneHours && <p className="info-note">{contactInfo.phoneHours}</p>}
             </div>
 
             <div className="info-card">
@@ -77,9 +107,9 @@ function Contact() {
                 <MapPin size={24} />
               </div>
               <h3>Visit Us</h3>
-              <p>123 Fashion Street</p>
-              <p>Mumbai, Maharashtra 400001</p>
-              <p>India</p>
+              {contactInfo.address && contactInfo.address.split('\n').map((line, idx) => (
+                <p key={idx}>{line}</p>
+              ))}
             </div>
 
             <div className="info-card">
@@ -87,8 +117,9 @@ function Contact() {
                 <Clock size={24} />
               </div>
               <h3>Business Hours</h3>
-              <p>Monday - Saturday: 10 AM - 8 PM</p>
-              <p>Sunday: 11 AM - 6 PM</p>
+              {contactInfo.hours && contactInfo.hours.split('\n').map((line, idx) => (
+                <p key={idx}>{line}</p>
+              ))}
             </div>
           </div>
 
