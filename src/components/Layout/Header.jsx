@@ -9,6 +9,7 @@ function Header() {
   const [expandedCategory, setExpandedCategory] = useState(null)
   const [cartCount, setCartCount] = useState(0)
   const [isSticky, setIsSticky] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
   const isHomePage = location.pathname === '/'
@@ -102,6 +103,20 @@ function Header() {
     setExpandedCategory(null)
   }
 
+  const handleSearch = (e) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
+      setSearchQuery('')
+    }
+  }
+
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch(e)
+    }
+  }
+
   return (
     <header className={`header ${!isHomePage ? 'header-footer-style' : ''} ${isSticky ? 'sticky' : ''}`}>
       <div className="container">
@@ -155,10 +170,16 @@ function Header() {
           </nav>
 
           <div className="header-actions">
-            <div className="search-box">
+            <form className="search-box" onSubmit={handleSearch}>
               <Search size={20} />
-              <input type="text" placeholder="Search products..." />
-            </div>
+              <input 
+                type="text" 
+                placeholder="Search products..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
+              />
+            </form>
             <Link to="/wishlist" className="icon-btn">
               <Heart size={20} />
             </Link>

@@ -57,9 +57,12 @@ function Home() {
       // Load banners
       try {
         const bannersData = await bannersAPI.getAll()
-        setBanners(bannersData)
+        if (Array.isArray(bannersData)) {
+          setBanners(bannersData)
+        }
       } catch (err) {
         console.error('Failed to load banners:', err)
+        setBanners([])
       }
 
       // Load hero content
@@ -70,34 +73,50 @@ function Home() {
         }
       } catch (err) {
         console.error('Failed to load hero content:', err)
+        // Keep default hero content
       }
 
       // Load featured products
       try {
         const featuredData = await productsAPI.getAll({ featured: true, limit: 8 })
-        setFeaturedProducts(featuredData.products || [])
+        if (featuredData && Array.isArray(featuredData.products)) {
+          setFeaturedProducts(featuredData.products)
+        } else if (Array.isArray(featuredData)) {
+          setFeaturedProducts(featuredData)
+        }
       } catch (err) {
         console.error('Failed to load featured products:', err)
+        setFeaturedProducts([])
       }
 
       // Load new products
       try {
         const newData = await productsAPI.getAll({ new: true, limit: 8 })
-        setNewProducts(newData.products || [])
+        if (newData && Array.isArray(newData.products)) {
+          setNewProducts(newData.products)
+        } else if (Array.isArray(newData)) {
+          setNewProducts(newData)
+        }
       } catch (err) {
         console.error('Failed to load new products:', err)
+        setNewProducts([])
       }
 
       // Load sale products
       try {
         const saleData = await productsAPI.getAll({ onSale: true, limit: 8 })
-        setSaleProducts(saleData.products || [])
+        if (saleData && Array.isArray(saleData.products)) {
+          setSaleProducts(saleData.products)
+        } else if (Array.isArray(saleData)) {
+          setSaleProducts(saleData)
+        }
       } catch (err) {
         console.error('Failed to load sale products:', err)
+        setSaleProducts([])
       }
     } catch (err) {
       console.error('Failed to load home data:', err)
-      showError('Failed to load homepage content')
+      // Don't show error toast on initial load to avoid blocking UI
     } finally {
       setLoading(false)
     }

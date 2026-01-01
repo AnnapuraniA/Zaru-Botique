@@ -224,8 +224,8 @@ function Wishlist() {
                   const productId = product._id || product.id
                   const productName = product.name || 'Product'
                   const productImage = product.images?.[0] || product.image
-                  const productPrice = product.price || 0
-                  const productOriginalPrice = product.originalPrice
+                  const productPrice = typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0
+                  const productOriginalPrice = typeof product.originalPrice === 'number' ? product.originalPrice : (product.originalPrice ? parseFloat(product.originalPrice) : null)
                   const productCategory = product.category ? `${product.category}${product.subcategory ? ` - ${product.subcategory}` : ''}` : ''
                   
                   return (
@@ -255,7 +255,7 @@ function Wishlist() {
                         </Link>
                         <p className="wishlist-item-category">{productCategory}</p>
                         <div className="wishlist-item-price-section">
-                          {productOriginalPrice && (
+                          {productOriginalPrice && typeof productOriginalPrice === 'number' && (
                             <span className="original-price">₹{productOriginalPrice.toFixed(2)}</span>
                           )}
                           <span className="current-price">₹{productPrice.toFixed(2)}</span>

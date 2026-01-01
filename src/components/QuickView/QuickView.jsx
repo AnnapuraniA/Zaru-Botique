@@ -61,10 +61,10 @@ function QuickView({ product, isOpen, onClose }) {
             </div>
 
             <div className="quick-view-price">
-              {product.originalPrice && (
-                <span className="original-price">₹{product.originalPrice}</span>
+              {product.originalPrice && typeof product.originalPrice === 'number' && (
+                <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
               )}
-              <span className="current-price">₹{product.price}</span>
+              <span className="current-price">₹{(typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2)}</span>
             </div>
 
             {product.sizes && (

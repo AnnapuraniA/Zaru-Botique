@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useState, useMemo, useEffect } from 'react'
 import ProductCard from '../components/ProductCard/ProductCard'
 import { Filter, X, ArrowRight } from 'lucide-react'
@@ -6,6 +6,8 @@ import { productsAPI } from '../utils/api'
 
 function Products() {
   const { category, subcategory } = useParams()
+  const [searchParams] = useSearchParams()
+  const searchQuery = searchParams.get('search') || ''
   const [showFilters, setShowFilters] = useState(false)
   const [allProducts, setAllProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -61,6 +63,11 @@ function Products() {
           apiFilters.minPrice = filters.priceRange[0]
         }
         
+        // Add search query if present
+        if (searchQuery) {
+          apiFilters.search = searchQuery
+        }
+        
         const response = await productsAPI.getAll(apiFilters)
         setAllProducts(response.products || [])
       } catch (err) {
@@ -72,7 +79,7 @@ function Products() {
     }
     
     fetchProducts()
-  }, [category, subcategory, filters.sizes, filters.colors, filters.priceRange[0], filters.priceRange[1]])
+  }, [category, subcategory, filters.sizes, filters.colors, filters.priceRange[0], filters.priceRange[1], searchQuery])
 
   // Filter products based on category and subcategory (client-side filtering for additional filters)
   const filteredProducts = useMemo(() => {
@@ -112,7 +119,9 @@ function Products() {
   }, [category, subcategory, filteredProducts])
 
   const isViewAllPage = category && !subcategory
-  const pageTitle = subcategory 
+  const pageTitle = searchQuery
+    ? `Search Results for "${searchQuery}"`
+    : subcategory 
     ? `${category} - ${subcategory}` 
     : category 
     ? `View All ${category.charAt(0).toUpperCase() + category.slice(1)}` 

@@ -18,23 +18,28 @@ export function AdminAuthProvider({ children }) {
   // Load admin session from localStorage
   useEffect(() => {
     const loadAdmin = async () => {
-      const storedToken = localStorage.getItem('adminToken')
-      const storedAdmin = localStorage.getItem('adminSession')
-      
-      if (storedToken && storedAdmin) {
-        try {
-          // Verify token is still valid by fetching admin info
-          const adminData = await adminAuthAPI.getMe()
-          setAdmin(adminData)
-        } catch (error) {
-          // Token invalid, clear storage
-          console.error('Admin session invalid:', error)
-          localStorage.removeItem('adminToken')
-          localStorage.removeItem('adminSession')
-          setAdmin(null)
+      try {
+        const storedToken = localStorage.getItem('adminToken')
+        const storedAdmin = localStorage.getItem('adminSession')
+        
+        if (storedToken && storedAdmin) {
+          try {
+            // Verify token is still valid by fetching admin info
+            const adminData = await adminAuthAPI.getMe()
+            setAdmin(adminData)
+          } catch (error) {
+            // Token invalid, clear storage
+            console.error('Admin session invalid:', error)
+            localStorage.removeItem('adminToken')
+            localStorage.removeItem('adminSession')
+            setAdmin(null)
+          }
         }
+      } catch (error) {
+        console.error('Error in loadAdmin:', error)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     
     loadAdmin()

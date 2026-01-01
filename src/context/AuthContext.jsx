@@ -18,18 +18,23 @@ export function AuthProvider({ children }) {
   // Load user from token on mount
   useEffect(() => {
     const loadUser = async () => {
-      const token = localStorage.getItem('token')
-      if (token) {
-        try {
-          const userData = await authAPI.getMe()
-          setUser(userData)
-        } catch (error) {
-          console.error('Error loading user:', error)
-          // Token might be invalid, clear it
-          localStorage.removeItem('token')
+      try {
+        const token = localStorage.getItem('token')
+        if (token) {
+          try {
+            const userData = await authAPI.getMe()
+            setUser(userData)
+          } catch (error) {
+            console.error('Error loading user:', error)
+            // Token might be invalid, clear it
+            localStorage.removeItem('token')
+          }
         }
+      } catch (error) {
+        console.error('Error in loadUser:', error)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     loadUser()
   }, [])

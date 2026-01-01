@@ -180,10 +180,10 @@ function ProductCard({ product }) {
             </div>
           )}
           <div className="product-price">
-            {product.originalPrice && (
+            {product.originalPrice && typeof product.originalPrice === 'number' && (
               <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
             )}
-            <span className="current-price">₹{(product.price || 0).toFixed(2)}</span>
+            <span className="current-price">₹{(typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2)}</span>
           </div>
         </div>
       </Link>

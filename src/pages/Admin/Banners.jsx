@@ -121,6 +121,39 @@ function Banners() {
     }
   }
 
+  const handleMove = async (id, direction) => {
+    try {
+      const banner = banners.find(b => b.id === id)
+      if (!banner) return
+      
+      const newPosition = direction === 'up' ? banner.position - 1 : banner.position + 1
+      const targetBanner = banners.find(b => b.position === newPosition)
+      
+      if (targetBanner) {
+        await adminBannersAPI.update(id, { position: newPosition })
+        await adminBannersAPI.update(targetBanner.id, { position: banner.position })
+        await loadBanners()
+        success('Banner position updated')
+      }
+    } catch (err) {
+      showError('Failed to move banner')
+    }
+  }
+
+  const handleEdit = (banner) => {
+    setEditingBanner(banner)
+    setFormData({
+      title: banner.title || '',
+      subtitle: banner.subtitle || '',
+      image: banner.image || '',
+      link: banner.link || '',
+      position: banner.position || banners.length + 1,
+      visible: banner.visible !== undefined ? banner.visible : true,
+      startDate: banner.startDate || '',
+      endDate: banner.endDate || ''
+    })
+    setShowAddModal(true)
+  }
 
   return (
     <div className="admin-page">
@@ -172,54 +205,55 @@ function Banners() {
           <div className="empty-state">No banners found</div>
         ) : (
           filteredBanners.map(banner => (
-          <div key={banner.id} className="banner-card">
-            <div className="banner-image-preview">
-              <img src={banner.image} alt={banner.title} />
-              <div className="banner-overlay">
-                <span className="banner-position">Position: {banner.position}</span>
+            <div key={banner.id} className="banner-card">
+              <div className="banner-image-preview">
+                <img src={banner.image} alt={banner.title} />
+                <div className="banner-overlay">
+                  <span className="banner-position">Position: {banner.position}</span>
+                </div>
+              </div>
+              <div className="banner-details">
+                <h3>{banner.title}</h3>
+                <p>{banner.subtitle}</p>
+                <div className="banner-meta">
+                  <span>Link: {banner.link}</span>
+                  <span>Visible: {banner.visible ? 'Yes' : 'No'}</span>
+                </div>
+                <div className="banner-actions">
+                  <button 
+                    className="btn-icon" 
+                    title={banner.visible ? 'Hide' : 'Show'}
+                    onClick={() => handleToggleVisibility(banner.id)}
+                  >
+                    {banner.visible ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                  <button 
+                    className="btn-icon" 
+                    title="Move Up"
+                    onClick={() => handleMove(banner.id, 'up')}
+                    disabled={banner.position === 1}
+                  >
+                    <ArrowUp size={16} />
+                  </button>
+                  <button 
+                    className="btn-icon" 
+                    title="Move Down"
+                    onClick={() => handleMove(banner.id, 'down')}
+                    disabled={banner.position === banners.length}
+                  >
+                    <ArrowDown size={16} />
+                  </button>
+                  <button className="btn-icon" title="Edit" onClick={() => handleEdit(banner)}>
+                    <Edit size={16} />
+                  </button>
+                  <button className="btn-icon danger" title="Delete" onClick={() => handleDelete(banner.id)}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="banner-details">
-              <h3>{banner.title}</h3>
-              <p>{banner.subtitle}</p>
-              <div className="banner-meta">
-                <span>Link: {banner.link}</span>
-                <span>Visible: {banner.visible ? 'Yes' : 'No'}</span>
-              </div>
-              <div className="banner-actions">
-                <button 
-                  className="btn-icon" 
-                  title={banner.visible ? 'Hide' : 'Show'}
-                  onClick={() => handleToggleVisibility(banner.id)}
-                >
-                  {banner.visible ? <Eye size={16} /> : <EyeOff size={16} />}
-                </button>
-                <button 
-                  className="btn-icon" 
-                  title="Move Up"
-                  onClick={() => handleMove(banner.id, 'up')}
-                  disabled={banner.position === 1}
-                >
-                  <ArrowUp size={16} />
-                </button>
-                <button 
-                  className="btn-icon" 
-                  title="Move Down"
-                  onClick={() => handleMove(banner.id, 'down')}
-                  disabled={banner.position === banners.length}
-                >
-                  <ArrowDown size={16} />
-                </button>
-                <button className="btn-icon" title="Edit" onClick={() => handleEdit(banner)}>
-                  <Edit size={16} />
-                </button>
-                <button className="btn-icon danger" title="Delete" onClick={() => handleDelete(banner.id)}>
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Add Banner Modal */}
