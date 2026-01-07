@@ -135,6 +135,9 @@ function Home() {
       {/* Hero Section with Banners */}
       {banners.length > 0 ? (
         <section className="hero-banner">
+          <Link to="/" className="hero-logo">
+            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="hero-logo-img" />
+          </Link>
           <div className="banner-slider">
             {banners.map((banner, index) => (
               <div
@@ -176,6 +179,9 @@ function Home() {
         </section>
       ) : (
         <section className="hero">
+          <Link to="/" className="hero-logo">
+            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="hero-logo-img" />
+          </Link>
           <div className="hero-content">
             <h1>{heroContent.title}</h1>
             <p>{heroContent.description}</p>
@@ -199,15 +205,10 @@ function Home() {
         <section className="featured-section">
           <div className="container">
             <h2>Featured Products</h2>
-            <div className="products-grid">
+            <div className="products-grid home-products-grid">
               {featuredProducts.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}
-            </div>
-            <div className="section-footer">
-              <Link to="/products" className="btn btn-outline">
-                View All Products
-              </Link>
             </div>
           </div>
         </section>
@@ -237,15 +238,10 @@ function Home() {
         <section className="sale-section">
           <div className="container">
             <h2>On Sale</h2>
-            <div className="products-grid">
+            <div className="products-grid home-products-grid">
               {saleProducts.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}
-            </div>
-            <div className="section-footer">
-              <Link to="/products?onSale=true" className="btn btn-outline">
-                View All Sale Items
-              </Link>
             </div>
           </div>
         </section>

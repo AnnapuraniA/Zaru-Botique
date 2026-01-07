@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp } from 'lucide-react'
+import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp, GitCompare } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { cartAPI } from '../../utils/api'
@@ -8,8 +8,10 @@ function Header() {
   const { isAuthenticated, user } = useAuth()
   const [expandedCategory, setExpandedCategory] = useState(null)
   const [cartCount, setCartCount] = useState(0)
+  const [compareCount, setCompareCount] = useState(0)
   const [isSticky, setIsSticky] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const isHomePage = location.pathname === '/'
@@ -70,6 +72,33 @@ function Header() {
     }
   }, [isAuthenticated])
 
+  // Load compare count
+  useEffect(() => {
+    const loadCompareCount = () => {
+      const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
+      setCompareCount(compareIds.length)
+    }
+    
+    loadCompareCount()
+    
+    // Listen for compare updates
+    const handleCompareUpdate = () => {
+      loadCompareCount()
+    }
+    
+    window.addEventListener('storage', handleCompareUpdate)
+    window.addEventListener('compareUpdated', handleCompareUpdate)
+    
+    // Also check periodically for changes (since localStorage events don't fire in same tab)
+    const interval = setInterval(loadCompareCount, 1000)
+    
+    return () => {
+      window.removeEventListener('storage', handleCompareUpdate)
+      window.removeEventListener('compareUpdated', handleCompareUpdate)
+      clearInterval(interval)
+    }
+  }, [])
+
   // Sticky header on scroll
   useEffect(() => {
     const handleScroll = () => {
@@ -92,6 +121,20 @@ function Header() {
       return () => document.removeEventListener('click', handleClickOutside)
     }
   }, [expandedCategory])
+
+  // Close search when clicking outside
+  useEffect(() => {
+    if (!isSearchExpanded) return
+
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.search-wrapper') && !e.target.closest('.search-dropdown')) {
+        setIsSearchExpanded(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isSearchExpanded])
 
   const handleCategoryClick = (categoryName) => {
     navigate(`/products/${categoryName.toLowerCase()}`)
@@ -118,15 +161,16 @@ function Header() {
   }
 
   return (
-    <header className={`header ${!isHomePage ? 'header-footer-style' : ''} ${isSticky ? 'sticky' : ''}`}>
-      <div className="container">
-        <div className="header-content">
-          <Link to="/" className="logo">
-            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="logo-img" />
-            <h1>Arudhra Fashions</h1>
-          </Link>
-
-          <nav className="main-nav">
+    <div className={`header-wrapper ${!isHomePage ? 'header-footer-style' : ''}`}>
+      <header className={`header ${!isHomePage ? 'header-footer-style' : ''} ${isSticky ? 'sticky' : ''} ${isHomePage ? 'home-header' : ''}`}>
+        <div className="container">
+          <div className={`header-content ${isHomePage ? 'home-header-content' : 'other-page-header-content'}`}>
+            {!isHomePage && (
+              <Link to="/" className="brand-name">
+                Arudhra Fashions
+              </Link>
+            )}
+            <nav className={`main-nav ${isHomePage ? 'home-nav' : 'other-page-nav'}`}>
             {categories.map((category) => (
               <div 
                 key={category.name} 
@@ -170,32 +214,64 @@ function Header() {
           </nav>
 
           <div className="header-actions">
-            <form className="search-box" onSubmit={handleSearch}>
-              <Search size={20} />
-              <input 
-                type="text" 
-                placeholder="Search products..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleSearchKeyPress}
-              />
-            </form>
-            <Link to="/wishlist" className="icon-btn">
-              <Heart size={20} />
-            </Link>
-            <Link to="/cart" className="icon-btn">
-              <ShoppingCart size={20} />
-              {cartCount > 0 && (
-                <span className="badge show">{cartCount > 99 ? '99+' : cartCount}</span>
+            <div className="search-wrapper">
+              <button 
+                className="search-icon-btn" 
+                onClick={() => setIsSearchExpanded(!isSearchExpanded)}
+                title="Search"
+              >
+                <Search size={20} />
+              </button>
+              {isSearchExpanded && (
+                <div className="search-dropdown">
+                  <form className="search-box search-expanded" onSubmit={(e) => { handleSearch(e); setIsSearchExpanded(false); }}>
+                    <Search size={20} />
+                    <input 
+                      type="text" 
+                      placeholder="Search products..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyPress={handleSearchKeyPress}
+                      autoFocus
+                    />
+                    <button 
+                      type="button" 
+                      className="search-close-btn"
+                      onClick={() => setIsSearchExpanded(false)}
+                    >
+                      ×
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+            {!isHomePage && (
+              <>
+                <Link to="/wishlist" className="icon-btn" title="Wishlist">
+                  <Heart size={20} />
+                </Link>
+                <Link to="/cart" className="icon-btn" title="Shopping Cart">
+                  <ShoppingCart size={20} />
+                  {cartCount > 0 && (
+                    <span className="badge show">{cartCount > 99 ? '99+' : cartCount}</span>
+                  )}
+                </Link>
+              </>
+            )}
+            <Link to="/compare" className="icon-btn" title="Compare Products">
+              <GitCompare size={20} />
+              {compareCount > 0 && (
+                <span className="badge show">{compareCount > 4 ? '4+' : compareCount}</span>
               )}
             </Link>
             <Link to="/dashboard" className="icon-btn" title={isAuthenticated ? user?.name || 'Profile' : 'Login/Register'}>
               <User size={20} />
             </Link>
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </div>
   )
 }
 
