@@ -7,7 +7,29 @@ import { adminProtect } from '../middleware/adminAuth.js'
 const router = express.Router()
 
 // @route   GET /api/categories
-// @desc    Get all categories (admin)
+// @desc    Get all active categories (public)
+// @access  Public
+router.get('/', async (req, res) => {
+  try {
+    const categories = await Category.findAll({
+      where: { isActive: true },
+      include: [{
+        association: 'subcategories',
+        where: { isActive: true },
+        required: false
+      }],
+      order: [['position', 'ASC'], ['createdAt', 'DESC']]
+    })
+
+    res.json(categories)
+  } catch (error) {
+    console.error('Get categories error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/categories/all
+// @desc    Get all categories (admin - includes inactive)
 // @access  Admin
 router.get('/all', adminProtect, async (req, res) => {
   try {
@@ -23,6 +45,26 @@ router.get('/all', adminProtect, async (req, res) => {
     res.json(categories)
   } catch (error) {
     console.error('Get admin categories error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/categories/:categoryId/subcategories
+// @desc    Get subcategories for a category
+// @access  Public
+router.get('/:categoryId/subcategories', async (req, res) => {
+  try {
+    const subcategories = await Subcategory.findAll({
+      where: { 
+        categoryId: req.params.categoryId,
+        isActive: true 
+      },
+      order: [['position', 'ASC'], ['createdAt', 'DESC']]
+    })
+
+    res.json(subcategories)
+  } catch (error) {
+    console.error('Get subcategories error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })
@@ -64,7 +106,12 @@ router.post('/create', adminProtect, async (req, res) => {
 // @access  Admin
 router.put('/update/:id', adminProtect, async (req, res) => {
   try {
-    const category = await Category.findByPk(req.params.id)
+    const category = await Category.findByPk(req.params.id, {
+      include: [{
+        association: 'subcategories',
+        required: false
+      }]
+    })
     if (!category) {
       return res.status(404).json({ message: 'Category not found' })
     }
@@ -75,7 +122,12 @@ router.put('/update/:id', adminProtect, async (req, res) => {
     }
 
     await category.update(updateData)
-    await category.reload()
+    await category.reload({
+      include: [{
+        association: 'subcategories',
+        required: false
+      }]
+    })
 
     res.json(category)
   } catch (error) {
@@ -156,7 +208,12 @@ router.post('/subcategory/:categoryId', adminProtect, async (req, res) => {
 // @access  Admin
 router.put('/subcategory/:subId', adminProtect, async (req, res) => {
   try {
-    const subcategory = await Subcategory.findByPk(req.params.subId)
+    const subcategory = await Subcategory.findByPk(req.params.subId, {
+      include: [{
+        association: 'category',
+        required: false
+      }]
+    })
     if (!subcategory) {
       return res.status(404).json({ message: 'Subcategory not found' })
     }
@@ -167,7 +224,12 @@ router.put('/subcategory/:subId', adminProtect, async (req, res) => {
     }
 
     await subcategory.update(updateData)
-    await subcategory.reload()
+    await subcategory.reload({
+      include: [{
+        association: 'category',
+        required: false
+      }]
+    })
 
     res.json(subcategory)
   } catch (error) {

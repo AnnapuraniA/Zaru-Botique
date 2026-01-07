@@ -3,13 +3,16 @@ import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Newsletter from '../components/Newsletter/Newsletter'
 import ProductCard from '../components/ProductCard/ProductCard'
-import { bannersAPI, productsAPI, contentAPI } from '../utils/api'
+import { bannersAPI, productsAPI, contentAPI, getImageUrl } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
+import { useDevice } from '../hooks/useDevice'
 
 function Home() {
+  const isMobile = useDevice()
   const [showNewsletter, setShowNewsletter] = useState(false)
   const [banners, setBanners] = useState([])
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
+  const [bannerHeights, setBannerHeights] = useState({})
   const [heroContent, setHeroContent] = useState({
     title: 'Discover Your Style',
     description: 'Shop the latest fashion trends and timeless classics',
@@ -49,6 +52,34 @@ function Home() {
       return () => clearInterval(interval)
     }
   }, [banners.length])
+
+  // Calculate banner heights based on image aspect ratios (full width)
+  useEffect(() => {
+    if (banners.length === 0) return
+
+    const calculateHeights = () => {
+      const heights = {}
+      banners.forEach((banner) => {
+        const img = new Image()
+        img.onload = () => {
+          const aspectRatio = img.naturalWidth / img.naturalHeight
+          const containerWidth = window.innerWidth
+          const calculatedHeight = containerWidth / aspectRatio
+          // Allow up to 95vh for tall images, minimum 500px
+          const maxHeight = window.innerHeight * 0.95
+          const minHeight = 500
+          const finalHeight = Math.max(minHeight, Math.min(calculatedHeight, maxHeight))
+          heights[banner.id] = finalHeight
+          setBannerHeights(prev => ({ ...prev, [banner.id]: finalHeight }))
+        }
+        img.src = getImageUrl(banner.image)
+      })
+    }
+
+    calculateHeights()
+    window.addEventListener('resize', calculateHeights)
+    return () => window.removeEventListener('resize', calculateHeights)
+  }, [banners])
 
   const loadHomeData = async () => {
     try {
@@ -134,28 +165,55 @@ function Home() {
     <div className="home-page">
       {/* Hero Section with Banners */}
       {banners.length > 0 ? (
-        <section className="hero-banner">
-          <Link to="/" className="hero-logo">
-            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="hero-logo-img" />
-          </Link>
+        <section 
+          className={`hero-banner ${isMobile ? 'hero-mobile' : 'hero-web'}`}
+          style={!isMobile && bannerHeights[banners[currentBannerIndex]?.id] ? {
+            height: `${bannerHeights[banners[currentBannerIndex].id]}px`
+          } : {}}
+        >
           <div className="banner-slider">
-            {banners.map((banner, index) => (
-              <div
-                key={banner.id}
-                className={`banner-slide ${index === currentBannerIndex ? 'active' : ''}`}
-                style={{ backgroundImage: `url(${banner.image})` }}
-              >
-                <div className="banner-content">
-                  <h1>{banner.title}</h1>
-                  {banner.subtitle && <p>{banner.subtitle}</p>}
-                  {banner.link && (
-                    <Link to={banner.link} className="btn btn-primary btn-large">
-                      Shop Now
+            {banners.map((banner, index) => {
+              const imageUrl = getImageUrl(banner.image)
+              const ariaLabel = banner.title + (banner.subtitle ? ` - ${banner.subtitle}` : '')
+              return (
+                <div
+                  key={banner.id}
+                  className={`banner-slide ${index === currentBannerIndex ? 'active' : ''}`}
+                  role="img"
+                  aria-label={ariaLabel}
+                >
+                  <img 
+                    src={imageUrl} 
+                    alt={ariaLabel}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    onLoad={(e) => {
+                      if (!isMobile && !bannerHeights[banner.id]) {
+                        const img = e.target
+                        const aspectRatio = img.naturalWidth / img.naturalHeight
+                        const containerWidth = window.innerWidth
+                        const calculatedHeight = containerWidth / aspectRatio
+                        // Allow up to 95vh for tall images, minimum 500px
+                        const maxHeight = window.innerHeight * 0.95
+                        const minHeight = 500
+                        const finalHeight = Math.max(minHeight, Math.min(calculatedHeight, maxHeight))
+                        setBannerHeights(prev => ({ ...prev, [banner.id]: finalHeight }))
+                      }
+                    }}
+                  />
+                  {banner.link ? (
+                    <Link 
+                      to={banner.link} 
+                      className="banner-link-overlay"
+                      aria-label={`${ariaLabel} - Click to view`}
+                    >
+                      <span className="sr-only">{ariaLabel}</span>
                     </Link>
+                  ) : (
+                    <span className="sr-only">{ariaLabel}</span>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {banners.length > 1 && (
               <>
                 <button className="banner-nav banner-nav-prev" onClick={prevBanner}>
@@ -178,10 +236,7 @@ function Home() {
           </div>
         </section>
       ) : (
-        <section className="hero">
-          <Link to="/" className="hero-logo">
-            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="hero-logo-img" />
-          </Link>
+        <section className={`hero ${isMobile ? 'hero-mobile' : 'hero-web'}`}>
           <div className="hero-content">
             <h1>{heroContent.title}</h1>
             <p>{heroContent.description}</p>

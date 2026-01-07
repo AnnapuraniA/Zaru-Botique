@@ -11,13 +11,21 @@ const Product = sequelize.define('Product', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  category: {
-    type: DataTypes.ENUM('Women', 'Teen', 'Girls'),
-    allowNull: false
+  categoryId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'categories',
+      key: 'id'
+    }
   },
-  subcategory: {
-    type: DataTypes.ENUM('Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories'),
-    allowNull: false
+  subcategoryId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'subcategories',
+      key: 'id'
+    }
   },
   price: {
     type: DataTypes.DECIMAL(10, 2),
@@ -56,7 +64,8 @@ const Product = sequelize.define('Product', {
   },
   sizes: {
     type: DataTypes.ARRAY(DataTypes.ENUM('XS', 'S', 'M', 'L', 'XL', 'XXL')),
-    defaultValue: []
+    defaultValue: [],
+    allowNull: true
   },
   colors: {
     type: DataTypes.JSONB,
@@ -117,7 +126,7 @@ const Product = sequelize.define('Product', {
   timestamps: true,
   indexes: [
     {
-      fields: ['category', 'subcategory']
+      fields: ['categoryId', 'subcategoryId']
     },
     {
       fields: ['price']

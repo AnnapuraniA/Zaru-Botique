@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus, Search, Edit, Trash2, Eye, X } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
-import { adminProductsAPI, adminUploadAPI } from '../../utils/adminApi'
+import { adminProductsAPI, adminUploadAPI, adminCategoriesAPI } from '../../utils/adminApi'
 
 function Products() {
   const location = useLocation()
@@ -14,10 +14,33 @@ function Products() {
   const [editingProduct, setEditingProduct] = useState(null)
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [categories, setCategories] = useState([])
+  const [subcategories, setSubcategories] = useState([])
 
   useEffect(() => {
+    loadCategories()
     loadProducts()
   }, [statusFilter])
+
+  const loadCategories = async () => {
+    try {
+      const cats = await adminCategoriesAPI.getAll()
+      setCategories(cats || [])
+      
+      // Flatten subcategories for easy lookup
+      const allSubcats = []
+      cats.forEach(cat => {
+        if (cat.subcategories) {
+          cat.subcategories.forEach(subcat => {
+            allSubcats.push({ ...subcat, categoryId: cat.id })
+          })
+        }
+      })
+      setSubcategories(allSubcats)
+    } catch (err) {
+      console.error('Error loading categories:', err)
+    }
+  }
 
   // Debounce search
   useEffect(() => {
@@ -47,11 +70,16 @@ function Products() {
     }
   }
 
-  const filteredProducts = products.filter(product =>
-    !searchQuery || product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.subcategory.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredProducts = products.filter(product => {
+    if (!searchQuery) return true
+    
+    const searchLower = searchQuery.toLowerCase()
+    const nameMatch = product.name?.toLowerCase().includes(searchLower)
+    const categoryMatch = product.category?.name?.toLowerCase().includes(searchLower)
+    const subcategoryMatch = product.subcategory?.name?.toLowerCase().includes(searchLower)
+    
+    return nameMatch || categoryMatch || subcategoryMatch
+  })
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
@@ -77,8 +105,8 @@ function Products() {
 
   const [productForm, setProductForm] = useState({
     name: '',
-    category: '',
-    subcategory: '',
+    categoryId: '',
+    subcategoryId: '',
     brand: 'Arudhra Fashions',
     price: '',
     originalPrice: '',
@@ -95,6 +123,17 @@ function Products() {
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target
+    
+    // Handle category change - reset subcategory
+    if (name === 'categoryId') {
+      setProductForm(prev => ({
+        ...prev,
+        categoryId: value,
+        subcategoryId: '' // Reset subcategory when category changes
+      }))
+      return
+    }
+    
     if (type === 'checkbox') {
       if (name === 'sizes') {
         setProductForm(prev => ({
@@ -198,8 +237,8 @@ function Products() {
       setEditingProduct(product)
       setProductForm({
         name: product.name || '',
-        category: product.category || '',
-        subcategory: product.subcategory || '',
+        categoryId: product.categoryId || product.category?.id || '',
+        subcategoryId: product.subcategoryId || product.subcategory?.id || '',
         brand: product.brand || 'Arudhra Fashions',
         price: product.price || '',
         originalPrice: product.originalPrice || '',
@@ -246,15 +285,15 @@ function Products() {
                 <div className="form-group">
                   <label>Category *</label>
                   <select 
-                    name="category"
-                    value={productForm.category}
+                    name="categoryId"
+                    value={productForm.categoryId}
                     onChange={handleFormChange}
                     required
                   >
                     <option value="">Select Category</option>
-                    <option value="Women">Women</option>
-                    <option value="Teen">Teen</option>
-                    <option value="Girls">Girls</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -262,17 +301,18 @@ function Products() {
                 <div className="form-group">
                   <label>Subcategory *</label>
                   <select 
-                    name="subcategory"
-                    value={productForm.subcategory}
+                    name="subcategoryId"
+                    value={productForm.subcategoryId}
                     onChange={handleFormChange}
                     required
+                    disabled={!productForm.categoryId}
                   >
                     <option value="">Select Subcategory</option>
-                    <option value="Dresses">Dresses</option>
-                    <option value="Tops">Tops</option>
-                    <option value="Bottoms">Bottoms</option>
-                    <option value="Outerwear">Outerwear</option>
-                    <option value="Accessories">Accessories</option>
+                    {subcategories
+                      .filter(sub => sub.categoryId === productForm.categoryId)
+                      .map(subcat => (
+                        <option key={subcat.id} value={subcat.id}>{subcat.name}</option>
+                      ))}
                   </select>
                 </div>
                 <div className="form-group">
@@ -549,7 +589,9 @@ function Products() {
                   <td>
                     <strong>{product.name}</strong>
                   </td>
-                  <td>{product.category} - {product.subcategory}</td>
+                  <td>
+                    {product.category?.name || 'N/A'} - {product.subcategory?.name || 'N/A'}
+                  </td>
                   <td>₹{product.price.toLocaleString()}</td>
                   <td>
                     <span className={product.stockCount === 0 ? 'stock-low' : product.stockCount < 20 ? 'stock-warning' : ''}>

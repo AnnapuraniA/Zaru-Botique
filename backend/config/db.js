@@ -33,15 +33,35 @@ const connectDB = async () => {
       // Check if we should sync - only sync if SYNC_DB env var is set
       if (process.env.SYNC_DB === 'true') {
         try {
-          await sequelize.sync({ alter: true })
-          console.log('Database models synchronized')
+          // Use sync without alter to avoid enum array casting issues
+          // This will only create tables if they don't exist, won't modify existing ones
+          await sequelize.sync({ alter: false })
+          console.log('Database models verified (tables exist or were created)')
         } catch (syncError) {
-          console.warn('Database sync with alter failed:', syncError.message)
-          console.log('Continuing without sync - tables should already exist')
+          // If sync fails, tables likely already exist with correct structure
+          console.warn('Database sync warning:', syncError.message)
+          console.log('Continuing - tables should already exist with correct structure')
+        }
+      } else if (process.env.SYNC_DB === 'alter') {
+        // Only use alter mode if explicitly requested
+        try {
+          await sequelize.sync({ alter: true })
+          console.log('Database models synchronized with alter')
+        } catch (syncError) {
+          // Handle specific enum array casting errors
+          if (syncError.message && syncError.message.includes('cannot cast type') && syncError.message.includes('enum')) {
+            console.warn('⚠️  Database alter sync skipped: Enum array type casting issue')
+            console.log('ℹ️  This is safe - enum array columns cannot be automatically altered')
+            console.log('ℹ️  Use manual migrations for enum array schema changes')
+          } else {
+            console.warn('Database sync with alter failed:', syncError.message)
+          }
+          console.log('Continuing without alter - tables should already exist')
         }
       } else {
-        // Just verify connection, don't alter schema
-        console.log('Database connection verified (sync disabled - set SYNC_DB=true to enable)')
+        // Just verify connection, don't sync schema
+        console.log('Database connection verified (sync disabled)')
+        console.log('Set SYNC_DB=true to create missing tables, or SYNC_DB=alter to attempt schema changes')
       }
     }
     

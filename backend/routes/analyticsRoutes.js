@@ -221,9 +221,9 @@ router.get('/products', adminProtect, async (req, res) => {
 
     // Get product details
     const productIds = Object.keys(productSales)
-    const products = await Product.findAll({
+    const products = productIds.length > 0 ? await Product.findAll({
       where: { id: { [Op.in]: productIds } }
-    })
+    }) : []
 
     const productMap = {}
     products.forEach(p => {

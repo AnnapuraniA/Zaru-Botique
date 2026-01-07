@@ -33,10 +33,7 @@ function AdminLogin() {
     <div className="admin-login-page">
       <div className="admin-login-container">
         <div className="admin-login-header">
-          <div className="admin-login-logo">
-            <img src="/Logo.png" alt="Arudhra Fashions Logo" className="admin-login-logo-img" />
-            <h1>Arudhra Fashions</h1>
-          </div>
+          <h1>Arudhra Fashions</h1>
           <h2>Admin Dashboard</h2>
           <p>Sign in to manage your store</p>
         </div>
@@ -52,7 +49,7 @@ function AdminLogin() {
           <div className="form-group">
             <label htmlFor="email">
               <Mail size={18} />
-              Email Address
+              Enter email
             </label>
             <input
               type="email"
@@ -84,10 +81,6 @@ function AdminLogin() {
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div className="admin-login-footer">
-          <p className="hint-text">Default credentials: admin@arudhraboutique.com / admin123</p>
-        </div>
       </div>
     </div>
   )

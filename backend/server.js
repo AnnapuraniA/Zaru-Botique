@@ -65,6 +65,7 @@ app.use('/api/contact', contactRoutes)
 app.use('/api/returns', returnRoutes)
 app.use('/api/newsletter', newsletterRoutes)
 app.use('/api/content', contentRoutes)
+app.use('/api/categories', categoryRoutes)
 
 // Admin Routes
 app.use('/api/admin/auth', adminAuthRoutes)

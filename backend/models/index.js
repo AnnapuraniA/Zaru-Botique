@@ -43,6 +43,12 @@ Return.belongsTo(Product, { foreignKey: 'productId', as: 'product' })
 Category.hasMany(Subcategory, { foreignKey: 'categoryId', as: 'subcategories' })
 Subcategory.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' })
 
+Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' })
+Product.belongsTo(Subcategory, { foreignKey: 'subcategoryId', as: 'subcategory' })
+
+Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' })
+Subcategory.hasMany(Product, { foreignKey: 'subcategoryId', as: 'products' })
+
 Coupon.hasMany(CouponUsage, { foreignKey: 'couponId', as: 'usages' })
 CouponUsage.belongsTo(Coupon, { foreignKey: 'couponId', as: 'coupon' })
 CouponUsage.belongsTo(User, { foreignKey: 'userId', as: 'user' })

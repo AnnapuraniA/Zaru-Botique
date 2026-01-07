@@ -24,12 +24,29 @@ function Products() {
     brand: []
   })
 
-  // Category subcategories mapping
-  const categorySubcategories = {
-    'Women': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories'],
-    'Teen': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories'],
-    'Girls': ['Dresses', 'Tops', 'Bottoms', 'Outerwear', 'Accessories']
-  }
+  // Fetch categories for subcategory mapping
+  const [categories, setCategories] = useState([])
+  
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/categories`)
+        const data = await response.json()
+        setCategories(data || [])
+      } catch (err) {
+        console.error('Failed to fetch categories:', err)
+      }
+    }
+    fetchCategories()
+  }, [])
+  
+  // Build category subcategories mapping from API
+  const categorySubcategories = categories.reduce((acc, cat) => {
+    if (cat.subcategories) {
+      acc[cat.name] = cat.subcategories.map(sub => sub.name)
+    }
+    return acc
+  }, {})
 
   // Fetch products from API
   useEffect(() => {
@@ -108,10 +125,11 @@ function Products() {
     if (category && !subcategory) {
       const grouped = {}
       filteredProducts.forEach(product => {
-        if (!grouped[product.subcategory]) {
-          grouped[product.subcategory] = []
+        const subcatName = product.subcategory?.name || product.subcategory
+        if (!grouped[subcatName]) {
+          grouped[subcatName] = []
         }
-        grouped[product.subcategory].push(product)
+        grouped[subcatName].push(product)
       })
       return grouped
     }
@@ -122,9 +140,9 @@ function Products() {
   const pageTitle = searchQuery
     ? `Search Results for "${searchQuery}"`
     : subcategory 
-    ? `${category} - ${subcategory}` 
+    ? `${allProducts[0]?.category?.name || category} - ${allProducts[0]?.subcategory?.name || subcategory}` 
     : category 
-    ? `View All ${category.charAt(0).toUpperCase() + category.slice(1)}` 
+    ? `View All ${categories.find(c => c.slug === category.toLowerCase())?.name || category.charAt(0).toUpperCase() + category.slice(1)}` 
     : 'All Products'
 
   const handleFilterChange = (filterType, value) => {
@@ -327,30 +345,34 @@ function Products() {
             // View All - Grouped by subcategory
             Object.keys(groupedProducts).length > 0 ? (
               <div className="subcategory-sections">
-                {(categorySubcategories[category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()] || []).map(subcat => {
-                  const subProducts = groupedProducts[subcat] || []
-                  if (subProducts.length === 0) return null
-                  
-                  return (
-                    <div key={subcat} className="subcategory-section">
-                      <div className="subcategory-header">
-                        <h2 className="subcategory-title">{subcat}</h2>
-                        <Link
-                          to={`/products/${category.toLowerCase()}/${subcat.toLowerCase()}`}
-                          className="subcategory-arrow-link"
-                        >
-                          <span>View All</span>
-                          <ArrowRight size={20} />
-                        </Link>
-                      </div>
+                {(() => {
+                  const currentCategory = categories.find(cat => cat.slug === category.toLowerCase())
+                  const subcats = currentCategory?.subcategories || []
+                  return subcats.map(subcat => {
+                    const subProducts = groupedProducts[subcat.name] || []
+                    if (subProducts.length === 0) return null
+                    
+                    return (
+                      <div key={subcat.id} className="subcategory-section">
+                        <div className="subcategory-header">
+                          <h2 className="subcategory-title">{subcat.name}</h2>
+                          <Link
+                            to={`/products/${category.toLowerCase()}/${subcat.slug}`}
+                            className="subcategory-arrow-link"
+                          >
+                            <span>View All</span>
+                            <ArrowRight size={20} />
+                          </Link>
+                        </div>
                       <div className="products-grid grid-compact">
                         {subProducts.map(product => (
                           <ProductCard key={product._id || product.id} product={product} />
                         ))}
                       </div>
                     </div>
-                  )
-                })}
+                    )
+                  })
+                })()}
               </div>
             ) : (
               <div className="no-products">

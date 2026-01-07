@@ -108,9 +108,9 @@ router.get('/top-products', async (req, res) => {
 
     // Get product details
     const productIds = Object.keys(productSales)
-    const products = await Product.findAll({
+    const products = productIds.length > 0 ? await Product.findAll({
       where: { id: { [Op.in]: productIds } }
-    })
+    }) : []
 
     const productMap = {}
     products.forEach(p => {
@@ -143,9 +143,7 @@ router.get('/products', async (req, res) => {
 
     if (search) {
       where[Op.or] = [
-        { name: { [Op.iLike]: `%${search}%` } },
-        { category: { [Op.iLike]: `%${search}%` } },
-        { subcategory: { [Op.iLike]: `%${search}%` } }
+        { name: { [Op.iLike]: `%${search}%` } }
       ]
     }
 
@@ -155,6 +153,16 @@ router.get('/products', async (req, res) => {
     const offset = (page - 1) * limit
     const { count, rows: products } = await Product.findAndCountAll({
       where,
+      include: [
+        {
+          association: 'category',
+          required: false
+        },
+        {
+          association: 'subcategory',
+          required: false
+        }
+      ],
       order: [['createdAt', 'DESC']],
       limit: Number(limit),
       offset: Number(offset)
@@ -179,9 +187,50 @@ router.post('/products', async (req, res) => {
   try {
     const productData = req.body
     const product = await Product.create(productData)
+    await product.reload({
+      include: [
+        {
+          association: 'category',
+          required: false
+        },
+        {
+          association: 'subcategory',
+          required: false
+        }
+      ]
+    })
     res.status(201).json(product)
   } catch (error) {
     console.error('Create product error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/admin/products/:id
+// @desc    Get single product (admin)
+// @access  Admin
+router.get('/products/:id', async (req, res) => {
+  try {
+    const product = await Product.findByPk(req.params.id, {
+      include: [
+        {
+          association: 'category',
+          required: false
+        },
+        {
+          association: 'subcategory',
+          required: false
+        }
+      ]
+    })
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' })
+    }
+
+    res.json(product)
+  } catch (error) {
+    console.error('Get product error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })
@@ -198,7 +247,18 @@ router.put('/products/:id', async (req, res) => {
     }
 
     await product.update(req.body)
-    await product.reload()
+    await product.reload({
+      include: [
+        {
+          association: 'category',
+          required: false
+        },
+        {
+          association: 'subcategory',
+          required: false
+        }
+      ]
+    })
 
     res.json(product)
   } catch (error) {

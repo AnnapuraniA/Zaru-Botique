@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Heart, ShoppingCart, Star, Share2, Minus, Plus, ChevronLeft, ChevronRight, Check, Package, Truck, RotateCcw, Shield, Facebook, Twitter, Instagram, GitCompare } from 'lucide-react'
+import { Heart, ShoppingCart, Star, Share2, Minus, Plus, ChevronLeft, ChevronRight, Check, Package, Truck, RotateCcw, Shield, Instagram, MessageCircle, GitCompare } from 'lucide-react'
 import ProductCard from '../components/ProductCard/ProductCard'
 import { useToast } from '../components/Toast/ToastContainer'
 import { productsAPI, cartAPI, wishlistAPI } from '../utils/api'
@@ -19,6 +19,7 @@ function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [isWishlisted, setIsWishlisted] = useState(false)
+  const [isInCompare, setIsInCompare] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [activeTab, setActiveTab] = useState('details')
   const [showShareMenu, setShowShareMenu] = useState(false)
@@ -158,6 +159,8 @@ function ProductDetail() {
       const updatedIds = compareIds.filter(itemId => itemId !== id)
       localStorage.setItem('compareItems', JSON.stringify(updatedIds))
       setIsInCompare(false)
+      // Dispatch event to update header count
+      window.dispatchEvent(new Event('compareUpdated'))
       success('Removed from compare')
     } else {
       // Add to compare (max 4 items)
@@ -168,6 +171,8 @@ function ProductDetail() {
       const updatedIds = [...compareIds, id]
       localStorage.setItem('compareItems', JSON.stringify(updatedIds))
       setIsInCompare(true)
+      // Dispatch event to update header count
+      window.dispatchEvent(new Event('compareUpdated'))
       success('Added to compare')
     }
   }
@@ -224,16 +229,16 @@ function ProductDetail() {
           <span>/</span>
           {product.category && (
             <>
-              <Link to={`/products/${product.category.toLowerCase()}`}>
-                {product.category}
+              <Link to={`/products/${product.category.slug || product.category.name?.toLowerCase() || 'category'}`}>
+                {product.category.name || product.category}
               </Link>
               <span>/</span>
             </>
           )}
           {product.subcategory && (
             <>
-              <Link to={`/products/${product.category?.toLowerCase()}/${product.subcategory.toLowerCase()}`}>
-                {product.subcategory}
+              <Link to={`/products/${product.category?.slug || product.category?.name?.toLowerCase() || 'category'}/${product.subcategory.slug || product.subcategory.name?.toLowerCase() || 'subcategory'}`}>
+                {product.subcategory.name || product.subcategory}
               </Link>
               <span>/</span>
             </>
@@ -252,6 +257,7 @@ function ProductDetail() {
                   key={selectedImageIndex}
                 />
                 {product.onSale && <span className="sale-badge">Sale</span>}
+                {product.new && <span className="new-badge">New</span>}
                 {productImages.length > 1 && (
                   <>
                     <button className="image-nav-btn prev-btn" onClick={prevImage} aria-label="Previous image">
@@ -279,105 +285,102 @@ function ProductDetail() {
             )}
           </div>
 
-          <div className="product-info">
-            <div className="product-header">
-              <div className="product-header-top">
-                <div>
-                  <span className="product-brand">{product.brand}</span>
-                  <h1>{product.name}</h1>
-                  <div className="product-rating">
-                    <div className="stars">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          size={18}
-                          fill={i < Math.floor(product.rating) ? '#C89E7E' : 'none'}
-                          color="#C89E7E"
-                        />
-                      ))}
+          <div className="product-info-wrapper">
+            <div className="product-info">
+              <div className="product-header">
+                <div className="product-header-top">
+                  <div className="product-title-section">
+                    <span className="product-brand">{product.brand || 'Arudhra Fashions'}</span>
+                    <h1>{product.name}</h1>
+                    <div className="product-rating">
+                      <div className="stars">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            size={18}
+                            fill={i < Math.floor(product.rating || 0) ? '#C89E7E' : 'none'}
+                            color="#C89E7E"
+                          />
+                        ))}
+                      </div>
+                      <span className="rating-text">({product.reviews || 0} reviews)</span>
                     </div>
-                    <span>({product.reviews} reviews)</span>
+                  </div>
+                  <div className="product-share-wrapper">
+                    <button 
+                      className="product-share-btn"
+                      onClick={() => setShowShareMenu(!showShareMenu)}
+                      aria-label="Share product"
+                    >
+                      <Share2 size={20} />
+                      Share
+                    </button>
+                    {showShareMenu && (
+                      <div className="product-share-menu">
+                        <button onClick={() => {
+                          const url = window.location.href
+                          navigator.clipboard.writeText(url)
+                          setShowShareMenu(false)
+                          success('Link copied! Paste it in Instagram')
+                        }} className="share-menu-item">
+                          <Instagram size={18} />
+                          Instagram
+                        </button>
+                        <button onClick={() => {
+                          const url = window.location.href
+                          const text = `Check out ${product.name} at Arudhra Fashions!`
+                          const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`
+                          window.open(whatsappUrl, '_blank')
+                          setShowShareMenu(false)
+                          success('Opening WhatsApp...')
+                        }} className="share-menu-item">
+                          <MessageCircle size={18} />
+                          WhatsApp
+                        </button>
+                        <button onClick={() => {
+                          navigator.clipboard.writeText(window.location.href)
+                          setShowShareMenu(false)
+                          success('Link copied to clipboard!')
+                        }} className="share-menu-item">
+                          <Share2 size={18} />
+                          Copy Link
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="product-share-wrapper">
-                  <button 
-                    className="product-share-btn"
-                    onClick={() => setShowShareMenu(!showShareMenu)}
-                    aria-label="Share product"
-                  >
-                    <Share2 size={20} />
-                    Share
-                  </button>
-                  {showShareMenu && (
-                    <div className="product-share-menu">
-                      <button onClick={() => {
-                        const url = window.location.href
-                        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank')
-                        setShowShareMenu(false)
-                        success('Sharing on Facebook...')
-                      }} className="share-menu-item">
-                        <Facebook size={18} />
-                        Facebook
-                      </button>
-                      <button onClick={() => {
-                        const url = window.location.href
-                        const text = `Check out ${product.name} at Arudhra Fashions!`
-                        window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
-                        setShowShareMenu(false)
-                        success('Sharing on Twitter...')
-                      }} className="share-menu-item">
-                        <Twitter size={18} />
-                        Twitter
-                      </button>
-                      <button onClick={() => {
-                        const url = window.location.href
-                        window.open(`https://www.instagram.com/`, '_blank')
-                        setShowShareMenu(false)
-                        success('Opening Instagram...')
-                      }} className="share-menu-item">
-                        <Instagram size={18} />
-                        Instagram
-                      </button>
-                      <button onClick={() => {
-                        navigator.clipboard.writeText(window.location.href)
-                        setShowShareMenu(false)
-                        success('Link copied to clipboard!')
-                      }} className="share-menu-item">
-                        <Share2 size={18} />
-                        Copy Link
-                      </button>
-                    </div>
+              </div>
+
+              <div className="product-price-section">
+                <div className="product-price">
+                  {product.originalPrice && typeof product.originalPrice === 'number' && (
+                    <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
+                  )}
+                  <span className="current-price">₹{(typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2)}</span>
+                  {product.onSale && product.originalPrice && typeof product.originalPrice === 'number' && (
+                    <span className="discount-badge">
+                      {Math.round(((product.originalPrice - (typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0)) / product.originalPrice) * 100)}% OFF
+                    </span>
                   )}
                 </div>
+                <div className="stock-info">
+                  <span className={`stock-status ${product.inStock ? 'in-stock' : 'out-of-stock'}`}>
+                    {product.inStock ? (
+                      <>
+                        <Check size={16} />
+                        In Stock ({product.stockCount || 0} available)
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ marginRight: '0.5rem' }}>⚠️</span>
+                        Out of Stock
+                      </>
+                    )}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div className="product-price">
-              {product.originalPrice && (
-                <span className="original-price">₹{product.originalPrice}</span>
-              )}
-              <span className="current-price">₹{product.price}</span>
-              {product.onSale && (
-                <span className="discount-badge">
-                  {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
-                </span>
-              )}
-            </div>
-
-            <div className="stock-info">
-              <span className={`stock-status ${product.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                {product.inStock ? (
-                  <>
-                    <Check size={16} />
-                    In Stock ({product.stockCount} available)
-                  </>
-                ) : (
-                  'Out of Stock'
-                )}
-              </span>
-            </div>
-
-            <p className="product-description">{product.description}</p>
+              <p className="product-description">{product.description}</p>
 
             <div className="product-options">
               {productSizes.length > 0 && (
@@ -442,51 +445,60 @@ function ProductDetail() {
               </div>
             </div>
 
-            <div className="product-actions">
-              <button className="btn btn-primary btn-large" onClick={handleAddToCart}>
-                <ShoppingCart size={20} />
-                Add to Cart
-              </button>
-              <button
-                className="btn btn-outline"
-                onClick={handleToggleWishlist}
-              >
-                <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
-                Wishlist
-              </button>
-              <button 
-                className="btn btn-outline"
-                onClick={handleToggleCompare}
-              >
-                <GitCompare size={20} fill={isInCompare ? 'currentColor' : 'none'} />
-                {isInCompare ? 'In Compare' : 'Compare'}
-              </button>
-              <button className="btn btn-outline">
-                <Share2 size={20} />
-                Share
-              </button>
-            </div>
+              <div className="product-actions">
+                <button 
+                  className="btn btn-primary btn-large add-to-cart-btn-main" 
+                  onClick={handleAddToCart}
+                  disabled={!product.inStock}
+                >
+                  <ShoppingCart size={20} />
+                  {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+                </button>
+                <div className="product-actions-secondary">
+                  <button
+                    className="btn btn-icon"
+                    onClick={handleToggleWishlist}
+                    title={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                  >
+                    <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
+                  </button>
+                  <button 
+                    className="btn btn-icon"
+                    onClick={handleToggleCompare}
+                    title={isInCompare ? 'Remove from compare' : 'Add to compare'}
+                  >
+                    <GitCompare size={20} fill={isInCompare ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
+              </div>
 
-            <div className="product-features">
-              <div className="feature-item">
-                <Package size={20} />
-                <div>
-                  <strong>Free Shipping</strong>
-                  <span>On orders above ₹2000</span>
+              <div className="product-features">
+                <div className="feature-item">
+                  <div className="feature-icon">
+                    <Package size={24} />
+                  </div>
+                  <div className="feature-content">
+                    <strong>Free Shipping</strong>
+                    <span>On orders above ₹2000</span>
+                  </div>
                 </div>
-              </div>
-              <div className="feature-item">
-                <RotateCcw size={20} />
-                <div>
-                  <strong>Easy Returns</strong>
-                  <span>30 days return policy</span>
+                <div className="feature-item">
+                  <div className="feature-icon">
+                    <RotateCcw size={24} />
+                  </div>
+                  <div className="feature-content">
+                    <strong>Easy Returns</strong>
+                    <span>30 days return policy</span>
+                  </div>
                 </div>
-              </div>
-              <div className="feature-item">
-                <Shield size={20} />
-                <div>
-                  <strong>Secure Payment</strong>
-                  <span>100% secure checkout</span>
+                <div className="feature-item">
+                  <div className="feature-icon">
+                    <Shield size={24} />
+                  </div>
+                  <div className="feature-content">
+                    <strong>Secure Payment</strong>
+                    <span>100% secure checkout</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -642,7 +654,7 @@ function ProductDetail() {
         {/* Related Products */}
         <div className="related-products-section">
           <h2>You May Also Like</h2>
-          <div className="related-products-grid grid-4">
+          <div className="related-products-grid">
             {relatedProducts.map(product => (
               <ProductCard key={product._id || product.id} product={product} />
             ))}

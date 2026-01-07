@@ -315,7 +315,7 @@ function Dashboard() {
                       value={loginForm.mobile}
                       onChange={(e) => setLoginForm({ ...loginForm, mobile: e.target.value })}
                       required
-                      placeholder="9876543210"
+                      placeholder="Enter mobile number"
                       pattern="[0-9]{10}"
                       maxLength="10"
                     />
@@ -330,17 +330,19 @@ function Dashboard() {
                       placeholder="Enter your password"
                     />
                   </div>
-                  <button type="submit" className="btn btn-primary btn-large">
-                    Sign In
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => setShowResetPassword(true)}
-                  >
-                    <Lock size={16} />
-                    Forgot Password?
-                  </button>
+                  <div className="dashboard-login-actions">
+                    <button type="submit" className="btn btn-primary dashboard-login-btn">
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline dashboard-forgot-btn"
+                      onClick={() => setShowResetPassword(true)}
+                    >
+                      <Lock size={14} />
+                      Forgot Password?
+                    </button>
+                  </div>
                 </form>
 
                 {showResetPassword && (
@@ -348,13 +350,13 @@ function Dashboard() {
                     <h3>Reset Password</h3>
                     <form onSubmit={handleResetPassword} className="auth-form">
                       <div className="form-group">
-                        <label>Mobile Number</label>
+                        <label>Mobile Number <span className="required">*</span></label>
                         <input
                           type="tel"
                           value={resetForm.mobile}
                           onChange={(e) => setResetForm({ ...resetForm, mobile: e.target.value })}
                           required
-                          placeholder="9876543210"
+                          placeholder="Enter mobile number"
                           pattern="[0-9]{10}"
                           maxLength="10"
                         />
@@ -462,7 +464,7 @@ function Dashboard() {
                       minLength="8"
                     />
                   </div>
-                  <button type="submit" className="btn btn-primary btn-large">
+                  <button type="submit" className="btn btn-primary dashboard-login-btn">
                     Create Account
                   </button>
                 </form>

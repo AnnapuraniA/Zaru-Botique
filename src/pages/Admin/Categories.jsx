@@ -38,20 +38,22 @@ function Categories() {
   }
 
   const handleAddCategory = async () => {
-    if (newCategoryName && newCategoryName.trim()) {
-      try {
-        await adminCategoriesAPI.create({
-          name: newCategoryName.trim(),
-          description: '',
-          isActive: true
-        })
-        setNewCategoryName('')
-        setShowAddCategoryModal(false)
-        await loadCategories()
-        success('Category added successfully')
-      } catch (err) {
-        showError('Failed to add category')
-      }
+    if (!newCategoryName || !newCategoryName.trim()) {
+      showError('Please enter a category name')
+      return
+    }
+    try {
+      await adminCategoriesAPI.create({
+        name: newCategoryName.trim(),
+        description: '',
+        isActive: true
+      })
+      setNewCategoryName('')
+      setShowAddCategoryModal(false)
+      await loadCategories()
+      success('Category added successfully')
+    } catch (err) {
+      showError(err.message || 'Failed to add category')
     }
   }
 
@@ -74,9 +76,9 @@ function Categories() {
       setShowSubcategoryModal(false)
       setSubcategoryForm({ categoryId: '', name: '' })
       success('Subcategory added successfully')
-    } catch (err) {
-      showError('Failed to add subcategory')
-    }
+      } catch (err) {
+        showError(err.message || 'Failed to add subcategory')
+      }
   }
 
   const handleDeleteCategory = async (categoryId) => {
@@ -89,7 +91,7 @@ function Categories() {
         await loadCategories()
         success('Category deleted successfully')
       } catch (err) {
-        showError('Failed to delete category')
+        showError(err.message || 'Failed to delete category')
       }
     }
   }
@@ -101,28 +103,45 @@ function Categories() {
         await loadCategories()
         success('Subcategory deleted successfully')
       } catch (err) {
-        showError('Failed to delete subcategory')
+        showError(err.message || 'Failed to delete subcategory')
       }
     }
   }
 
   const handleEditSubcategory = async (subcategoryId, oldName, newName) => {
-    if (newName && newName.trim() && newName !== oldName) {
-      try {
-        await adminCategoriesAPI.updateSubcategory(subcategoryId, {
-          name: newName.trim()
-        })
-        await loadCategories()
-        success('Subcategory updated successfully')
-      } catch (err) {
-        showError('Failed to update subcategory')
-      }
+    if (!newName || !newName.trim()) {
+      showError('Please enter a subcategory name')
+      return
+    }
+    if (newName.trim() === oldName) {
+      // No change, just close modal
+      return
+    }
+    try {
+      await adminCategoriesAPI.updateSubcategory(subcategoryId, {
+        name: newName.trim()
+      })
+      await loadCategories()
+      success('Subcategory updated successfully')
+    } catch (err) {
+      showError(err.message || 'Failed to update subcategory')
     }
   }
 
   const handleEditSubcategoryFromForm = async () => {
-    if (editSubcategoryForm.name.trim()) {
-      await handleEditSubcategory(editSubcategoryForm.id, editSubcategoryForm.name, editSubcategoryForm.name.trim())
+    if (!editSubcategoryForm.name || !editSubcategoryForm.name.trim()) {
+      showError('Please enter a subcategory name')
+      return
+    }
+    try {
+      const subcategory = categories
+        .flatMap(cat => cat.subcategories || [])
+        .find(sub => sub.id === editSubcategoryForm.id)
+      const oldName = subcategory?.name || ''
+      await handleEditSubcategory(editSubcategoryForm.id, oldName, editSubcategoryForm.name.trim())
+      setShowEditSubcategoryModal(false)
+    } catch (err) {
+      // Error already handled in handleEditSubcategory
     }
   }
 
@@ -132,7 +151,7 @@ function Categories() {
       await loadCategories()
       success('Category updated successfully')
     } catch (err) {
-      showError('Failed to update category')
+      showError(err.message || 'Failed to update category')
     }
   }
 
@@ -182,6 +201,138 @@ function Categories() {
               </button>
               <button className="btn btn-primary" onClick={handleAddCategory}>
                 Add Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category Modal */}
+      {showEditCategoryModal && (
+        <div className="modal-overlay" onClick={() => setShowEditCategoryModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Category</h2>
+              <button className="modal-close" onClick={() => setShowEditCategoryModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Category Name *</label>
+                <input
+                  type="text"
+                  value={editCategoryForm.name}
+                  onChange={(e) => setEditCategoryForm({ ...editCategoryForm, name: e.target.value })}
+                  placeholder="Category name"
+                  autoFocus
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleEditCategory(editCategoryForm.id, { name: editCategoryForm.name.trim() })
+                      setShowEditCategoryModal(false)
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowEditCategoryModal(false)}>
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  if (!editCategoryForm.name || !editCategoryForm.name.trim()) {
+                    showError('Please enter a category name')
+                    return
+                  }
+                  handleEditCategory(editCategoryForm.id, { name: editCategoryForm.name.trim() })
+                  setShowEditCategoryModal(false)
+                }}
+              >
+                Update Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Subcategory Modal */}
+      {showSubcategoryModal && (
+        <div className="modal-overlay" onClick={() => setShowSubcategoryModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Add New Subcategory</h2>
+              <button className="modal-close" onClick={() => setShowSubcategoryModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Subcategory Name *</label>
+                <input
+                  type="text"
+                  value={subcategoryForm.name}
+                  onChange={(e) => setSubcategoryForm({ ...subcategoryForm, name: e.target.value })}
+                  placeholder="e.g., Shirts, Pants, etc."
+                  autoFocus
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSubmitSubcategory()
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowSubcategoryModal(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleSubmitSubcategory}>
+                Add Subcategory
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Subcategory Modal */}
+      {showEditSubcategoryModal && (
+        <div className="modal-overlay" onClick={() => setShowEditSubcategoryModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Subcategory</h2>
+              <button className="modal-close" onClick={() => setShowEditSubcategoryModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Subcategory Name *</label>
+                <input
+                  type="text"
+                  value={editSubcategoryForm.name}
+                  onChange={(e) => setEditSubcategoryForm({ ...editSubcategoryForm, name: e.target.value })}
+                  placeholder="Subcategory name"
+                  autoFocus
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleEditSubcategoryFromForm()
+                      setShowEditSubcategoryModal(false)
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowEditSubcategoryModal(false)}>
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleEditSubcategoryFromForm}
+              >
+                Update Subcategory
               </button>
             </div>
           </div>

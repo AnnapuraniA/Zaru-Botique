@@ -1,18 +1,38 @@
-import { useState } from 'react'
-import { X, ShoppingCart, Heart, Star } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, ShoppingCart, Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useToast } from '../Toast/ToastContainer'
 
 function QuickView({ product, isOpen, onClose }) {
   const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState('')
-  const [isWishlisted, setIsWishlisted] = useState(false)
   const { success } = useToast()
+
+  // Normalize product data
+  const productImage = product.images && product.images.length > 0 
+    ? product.images[0]
+    : product.image || 'https://via.placeholder.com/600x800'
+  
+  const productColors = product.colors || []
+  const productSizes = product.sizes || []
+
+  // Set default size and color
+  useEffect(() => {
+    if (productSizes.length > 0 && !selectedSize) {
+      setSelectedSize(productSizes[0])
+    }
+    if (productColors.length > 0 && !selectedColor) {
+      const firstColor = typeof productColors[0] === 'string' 
+        ? productColors[0] 
+        : (productColors[0].name || productColors[0].value)
+      setSelectedColor(firstColor)
+    }
+  }, [product, productSizes, productColors, selectedSize, selectedColor])
 
   if (!isOpen || !product) return null
 
   const handleAddToCart = () => {
-    if (!selectedSize) {
+    if (productSizes.length > 0 && !selectedSize) {
       success('Please select a size', 'warning')
       return
     }
@@ -21,57 +41,50 @@ function QuickView({ product, isOpen, onClose }) {
     onClose()
   }
 
-  const handleWishlist = () => {
-    setIsWishlisted(!isWishlisted)
-    success(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist')
-  }
+  const discountPercent = product.onSale && product.originalPrice && typeof product.originalPrice === 'number'
+    ? Math.round(((product.originalPrice - (typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0)) / product.originalPrice) * 100)
+    : 0
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay quick-view-overlay" onClick={onClose}>
       <div className="modal-content quick-view-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose} aria-label="Close">
-          <X size={20} />
+        <button className="modal-close quick-view-close" onClick={onClose} aria-label="Close">
+          <X size={24} />
         </button>
         
         <div className="quick-view-content">
-          <div className="quick-view-image">
-            <img src={product.image} alt={product.name} />
-            {product.onSale && <span className="badge sale-badge">Sale</span>}
-            <button className="quick-view-wishlist" onClick={handleWishlist}>
-              <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
-            </button>
+          <div className="quick-view-image-section">
+            <div className="quick-view-image">
+              <img src={productImage} alt={product.name} />
+              {product.onSale && discountPercent > 0 && (
+                <span className="quick-view-offer-badge">{discountPercent}% OFF</span>
+              )}
+            </div>
           </div>
 
           <div className="quick-view-info">
-            <h2>{product.name}</h2>
-            <p className="quick-view-category">{product.category} - {product.subcategory}</p>
-            
-            <div className="quick-view-rating">
-              <div className="stars">
-                {[...Array(5)].map((_, i) => (
-                  <Star 
-                    key={i} 
-                    size={16} 
-                    fill={i < Math.floor(product.rating) ? '#C89E7E' : 'none'}
-                    color="#C89E7E"
-                  />
-                ))}
+            <h2 className="quick-view-title">{product.name}</h2>
+
+            <div className="quick-view-price-section">
+              <div className="quick-view-price">
+                {product.originalPrice && typeof product.originalPrice === 'number' && (
+                  <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
+                )}
+                <span className="current-price">₹{(typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2)}</span>
               </div>
-              <span>({product.reviews} reviews)</span>
-            </div>
-
-            <div className="quick-view-price">
-              {product.originalPrice && typeof product.originalPrice === 'number' && (
-                <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
+              {product.inStock && (
+                <div className="quick-view-stock">
+                  <Check size={16} />
+                  <span>In Stock</span>
+                </div>
               )}
-              <span className="current-price">₹{(typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2)}</span>
             </div>
 
-            {product.sizes && (
+            {productSizes.length > 0 && (
               <div className="quick-view-options">
-                <label>Size *</label>
+                <label>Size</label>
                 <div className="size-options">
-                  {product.sizes.map(size => (
+                  {productSizes.map(size => (
                     <button
                       key={size}
                       className={`size-option-btn ${selectedSize === size ? 'selected' : ''}`}
@@ -84,30 +97,49 @@ function QuickView({ product, isOpen, onClose }) {
               </div>
             )}
 
-            {product.colors && (
+            {productColors.length > 0 && (
               <div className="quick-view-options">
                 <label>Color</label>
                 <div className="color-options">
-                  {product.colors.map(color => (
-                    <button
-                      key={color}
-                      className={`color-option-btn ${selectedColor === color ? 'selected' : ''}`}
-                      onClick={() => setSelectedColor(color)}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    ></button>
-                  ))}
+                  {productColors.map((color, idx) => {
+                    const colorName = typeof color === 'string' ? color : (color.name || color.value || `Color ${idx + 1}`)
+                    const colorValue = typeof color === 'string' ? color : (color.value || color.name || '#000000')
+                    const isSelected = selectedColor === colorName
+                    
+                    return (
+                      <button
+                        key={colorName}
+                        className={`color-option-btn ${isSelected ? 'selected' : ''}`}
+                        onClick={() => setSelectedColor(colorName)}
+                        title={colorName}
+                      >
+                        <span 
+                          className="color-swatch"
+                          style={{ backgroundColor: colorValue }}
+                        ></span>
+                        {isSelected && <span className="check-mark">✓</span>}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
 
             <div className="quick-view-actions">
-              <button className="btn btn-primary btn-large" onClick={handleAddToCart}>
-                <ShoppingCart size={18} />
-                Add to Cart
+              <button 
+                className="btn btn-primary btn-large quick-view-add-cart" 
+                onClick={handleAddToCart}
+                disabled={!product.inStock}
+              >
+                <ShoppingCart size={20} />
+                {product.inStock ? 'Add to Cart' : 'Out of Stock'}
               </button>
-              <Link to={`/product/${product.id}`} className="btn btn-outline btn-large" onClick={onClose}>
-                View Full Details
+              <Link 
+                to={`/product/${product._id || product.id}`} 
+                className="quick-view-link" 
+                onClick={onClose}
+              >
+                View Full Details →
               </Link>
             </div>
           </div>

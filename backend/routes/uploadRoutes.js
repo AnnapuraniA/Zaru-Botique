@@ -1,5 +1,6 @@
 import express from 'express'
 import upload from '../middleware/upload.js'
+import multer from 'multer'
 import { adminProtect } from '../middleware/adminAuth.js'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -12,17 +13,45 @@ const router = express.Router()
 // @route   POST /api/admin/upload/images
 // @desc    Upload product images
 // @access  Admin
-router.post('/images', adminProtect, upload.array('images', 10), async (req, res) => {
+router.post('/images', adminProtect, (req, res, next) => {
+  upload.array('images', 10)(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err)
+      // Handle multer errors
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: 'File size too large. Maximum size is 10MB.' })
+        }
+        if (err.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({ message: 'Too many files. Maximum is 10 files.' })
+        }
+        return res.status(400).json({ message: err.message || 'File upload error' })
+      }
+      // Handle other errors (like fileFilter errors)
+      return res.status(400).json({ message: err.message || 'File upload error' })
+    }
+    // No error, continue to handler
+    next()
+  })
+}, async (req, res) => {
   try {
+    console.log('Upload handler - req.files:', req.files)
+    
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: 'No files uploaded' })
     }
 
-    // Generate URLs for uploaded files
-    const imageUrls = req.files.map(file => {
-      // Return URL path that will be served statically
-      return `/uploads/products/${file.filename}`
-    })
+      // Generate full URLs for uploaded files
+      const protocol = req.protocol || 'http'
+      const host = req.get('host') || 'localhost:5001'
+      const baseUrl = `${protocol}://${host}`
+      
+      const imageUrls = req.files.map(file => {
+        // Return full URL path that will be served statically
+        return `${baseUrl}/uploads/products/${file.filename}`
+      })
+
+    console.log('Generated image URLs:', imageUrls)
 
     res.json({
       success: true,
@@ -30,7 +59,7 @@ router.post('/images', adminProtect, upload.array('images', 10), async (req, res
       message: `${req.files.length} image(s) uploaded successfully`
     })
   } catch (error) {
-    console.error('Image upload error:', error)
+    console.error('Image upload processing error:', error)
     res.status(500).json({ message: 'Failed to upload images', error: error.message })
   }
 })

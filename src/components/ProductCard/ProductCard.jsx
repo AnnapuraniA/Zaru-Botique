@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Heart, ShoppingCart, Star, Eye, Share2, Facebook, Twitter, Instagram } from 'lucide-react'
+import { Heart, ShoppingCart, Star, Eye, Share2, Instagram, MessageCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import QuickView from '../QuickView/QuickView'
 import { useToast } from '../Toast/ToastContainer'
@@ -78,14 +78,13 @@ function ProductCard({ product }) {
     const url = window.location.origin + `/product/${productId}`
     const text = `Check out ${product.name} at Arudhra Fashions!`
     
-    const shareUrls = {
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
-      twitter: `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
-      instagram: `https://www.instagram.com/`
-    }
-
-    if (shareUrls[platform]) {
-      window.open(shareUrls[platform], '_blank', 'width=600,height=400')
+    if (platform === 'whatsapp') {
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`
+      window.open(whatsappUrl, '_blank')
+    } else if (platform === 'instagram') {
+      // Instagram doesn't support direct sharing via URL, so we'll copy the link
+      navigator.clipboard.writeText(url)
+      success('Link copied! Paste it in Instagram')
     }
     setShowShareMenu(false)
   }
@@ -138,17 +137,13 @@ function ProductCard({ product }) {
                 </button>
                 {showShareMenu && (
                   <div className="share-menu" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={(e) => handleShare('facebook', e)} className="share-option">
-                      <Facebook size={16} />
-                      Facebook
-                    </button>
-                    <button onClick={(e) => handleShare('twitter', e)} className="share-option">
-                      <Twitter size={16} />
-                      Twitter
-                    </button>
                     <button onClick={(e) => handleShare('instagram', e)} className="share-option">
                       <Instagram size={16} />
                       Instagram
+                    </button>
+                    <button onClick={(e) => handleShare('whatsapp', e)} className="share-option">
+                      <MessageCircle size={16} />
+                      WhatsApp
                     </button>
                     <button onClick={handleCopyLink} className="share-option">
                       <Share2 size={16} />
@@ -162,7 +157,7 @@ function ProductCard({ product }) {
         <div className="product-info">
           <h3 className="product-name">{product.name}</h3>
           <p className="product-category">
-            {product.category}{product.subcategory ? ` - ${product.subcategory}` : ''}
+            {product.category?.name || product.category}{product.subcategory ? ` - ${product.subcategory?.name || product.subcategory}` : ''}
           </p>
           {product.rating && (
             <div className="product-rating">

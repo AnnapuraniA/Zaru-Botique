@@ -1,4 +1,5 @@
 import express from 'express'
+import { Op } from 'sequelize'
 import User from '../models/User.js'
 import Product from '../models/Product.js'
 import { protect } from '../middleware/auth.js'
@@ -17,7 +18,7 @@ router.get('/', protect, async (req, res) => {
     }
 
     const wishlistProducts = await Product.findAll({
-      where: { id: user.wishlist }
+      where: { id: { [Op.in]: user.wishlist } }
     })
     
     res.json(wishlistProducts)
@@ -56,7 +57,7 @@ router.post('/', protect, async (req, res) => {
     await user.save()
 
     const wishlistProducts = await Product.findAll({
-      where: { id: wishlist }
+      where: { id: { [Op.in]: wishlist } }
     })
     
     res.json(wishlistProducts)
@@ -80,9 +81,9 @@ router.delete('/:productId', protect, async (req, res) => {
     user.wishlist = wishlist
     await user.save()
     
-    const wishlistProducts = await Product.findAll({
-      where: { id: wishlist }
-    })
+    const wishlistProducts = wishlist.length > 0 ? await Product.findAll({
+      where: { id: { [Op.in]: wishlist } }
+    }) : []
     
     res.json(wishlistProducts)
   } catch (error) {

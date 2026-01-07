@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, ArrowUp, ArrowDown, X } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, ArrowUp, ArrowDown, X, Upload } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
-import { adminBannersAPI } from '../../utils/adminApi'
+import { adminBannersAPI, adminUploadAPI } from '../../utils/adminApi'
+import { getImageUrl } from '../../utils/api'
 
 function Banners() {
   const { success, error: showError } = useToast()
@@ -10,6 +11,7 @@ function Banners() {
   const [editingBanner, setEditingBanner] = useState(null)
   const [banners, setBanners] = useState([])
   const [loading, setLoading] = useState(true)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     loadBanners()
@@ -45,7 +47,7 @@ function Banners() {
 
   const handleAdd = async () => {
     if (!formData.title || !formData.image) {
-      showError('Please fill in all required fields')
+      showError('Please fill in title and upload an image')
       return
     }
     try {
@@ -68,7 +70,7 @@ function Banners() {
       await loadBanners()
       success('Banner added successfully')
     } catch (err) {
-      showError('Failed to add banner')
+      showError(err.message || 'Failed to add banner')
     }
   }
 
@@ -95,7 +97,7 @@ function Banners() {
       await loadBanners()
       success('Banner updated successfully')
     } catch (err) {
-      showError('Failed to update banner')
+      showError(err.message || 'Failed to update banner')
     }
   }
 
@@ -155,6 +157,64 @@ function Banners() {
     setShowAddModal(true)
   }
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      console.log('No file selected')
+      return
+    }
+
+    console.log('File selected:', file.name, file.type, file.size, 'bytes')
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file (JPG, PNG, or WebP)')
+      e.target.value = '' // Reset input
+      return
+    }
+
+    // Optional: Validate file size (max 10MB) - can be removed if you want no limit
+    if (file.size > 10 * 1024 * 1024) {
+      showError('Image size should be less than 10MB')
+      e.target.value = '' // Reset input
+      return
+    }
+
+    try {
+      setUploadingImage(true)
+      console.log('Starting upload for:', file.name)
+      
+      const result = await adminUploadAPI.uploadImages([file])
+      console.log('Upload API response:', result)
+      
+      if (result && result.images && Array.isArray(result.images) && result.images.length > 0) {
+        // Store the uploaded image URL in formData
+        const imageUrl = result.images[0]
+        console.log('Setting image URL:', imageUrl)
+        setFormData(prev => {
+          const updated = { ...prev, image: imageUrl }
+          console.log('Updated formData:', updated)
+          return updated
+        })
+        success('Image uploaded successfully')
+      } else {
+        console.error('Invalid response format:', result)
+        showError('Failed to get uploaded image URL. Response: ' + JSON.stringify(result))
+      }
+    } catch (err) {
+      console.error('Upload error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      })
+      showError(err.message || 'Failed to upload image')
+    } finally {
+      setUploadingImage(false)
+      // Reset file input to allow re-selecting the same file
+      e.target.value = ''
+    }
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
@@ -207,7 +267,7 @@ function Banners() {
           filteredBanners.map(banner => (
             <div key={banner.id} className="banner-card">
               <div className="banner-image-preview">
-                <img src={banner.image} alt={banner.title} />
+                <img src={getImageUrl(banner.image)} alt={banner.title} />
                 <div className="banner-overlay">
                   <span className="banner-position">Position: {banner.position}</span>
                 </div>
@@ -300,14 +360,52 @@ function Banners() {
                 />
               </div>
               <div className="form-group">
-                <label>Banner Image URL *</label>
-                <input
-                  type="text"
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
-                  required
-                />
+                <label>Banner Image *</label>
+                <div className="image-upload-section">
+                  {!formData.image ? (
+                    <label className="image-upload-area">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                        style={{ display: 'none' }}
+                      />
+                      <div className="upload-placeholder">
+                        <Upload size={48} />
+                        <p>Click to upload banner image</p>
+                        <span>JPG, PNG or WebP (Max 10MB)</span>
+                      </div>
+                    </label>
+                  ) : (
+                    <div className="image-preview-wrapper">
+                      <div className="image-preview">
+                        <img src={getImageUrl(formData.image)} alt="Banner preview" />
+                        <button
+                          type="button"
+                          className="remove-image-btn"
+                          onClick={() => setFormData({ ...formData, image: '' })}
+                          title="Remove image"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                      <label className="change-image-btn">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={uploadingImage}
+                          style={{ display: 'none' }}
+                        />
+                        <span className="btn btn-outline btn-small">
+                          <Upload size={16} />
+                          {uploadingImage ? 'Uploading...' : 'Change Image'}
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="form-group">
                 <label>Link URL</label>

@@ -1,6 +1,8 @@
 import express from 'express'
 import { Op } from 'sequelize'
 import Product from '../models/Product.js'
+import Category from '../models/Category.js'
+import Subcategory from '../models/Subcategory.js'
 import { optionalAuth } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -28,12 +30,46 @@ router.get('/', optionalAuth, async (req, res) => {
     // Build filter object
     const where = { isActive: true }
 
+    // Handle category filter (by slug)
     if (category) {
-      where.category = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase()
+      const categoryRecord = await Category.findOne({
+        where: { 
+          slug: category.toLowerCase(),
+          isActive: true 
+        }
+      })
+      if (categoryRecord) {
+        where.categoryId = categoryRecord.id
+      } else {
+        // Return empty if category not found
+        return res.json({
+          products: [],
+          page: Number(page),
+          pages: 0,
+          total: 0
+        })
+      }
     }
 
+    // Handle subcategory filter (by slug)
     if (subcategory) {
-      where.subcategory = subcategory.charAt(0).toUpperCase() + subcategory.slice(1).toLowerCase()
+      const subcategoryRecord = await Subcategory.findOne({
+        where: { 
+          slug: subcategory.toLowerCase(),
+          isActive: true 
+        }
+      })
+      if (subcategoryRecord) {
+        where.subcategoryId = subcategoryRecord.id
+      } else {
+        // Return empty if subcategory not found
+        return res.json({
+          products: [],
+          page: Number(page),
+          pages: 0,
+          total: 0
+        })
+      }
     }
 
     if (minPrice || maxPrice) {
@@ -49,8 +85,28 @@ router.get('/', optionalAuth, async (req, res) => {
 
     if (colors) {
       const colorArray = Array.isArray(colors) ? colors : [colors]
-      where.colors = {
-        [Op.contains]: colorArray.map(c => ({ name: c }))
+      // For JSONB array, check if colors array contains any of the specified colors
+      const colorConditions = colorArray.map(color => ({
+        colors: {
+          [Op.contains]: [{ name: color }]
+        }
+      }))
+      
+      if (colorConditions.length === 1) {
+        where.colors = colorConditions[0].colors
+      } else {
+        // Multiple colors - use OR to find products with any of these colors
+        const existingOr = where[Op.or]
+        if (existingOr) {
+          // If Op.or already exists, we need to combine with AND
+          where[Op.and] = [
+            { [Op.or]: existingOr },
+            { [Op.or]: colorConditions }
+          ]
+          delete where[Op.or]
+        } else {
+          where[Op.or] = colorConditions
+        }
       }
     }
 
@@ -69,16 +125,41 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     if (search) {
-      where[Op.or] = [
+      const searchConditions = [
         { name: { [Op.iLike]: `%${search}%` } },
         { description: { [Op.iLike]: `%${search}%` } }
       ]
+      
+      // If Op.or or Op.and already exists, combine properly
+      if (where[Op.or] && !where[Op.and]) {
+        // Colors filter created Op.or, combine with AND
+        where[Op.and] = [
+          { [Op.or]: where[Op.or] },
+          { [Op.or]: searchConditions }
+        ]
+        delete where[Op.or]
+      } else if (where[Op.and]) {
+        // Already have Op.and, add search to it
+        where[Op.and].push({ [Op.or]: searchConditions })
+      } else {
+        where[Op.or] = searchConditions
+      }
     }
 
     const offset = (page - 1) * limit
 
     const { count, rows: products } = await Product.findAndCountAll({
       where,
+      include: [
+        {
+          association: 'category',
+          required: false
+        },
+        {
+          association: 'subcategory',
+          required: false
+        }
+      ],
       order: [['createdAt', 'DESC']],
       limit: Number(limit),
       offset: Number(offset)
@@ -101,7 +182,18 @@ router.get('/', optionalAuth, async (req, res) => {
 // @access  Public
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
-    const product = await Product.findByPk(req.params.id)
+    const product = await Product.findByPk(req.params.id, {
+      include: [
+        {
+          association: 'category',
+          required: false
+        },
+        {
+          association: 'subcategory',
+          required: false
+        }
+      ]
+    })
 
     if (!product || !product.isActive) {
       return res.status(404).json({ message: 'Product not found' })
@@ -119,7 +211,18 @@ router.get('/:id', optionalAuth, async (req, res) => {
 // @access  Public
 router.get('/:id/related', optionalAuth, async (req, res) => {
   try {
-    const product = await Product.findByPk(req.params.id)
+    const product = await Product.findByPk(req.params.id, {
+      include: [
+        {
+          association: 'category',
+          required: false
+        },
+        {
+          association: 'subcategory',
+          required: false
+        }
+      ]
+    })
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' })
@@ -128,11 +231,21 @@ router.get('/:id/related', optionalAuth, async (req, res) => {
     // Get products from same category and subcategory, excluding current product
     const relatedProducts = await Product.findAll({
       where: {
-        category: product.category,
-        subcategory: product.subcategory,
+        categoryId: product.categoryId,
+        subcategoryId: product.subcategoryId,
         id: { [Op.ne]: product.id },
         isActive: true
       },
+      include: [
+        {
+          association: 'category',
+          required: false
+        },
+        {
+          association: 'subcategory',
+          required: false
+        }
+      ],
       limit: 4,
       order: [['rating', 'DESC'], ['createdAt', 'DESC']]
     })

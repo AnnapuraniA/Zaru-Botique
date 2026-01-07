@@ -1,6 +1,31 @@
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
 
+// Helper function to get backend base URL (without /api)
+const getBackendBaseUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+  return apiUrl.replace('/api', '')
+}
+
+// Helper function to ensure image URLs are absolute
+export const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  
+  // If already a full URL (starts with http:// or https://), return as is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  
+  // If relative path, prepend backend base URL
+  const backendUrl = getBackendBaseUrl()
+  if (imagePath.startsWith('/')) {
+    return `${backendUrl}${imagePath}`
+  }
+  
+  // Otherwise, assume it's a relative path and prepend backend URL
+  return `${backendUrl}/${imagePath}`
+}
+
 // Helper function to get auth token
 const getToken = () => {
   return localStorage.getItem('token')

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { X, Star, ShoppingCart } from 'lucide-react'
+import { X, Star, ShoppingCart, GitCompare } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { cartAPI, productsAPI } from '../utils/api'
@@ -59,6 +59,9 @@ function Compare() {
       return itemId !== id
     }))
     
+    // Dispatch event to update header count
+    window.dispatchEvent(new Event('compareUpdated'))
+    
     success('Removed from compare')
   }
 
@@ -78,8 +81,15 @@ function Compare() {
     <div className="compare-products-page">
       <div className="container">
         <div className="compare-header">
-          <h1>Compare Products</h1>
-          <p>Compare up to 4 products side by side</p>
+          <div className="compare-header-content">
+            <h1>Compare Products</h1>
+            <p>Compare up to 4 products side by side to make the best choice</p>
+            {compareItems.length > 0 && (
+              <div className="compare-count-badge">
+                {compareItems.length} {compareItems.length === 1 ? 'Product' : 'Products'} Selected
+              </div>
+            )}
+          </div>
         </div>
 
         {compareItems.length > 0 ? (
@@ -87,45 +97,69 @@ function Compare() {
             <table className="compare-table">
               <thead>
                 <tr>
-                  <th></th>
+                  <th className="sticky-column"></th>
                   {compareItems.map(item => {
                     const itemId = item._id || item.id
+                    const productPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0
+                    const productOriginalPrice = typeof item.originalPrice === 'number' ? item.originalPrice : null
                     return (
                       <th key={itemId} className="product-column">
-                        <button
-                          className="remove-compare-btn"
-                          onClick={() => removeFromCompare(itemId)}
-                          aria-label="Remove from comparison"
-                        >
-                          <X size={18} />
-                        </button>
-                        <Link to={`/product/${itemId}`} className="compare-product-link">
-                          <img src={item.images?.[0] || item.image || 'https://via.placeholder.com/300x400'} alt={item.name} />
-                          <h3>{item.name}</h3>
-                        </Link>
+                        <div className="compare-product-card">
+                          <button
+                            className="remove-compare-btn"
+                            onClick={() => removeFromCompare(itemId)}
+                            aria-label="Remove from comparison"
+                            title="Remove from comparison"
+                          >
+                            <X size={18} />
+                          </button>
+                          <Link to={`/product/${itemId}`} className="compare-product-link">
+                            <div className="compare-product-image-wrapper">
+                              <img src={item.images?.[0] || item.image || 'https://via.placeholder.com/300x400'} alt={item.name} />
+                              {item.onSale && <span className="compare-sale-badge">Sale</span>}
+                              {item.new && <span className="compare-new-badge">New</span>}
+                            </div>
+                            <h3>{item.name}</h3>
+                            <div className="compare-product-price">
+                              {productOriginalPrice && (
+                                <span className="original-price">₹{productOriginalPrice.toFixed(2)}</span>
+                              )}
+                              <span className="current-price">₹{productPrice.toFixed(2)}</span>
+                            </div>
+                            {item.rating && (
+                              <div className="compare-product-rating">
+                                <Star size={14} fill="#C89E7E" color="#C89E7E" />
+                                <span>{item.rating}</span>
+                                <span className="review-count">({item.reviews?.length || 0})</span>
+                              </div>
+                            )}
+                          </Link>
+                        </div>
                       </th>
                     )
                   })}
                 </tr>
               </thead>
               <tbody>
-                {comparisonFields.map(field => (
-                  <tr key={field.key}>
-                    <td className="field-label">{field.label}</td>
+                {comparisonFields.map((field, index) => (
+                  <tr key={field.key} className={index % 2 === 0 ? 'even-row' : 'odd-row'}>
+                    <td className="field-label sticky-column">
+                      <span className="field-label-text">{field.label}</span>
+                    </td>
                     {compareItems.map(item => {
                       const itemId = item._id || item.id
                       return (
                         <td key={itemId} className="field-value">
                           {field.key === 'price' && (
-                            <div>
-                              {item.originalPrice && (
-                                <span className="original-price">₹{item.originalPrice.toLocaleString()}</span>
+                            <div className="compare-price-display">
+                              {item.originalPrice && typeof item.originalPrice === 'number' && (
+                                <span className="original-price">₹{item.originalPrice.toFixed(2)}</span>
                               )}
-                              <span className="current-price">₹{item.price.toLocaleString()}</span>
+                              <span className="current-price">₹{(typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0).toFixed(2)}</span>
                             </div>
                           )}
                           {field.key === 'rating' && (
-                            <div className="rating-display">
+                            <div className="compare-rating-display">
                               <div className="stars">
                                 {[...Array(5)].map((_, i) => (
                                   <Star
@@ -136,33 +170,63 @@ function Compare() {
                                   />
                                 ))}
                               </div>
-                              <span>{item.rating || 0}</span>
+                              <span className="rating-value">{item.rating || 0}/5</span>
                             </div>
                           )}
-                          {field.key === 'reviews' && <span>{item.reviews?.length || 0}</span>}
-                          {field.key === 'brand' && <span>{item.brand || 'N/A'}</span>}
-                          {field.key === 'material' && <span>{item.material || 'N/A'}</span>}
-                          {field.key === 'care' && <span>{item.care || 'N/A'}</span>}
+                          {field.key === 'reviews' && (
+                            <span className="compare-reviews-count">{item.reviews?.length || 0} reviews</span>
+                          )}
+                          {field.key === 'brand' && (
+                            <span className="compare-brand">{item.brand || 'N/A'}</span>
+                          )}
+                          {field.key === 'material' && (
+                            <span className="compare-material">{item.material || 'N/A'}</span>
+                          )}
+                          {field.key === 'care' && (
+                            <span className="compare-care">{item.care || 'N/A'}</span>
+                          )}
                           {field.key === 'sizes' && (
-                            <div className="sizes-list">
-                              {(item.sizes || []).map(size => (
-                                <span key={size} className="size-badge">{size}</span>
-                              ))}
+                            <div className="compare-sizes-list">
+                              {(item.sizes || []).length > 0 ? (
+                                (item.sizes || []).map(size => (
+                                  <span key={size} className="compare-size-badge">{size}</span>
+                                ))
+                              ) : (
+                                <span className="compare-na">N/A</span>
+                              )}
                             </div>
                           )}
                           {field.key === 'colors' && (
-                            <div className="colors-list">
-                              {(item.colors || []).map(color => {
-                                const colorName = typeof color === 'string' ? color : (color.name || color.value || color)
-                                return (
-                                  <span key={colorName} className="color-badge">{colorName}</span>
-                                )
-                              })}
+                            <div className="compare-colors-list">
+                              {(item.colors || []).length > 0 ? (
+                                (item.colors || []).map((color, idx) => {
+                                  const colorName = typeof color === 'string' ? color : (color.name || color.value || `Color ${idx + 1}`)
+                                  const colorValue = typeof color === 'string' ? color : (color.value || color.name || '#000000')
+                                  return (
+                                    <span key={colorName} className="compare-color-item" title={colorName}>
+                                      <span className="compare-color-swatch" style={{ backgroundColor: colorValue }}></span>
+                                      <span className="compare-color-name">{colorName}</span>
+                                    </span>
+                                  )
+                                })
+                              ) : (
+                                <span className="compare-na">N/A</span>
+                              )}
                             </div>
                           )}
                           {field.key === 'inStock' && (
-                            <span className={(item.inStock !== false && (item.stockCount || 0) > 0) ? 'in-stock' : 'out-of-stock'}>
-                              {(item.inStock !== false && (item.stockCount || 0) > 0) ? 'Yes' : 'No'}
+                            <span className={`compare-stock-status ${(item.inStock !== false && (item.stockCount || 0) > 0) ? 'in-stock' : 'out-of-stock'}`}>
+                              {(item.inStock !== false && (item.stockCount || 0) > 0) ? (
+                                <>
+                                  <span className="stock-indicator"></span>
+                                  In Stock
+                                </>
+                              ) : (
+                                <>
+                                  <span className="stock-indicator out"></span>
+                                  Out of Stock
+                                </>
+                              )}
                             </span>
                           )}
                         </td>
@@ -171,16 +235,19 @@ function Compare() {
                   </tr>
                 ))}
                 <tr className="actions-row">
-                  <td className="field-label">Actions</td>
-                  {compareItems.map(item => {
+                  <td className="field-label sticky-column">
+                    <span className="field-label-text">Actions</span>
+                  </td>
+                  {compareItems.map((item, index) => {
                     const itemId = item._id || item.id
                     return (
-                      <td key={itemId} className="field-value">
-                        <Link to={`/product/${itemId}`} className="btn btn-primary">
-                          View Product
+                      <td key={`action-${itemId}-${index}`} className="field-value actions-cell" style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>
+                        <Link to={`/product/${itemId}`} className="btn btn-primary btn-compare-action" style={{ width: '100%', marginBottom: '0.75rem', display: 'block' }}>
+                          View Details
                         </Link>
                         <button 
-                          className="btn btn-outline"
+                          className="btn btn-outline btn-compare-action"
+                          style={{ width: '100%', display: 'block' }}
                           onClick={async () => {
                             if (!isAuthenticated) {
                               showError('Please login to add items to cart')
@@ -210,18 +277,23 @@ function Compare() {
         ) : (
           <div className="empty-compare">
             {loading ? (
-              <>
+              <div className="empty-compare-content">
+                <div className="loading-spinner-compare"></div>
                 <h2>Loading...</h2>
                 <p>Fetching products to compare</p>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="empty-compare-content">
+                <div className="empty-compare-icon">
+                  <GitCompare size={64} />
+                </div>
                 <h2>No products to compare</h2>
                 <p>Add products to compare by clicking the compare button on product pages</p>
-                <Link to="/products/women" className="btn btn-primary">
+                <p className="empty-compare-hint">You can compare up to 4 products at a time</p>
+                <Link to="/products/women" className="btn btn-primary btn-large">
                   Start Shopping
                 </Link>
-              </>
+              </div>
             )}
           </div>
         )}
