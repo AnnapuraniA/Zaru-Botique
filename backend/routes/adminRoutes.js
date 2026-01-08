@@ -3,6 +3,7 @@ import { Op } from 'sequelize'
 import Product from '../models/Product.js'
 import Order from '../models/Order.js'
 import User from '../models/User.js'
+import InventoryLog from '../models/InventoryLog.js'
 import { adminProtect } from '../middleware/adminAuth.js'
 
 const router = express.Router()
@@ -186,6 +187,25 @@ router.get('/products', async (req, res) => {
 router.post('/products', async (req, res) => {
   try {
     const productData = req.body
+    console.log('Creating product with data:', productData)
+    
+    // Validate required fields
+    if (!productData.name) {
+      return res.status(400).json({ message: 'Product name is required' })
+    }
+    if (!productData.categoryId) {
+      return res.status(400).json({ message: 'Category is required' })
+    }
+    if (!productData.subcategoryId) {
+      return res.status(400).json({ message: 'Subcategory is required' })
+    }
+    if (!productData.images || productData.images.length === 0) {
+      return res.status(400).json({ message: 'At least one product image is required' })
+    }
+    if (!productData.price) {
+      return res.status(400).json({ message: 'Product price is required' })
+    }
+
     const product = await Product.create(productData)
     await product.reload({
       include: [
@@ -199,10 +219,44 @@ router.post('/products', async (req, res) => {
         }
       ]
     })
+    
+    // Create inventory log entry for initial stock
+    try {
+      await InventoryLog.create({
+        productId: product.id,
+        quantity: product.stockCount || 0,
+        type: product.stockCount > 0 ? 'in' : 'adjustment',
+        reason: product.stockCount > 0 ? 'Initial stock - Product created' : 'Product created with zero stock',
+        createdBy: req.admin?.id
+      })
+      console.log('Inventory log created for new product:', product.id, 'Stock:', product.stockCount)
+    } catch (logError) {
+      // Log error but don't fail product creation
+      console.error('Failed to create inventory log:', logError)
+    }
+    
+    console.log('Product created successfully:', {
+      id: product.id,
+      name: product.name,
+      categoryId: product.categoryId,
+      subcategoryId: product.subcategoryId,
+      isActive: product.isActive,
+      category: product.category?.name,
+      subcategory: product.subcategory?.name,
+      stockCount: product.stockCount
+    })
     res.status(201).json(product)
   } catch (error) {
     console.error('Create product error:', error)
-    res.status(500).json({ message: 'Server error' })
+    // Return more specific error messages
+    if (error.name === 'SequelizeValidationError') {
+      const messages = error.errors.map(e => e.message).join(', ')
+      return res.status(400).json({ message: `Validation error: ${messages}` })
+    }
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(400).json({ message: 'Invalid category or subcategory selected' })
+    }
+    res.status(500).json({ message: error.message || 'Server error' })
   }
 })
 
@@ -473,7 +527,7 @@ router.get('/customers', async (req, res) => {
         orders: orders.length,
         totalSpent,
         joined: user.createdAt,
-        status: 'active'
+        status: user.status || 'active'
       }
     }))
 
@@ -515,6 +569,30 @@ router.get('/customers/:id', async (req, res) => {
     })
   } catch (error) {
     console.error('Get customer details error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   PUT /api/admin/customers/:id/status
+// @desc    Toggle customer status
+// @access  Admin
+router.put('/customers/:id/status', async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id)
+
+    if (!user) {
+      return res.status(404).json({ message: 'Customer not found' })
+    }
+
+    user.status = user.status === 'active' ? 'inactive' : 'active'
+    await user.save()
+
+    res.json({
+      ...user.toJSON(),
+      status: user.status
+    })
+  } catch (error) {
+    console.error('Toggle customer status error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

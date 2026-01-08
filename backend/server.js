@@ -31,6 +31,7 @@ import inventoryRoutes from './routes/inventoryRoutes.js'
 import emailTemplateRoutes from './routes/emailTemplateRoutes.js'
 import reportRoutes from './routes/reportRoutes.js'
 import uploadRoutes from './routes/uploadRoutes.js'
+import newArrivalRoutes from './routes/newArrivalRoutes.js'
 
 // Load environment variables
 dotenv.config()
@@ -66,6 +67,7 @@ app.use('/api/returns', returnRoutes)
 app.use('/api/newsletter', newsletterRoutes)
 app.use('/api/content', contentRoutes)
 app.use('/api/categories', categoryRoutes)
+app.use('/api/new-arrivals', newArrivalRoutes)
 
 // Admin Routes
 app.use('/api/admin/auth', adminAuthRoutes)
@@ -80,6 +82,7 @@ app.use('/api/admin/categories', categoryRoutes)
 app.use('/api/admin/discounts', discountRoutes)
 app.use('/api/admin/newsletter', newsletterRoutes)
 app.use('/api/admin/content', contentRoutes)
+app.use('/api/admin/new-arrivals', newArrivalRoutes)
 app.use('/api/admin/analytics', analyticsRoutes)
 app.use('/api/admin/inventory', inventoryRoutes)
 app.use('/api/admin/email-templates', emailTemplateRoutes)

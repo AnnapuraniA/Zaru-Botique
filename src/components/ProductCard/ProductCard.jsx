@@ -6,7 +6,7 @@ import { useToast } from '../Toast/ToastContainer'
 import { wishlistAPI, cartAPI } from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
 
-function ProductCard({ product }) {
+function ProductCard({ product, compact = false }) {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [isWishlisted, setIsWishlisted] = useState(false)
@@ -159,7 +159,7 @@ function ProductCard({ product }) {
           <p className="product-category">
             {product.category?.name || product.category}{product.subcategory ? ` - ${product.subcategory?.name || product.subcategory}` : ''}
           </p>
-          {product.rating && (
+          {product.rating && !compact && (
             <div className="product-rating">
               <div className="stars">
                 {[...Array(5)].map((_, i) => (
@@ -174,18 +174,22 @@ function ProductCard({ product }) {
               <span className="rating-text">({product.reviews || 0})</span>
             </div>
           )}
-          <div className="product-price">
-            {product.originalPrice && typeof product.originalPrice === 'number' && (
-              <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
-            )}
-            <span className="current-price">₹{(typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2)}</span>
-          </div>
+          {!compact && (
+            <div className="product-price">
+              {product.originalPrice && typeof product.originalPrice === 'number' && (
+                <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
+              )}
+              <span className="current-price">₹{(typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2)}</span>
+            </div>
+          )}
         </div>
       </Link>
-        <button className="add-to-cart-btn" onClick={handleAddToCart}>
-          <ShoppingCart size={16} />
-          Add to Cart
-        </button>
+        {!compact && (
+          <button className="add-to-cart-btn" onClick={handleAddToCart}>
+            <ShoppingCart size={16} />
+            Add to Cart
+          </button>
+        )}
       </div>
       <QuickView product={product} isOpen={showQuickView} onClose={() => setShowQuickView(false)} />
     </>

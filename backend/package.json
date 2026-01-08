@@ -10,7 +10,9 @@
     "seed": "node scripts/seedData.js",
     "seed-admin": "node scripts/seedAdmin.js",
     "seed-categories": "node scripts/seedCategories.js",
-    "migrate-categories": "node scripts/migrateProductCategories.js"
+    "migrate-categories": "node scripts/migrateProductCategories.js",
+    "migrate-user-status": "node scripts/addUserStatusColumn.js",
+    "backfill-inventory-logs": "node scripts/backfillInventoryLogs.js"
   },
   "keywords": [
     "ecommerce",

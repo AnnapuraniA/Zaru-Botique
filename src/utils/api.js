@@ -316,7 +316,13 @@ export const newsletterAPI = {
 
 // Content API
 export const contentAPI = {
-  getHero: () => apiCall('/content/hero', { includeAuth: false })
+  getHero: () => apiCall('/content/hero', { includeAuth: false }),
+  getFeaturedProducts: () => apiCall('/content/featured-products', { includeAuth: false })
+}
+
+// New Arrivals API
+export const newArrivalsAPI = {
+  getAll: () => apiCall('/new-arrivals', { includeAuth: false })
 }
 
 export default {
@@ -333,6 +339,7 @@ export default {
   contactAPI,
   returnsAPI,
   newsletterAPI,
-  contentAPI
+  contentAPI,
+  newArrivalsAPI
 }
 

@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import Newsletter from '../components/Newsletter/Newsletter'
 import ProductCard from '../components/ProductCard/ProductCard'
-import { bannersAPI, productsAPI, contentAPI, getImageUrl } from '../utils/api'
+import { bannersAPI, productsAPI, contentAPI, newArrivalsAPI, getImageUrl } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
 import { useDevice } from '../hooks/useDevice'
 
@@ -25,7 +25,11 @@ function Home() {
   })
   const [featuredProducts, setFeaturedProducts] = useState([])
   const [newProducts, setNewProducts] = useState([])
-  const [saleProducts, setSaleProducts] = useState([])
+  const [newArrivals, setNewArrivals] = useState([])
+  const [currentArrivalIndex, setCurrentArrivalIndex] = useState(0)
+  const [selectedArrival, setSelectedArrival] = useState(null)
+  const [isHoveringArrivals, setIsHoveringArrivals] = useState(false)
+  const arrivalIntervalRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const { error: showError } = useToast()
 
@@ -52,6 +56,32 @@ function Home() {
       return () => clearInterval(interval)
     }
   }, [banners.length])
+
+  // Auto-rotate new arrivals (3 seconds, pause on hover or when modal is open)
+  useEffect(() => {
+    // Always clear existing interval first
+    if (arrivalIntervalRef.current) {
+      clearInterval(arrivalIntervalRef.current)
+      arrivalIntervalRef.current = null
+    }
+
+    // Only set up interval if we have multiple arrivals, not hovering, and modal is not open
+    if (newArrivals.length > 1 && !isHoveringArrivals && !selectedArrival) {
+      arrivalIntervalRef.current = setInterval(() => {
+        setCurrentArrivalIndex((prev) => {
+          return (prev + 1) % newArrivals.length
+        })
+      }, 3000)
+    }
+
+    // Cleanup function
+    return () => {
+      if (arrivalIntervalRef.current) {
+        clearInterval(arrivalIntervalRef.current)
+        arrivalIntervalRef.current = null
+      }
+    }
+  }, [newArrivals.length, isHoveringArrivals, selectedArrival])
 
   // Calculate banner heights based on image aspect ratios (full width)
   useEffect(() => {
@@ -107,13 +137,21 @@ function Home() {
         // Keep default hero content
       }
 
-      // Load featured products
+      // Load featured products (from content settings)
       try {
-        const featuredData = await productsAPI.getAll({ featured: true, limit: 8 })
-        if (featuredData && Array.isArray(featuredData.products)) {
-          setFeaturedProducts(featuredData.products)
-        } else if (Array.isArray(featuredData)) {
-          setFeaturedProducts(featuredData)
+        const featuredIdsData = await contentAPI.getFeaturedProducts()
+        const featuredIds = featuredIdsData.productIds || []
+        
+        if (featuredIds.length > 0) {
+          // Fetch products by IDs
+          const productsPromises = featuredIds.map(id => 
+            productsAPI.getById(id).catch(() => null)
+          )
+          const products = await Promise.all(productsPromises)
+          const validProducts = products.filter(p => p !== null && p.isActive !== false)
+          setFeaturedProducts(validProducts)
+        } else {
+          setFeaturedProducts([])
         }
       } catch (err) {
         console.error('Failed to load featured products:', err)
@@ -123,6 +161,7 @@ function Home() {
       // Load new products
       try {
         const newData = await productsAPI.getAll({ new: true, limit: 8 })
+        console.log('New products response:', newData)
         if (newData && Array.isArray(newData.products)) {
           setNewProducts(newData.products)
         } else if (Array.isArray(newData)) {
@@ -133,17 +172,19 @@ function Home() {
         setNewProducts([])
       }
 
-      // Load sale products
+      // Load new arrivals
       try {
-        const saleData = await productsAPI.getAll({ onSale: true, limit: 8 })
-        if (saleData && Array.isArray(saleData.products)) {
-          setSaleProducts(saleData.products)
-        } else if (Array.isArray(saleData)) {
-          setSaleProducts(saleData)
+        const arrivalsData = await newArrivalsAPI.getAll()
+        if (Array.isArray(arrivalsData)) {
+          setNewArrivals(arrivalsData)
+          // Reset to first image when new arrivals load
+          if (arrivalsData.length > 0) {
+            setCurrentArrivalIndex(0)
+          }
         }
       } catch (err) {
-        console.error('Failed to load sale products:', err)
-        setSaleProducts([])
+        console.error('Failed to load new arrivals:', err)
+        setNewArrivals([])
       }
     } catch (err) {
       console.error('Failed to load home data:', err)
@@ -159,6 +200,11 @@ function Home() {
 
   const prevBanner = () => {
     setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length)
+  }
+
+
+  const handleArrivalClick = (arrival) => {
+    setSelectedArrival(arrival)
   }
 
   return (
@@ -255,15 +301,69 @@ function Home() {
         </section>
       )}
 
-      {/* Featured Products */}
+      {/* Collections */}
       {featuredProducts.length > 0 && (
-        <section className="featured-section">
+        <section className="featured-section collections-section">
           <div className="container">
-            <h2>Featured Products</h2>
-            <div className="products-grid home-products-grid">
+            <h2 className="collections-heading">Collections</h2>
+            <div className="products-grid featured-products-grid">
               {featuredProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} compact={true} />
               ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* New Arrivals Carousel */}
+      {newArrivals.length >= 5 && (
+        <section 
+          className="new-arrivals-carousel-section"
+          onMouseEnter={() => setIsHoveringArrivals(true)}
+          onMouseLeave={() => setIsHoveringArrivals(false)}
+        >
+          <div className="container">
+            <h2>New Arrivals</h2>
+            <div className="new-arrivals-carousel">
+              {newArrivals.map((arrival, index) => {
+                // Calculate relative position from current index
+                const total = newArrivals.length
+                let relativeIndex = index - currentArrivalIndex
+                
+                // Handle wrapping for infinite rotation
+                if (relativeIndex > total / 2) {
+                  relativeIndex -= total
+                } else if (relativeIndex < -total / 2) {
+                  relativeIndex += total
+                }
+                
+                // Determine position class
+                let positionClass = 'hidden'
+                if (relativeIndex === 0) {
+                  positionClass = 'center'
+                } else if (relativeIndex === -2 || relativeIndex === total - 2) {
+                  positionClass = 'left-2'
+                } else if (relativeIndex === -1 || relativeIndex === total - 1) {
+                  positionClass = 'left-1'
+                } else if (relativeIndex === 1 || relativeIndex === -(total - 1)) {
+                  positionClass = 'right-1'
+                } else if (relativeIndex === 2 || relativeIndex === -(total - 2)) {
+                  positionClass = 'right-2'
+                }
+                
+                return (
+                  <div
+                    key={arrival.id}
+                    className={`arrival-slide ${positionClass}`}
+                    onClick={() => handleArrivalClick(arrival)}
+                  >
+                    <img 
+                      src={getImageUrl(arrival.image)} 
+                      alt={arrival.title}
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
         </section>
@@ -288,22 +388,57 @@ function Home() {
         </section>
       )}
 
-      {/* Sale Products */}
-      {saleProducts.length > 0 && (
-        <section className="sale-section">
-          <div className="container">
-            <h2>On Sale</h2>
-            <div className="products-grid home-products-grid">
-              {saleProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {showNewsletter && (
         <Newsletter onClose={() => setShowNewsletter(false)} />
+      )}
+
+      {/* New Arrival Detail Modal */}
+      {selectedArrival && (
+        <div 
+          className="modal-overlay arrival-detail-modal"
+          onClick={() => setSelectedArrival(null)}
+        >
+          <div 
+            className="arrival-detail-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              className="arrival-detail-close"
+              onClick={() => setSelectedArrival(null)}
+            >
+              <X size={24} />
+            </button>
+            <div className="arrival-detail-wrapper">
+              <div className="arrival-detail-image">
+                <img 
+                  src={getImageUrl(selectedArrival.image)} 
+                  alt={selectedArrival.title}
+                />
+              </div>
+              <div className="arrival-detail-info">
+                <h2>{selectedArrival.title}</h2>
+                {selectedArrival.description && (
+                  <p className="arrival-detail-description">{selectedArrival.description}</p>
+                )}
+                <div className="arrival-detail-price">
+                  <span className="current-price">₹{parseFloat(selectedArrival.price).toLocaleString()}</span>
+                  {selectedArrival.originalPrice && parseFloat(selectedArrival.originalPrice) > parseFloat(selectedArrival.price) && (
+                    <span className="original-price">₹{parseFloat(selectedArrival.originalPrice).toLocaleString()}</span>
+                  )}
+                </div>
+                {selectedArrival.link && (
+                  <Link 
+                    to={selectedArrival.link} 
+                    className="btn btn-primary"
+                    onClick={() => setSelectedArrival(null)}
+                  >
+                    View Details
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

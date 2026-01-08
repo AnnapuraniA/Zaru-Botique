@@ -20,10 +20,36 @@ router.get('/all', adminProtect, async (req, res) => {
       ]
     }
 
+    // Apply status filter in WHERE clause for better performance
+    if (status) {
+      if (status === 'in_stock') {
+        where.stockCount = { [Op.gt]: 20 }
+      } else if (status === 'low_stock') {
+        where[Op.and] = [
+          { stockCount: { [Op.gt]: 0 } },
+          { stockCount: { [Op.lte]: 20 } }
+        ]
+      } else if (status === 'out_of_stock') {
+        where.stockCount = 0
+      }
+    }
+
     const offset = (page - 1) * limit
     const { count, rows: products } = await Product.findAndCountAll({
       where,
-      attributes: ['id', 'name', 'category', 'subcategory', 'stockCount', 'inStock'],
+      attributes: ['id', 'name', 'stockCount', 'inStock', 'updatedAt'],
+      include: [
+        {
+          association: 'category',
+          required: false,
+          attributes: ['id', 'name']
+        },
+        {
+          association: 'subcategory',
+          required: false,
+          attributes: ['id', 'name']
+        }
+      ],
       order: [['name', 'ASC']],
       limit: Number(limit),
       offset: Number(offset)
@@ -40,11 +66,15 @@ router.get('/all', adminProtect, async (req, res) => {
 
       return {
         id: product.id,
-        name: product.name,
-        category: `${product.category} - ${product.subcategory}`,
-        stock: product.stockCount,
+        productName: product.name,
+        name: product.name, // Keep for backward compatibility
+        sku: product.id.substring(0, 8).toUpperCase(), // Generate SKU from product ID
+        stockCount: product.stockCount,
+        stock: product.stockCount, // Keep for backward compatibility
+        category: `${product.category?.name || 'N/A'} - ${product.subcategory?.name || 'N/A'}`,
         lowStockThreshold: 20, // Can be made configurable
-        status
+        status,
+        updatedAt: product.updatedAt
       }
     })
 
@@ -78,12 +108,16 @@ router.put('/update/:productId', adminProtect, async (req, res) => {
 
     // If type is provided, adjust stock
     if (type) {
-      if (type === 'in') {
+      if (type === 'in' || type === 'restock') {
         newStock = oldStock + (stockCount || 0)
-      } else if (type === 'out') {
+      } else if (type === 'out' || type === 'sale') {
         newStock = oldStock - (stockCount || 0)
-      } else if (type === 'adjustment') {
-        newStock = stockCount
+      } else if (type === 'adjustment' || type === 'return') {
+        if (type === 'adjustment') {
+          newStock = stockCount
+        } else if (type === 'return') {
+          newStock = oldStock + (stockCount || 0)
+        }
       }
     }
 
@@ -97,11 +131,17 @@ router.put('/update/:productId', adminProtect, async (req, res) => {
 
     // Log inventory change
     if (type) {
+      // Map frontend types to backend log types
+      let logType = type
+      if (type === 'restock') logType = 'in'
+      if (type === 'sale') logType = 'out'
+      if (type === 'return') logType = 'in'
+      
       await InventoryLog.create({
         productId,
         quantity: Math.abs(newStock - oldStock),
-        type,
-        reason: reason || 'Manual adjustment',
+        type: logType,
+        reason: reason || `Stock ${type}`,
         createdBy: req.admin?.id
       })
     }
@@ -127,16 +167,32 @@ router.get('/low-stock', adminProtect, async (req, res) => {
           [Op.lte]: Number(threshold)
         }
       },
+      include: [
+        {
+          association: 'category',
+          required: false,
+          attributes: ['id', 'name']
+        },
+        {
+          association: 'subcategory',
+          required: false,
+          attributes: ['id', 'name']
+        }
+      ],
       order: [['stockCount', 'ASC']]
     })
 
     const lowStock = products.map(product => ({
       id: product.id,
+      productName: product.name,
       name: product.name,
-      category: `${product.category} - ${product.subcategory}`,
+      sku: product.id.substring(0, 8).toUpperCase(),
+      stockCount: product.stockCount,
       stock: product.stockCount,
+      category: `${product.category?.name || 'N/A'} - ${product.subcategory?.name || 'N/A'}`,
       threshold: Number(threshold),
-      status: product.stockCount === 0 ? 'out-of-stock' : 'low-stock'
+      status: product.stockCount === 0 ? 'out-of-stock' : 'low-stock',
+      updatedAt: product.updatedAt
     }))
 
     res.json(lowStock)
@@ -156,15 +212,31 @@ router.get('/out-of-stock', adminProtect, async (req, res) => {
         isActive: true,
         stockCount: 0
       },
+      include: [
+        {
+          association: 'category',
+          required: false,
+          attributes: ['id', 'name']
+        },
+        {
+          association: 'subcategory',
+          required: false,
+          attributes: ['id', 'name']
+        }
+      ],
       order: [['name', 'ASC']]
     })
 
     const outOfStock = products.map(product => ({
       id: product.id,
+      productName: product.name,
       name: product.name,
-      category: `${product.category} - ${product.subcategory}`,
+      sku: product.id.substring(0, 8).toUpperCase(),
+      stockCount: 0,
       stock: 0,
-      status: 'out-of-stock'
+      category: `${product.category?.name || 'N/A'} - ${product.subcategory?.name || 'N/A'}`,
+      status: 'out-of-stock',
+      updatedAt: product.updatedAt
     }))
 
     res.json(outOfStock)

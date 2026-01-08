@@ -18,6 +18,7 @@ import ContentSetting from './ContentSetting.js'
 import EmailTemplate from './EmailTemplate.js'
 import CouponUsage from './CouponUsage.js'
 import InventoryLog from './InventoryLog.js'
+import NewArrival from './NewArrival.js'
 
 // Set up associations
 User.hasOne(Cart, { foreignKey: 'userId', as: 'cart' })
@@ -78,5 +79,6 @@ export {
   ContentSetting,
   EmailTemplate,
   CouponUsage,
-  InventoryLog
+  InventoryLog,
+  NewArrival
 }

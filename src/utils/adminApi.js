@@ -209,7 +209,12 @@ export const adminCustomersAPI = {
     return apiCall(`/admin/customers${queryString ? `?${queryString}` : ''}`)
   },
   
-  getById: (id) => apiCall(`/admin/customers/${id}`)
+  getById: (id) => apiCall(`/admin/customers/${id}`),
+  
+  toggleStatus: (id) =>
+    apiCall(`/admin/customers/${id}/status`, {
+      method: 'PUT'
+    })
 }
 
 // Admin Banners API
@@ -437,6 +442,124 @@ export const adminContentAPI = {
     apiCall('/admin/content/update', {
       method: 'PUT',
       body: { section, content }
+    }),
+  getFeaturedProducts: () => apiCall('/admin/content/featured-products'),
+  updateFeaturedProducts: (productIds) =>
+    apiCall('/admin/content/featured-products', {
+      method: 'PUT',
+      body: { productIds }
+    })
+}
+
+// Admin New Arrivals API
+export const adminNewArrivalsAPI = {
+  getAll: () => apiCall('/admin/new-arrivals/all'),
+  
+  create: async (data, imageFile) => {
+    const formData = new FormData()
+    
+    // Append image file if provided
+    if (imageFile) {
+      formData.append('image', imageFile)
+    }
+    
+    // Append other fields
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined && data[key] !== null) {
+        formData.append(key, data[key])
+      }
+    })
+    
+    const token = getAdminToken()
+    if (!token) {
+      throw new Error('Admin authentication required')
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/new-arrivals/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+      
+      if (!response.ok) {
+        let errorMessage = 'Failed to create new arrival'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.message || errorMessage
+        } catch (e) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        }
+        throw new Error(errorMessage)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Admin New Arrivals API Error:', error)
+      throw error
+    }
+  },
+  
+  update: async (id, data, imageFile) => {
+    const formData = new FormData()
+    
+    // Append image file if provided
+    if (imageFile) {
+      formData.append('image', imageFile)
+    }
+    
+    // Append other fields
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined && data[key] !== null) {
+        formData.append(key, data[key])
+      }
+    })
+    
+    const token = getAdminToken()
+    if (!token) {
+      throw new Error('Admin authentication required')
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/new-arrivals/update/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+      
+      if (!response.ok) {
+        let errorMessage = 'Failed to update new arrival'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.message || errorMessage
+        } catch (e) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        }
+        throw new Error(errorMessage)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Admin New Arrivals API Error:', error)
+      throw error
+    }
+  },
+  
+  delete: (id) => apiCall(`/admin/new-arrivals/delete/${id}`, { method: 'DELETE' }),
+  
+  updatePosition: (id, position) =>
+    apiCall(`/admin/new-arrivals/position/${id}`, {
+      method: 'PUT',
+      body: { position }
+    }),
+  
+  toggleVisibility: (id) =>
+    apiCall(`/admin/new-arrivals/visibility/${id}`, {
+      method: 'PUT'
     })
 }
 

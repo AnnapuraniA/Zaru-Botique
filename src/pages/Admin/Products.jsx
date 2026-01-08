@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Eye, X } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Eye, X, Upload, Package } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
 import { adminProductsAPI, adminUploadAPI, adminCategoriesAPI } from '../../utils/adminApi'
+import { getImageUrl } from '../../utils/api'
 
 function Products() {
   const location = useLocation()
@@ -21,6 +22,16 @@ function Products() {
     loadCategories()
     loadProducts()
   }, [statusFilter])
+
+  // Reload products when navigating back to the products list page
+  useEffect(() => {
+    const isProductsListPage = location.pathname === '/admin/products'
+    const isAdd = location.pathname === '/admin/products/add'
+    const isEdit = location.pathname.startsWith('/admin/products/edit/')
+    if (isProductsListPage && !isAdd && !isEdit) {
+      loadProducts()
+    }
+  }, [location.pathname])
 
   const loadCategories = async () => {
     try {
@@ -61,10 +72,11 @@ function Products() {
         filters.search = searchQuery
       }
       const data = await adminProductsAPI.getAll(filters)
+      console.log('Loaded products:', data.products?.length || 0, 'products')
       setProducts(data.products || [])
     } catch (err) {
       console.error('Error loading products:', err)
-      showError('Failed to load products')
+      showError(err.message || 'Failed to load products')
     } finally {
       setLoading(false)
     }
@@ -88,7 +100,8 @@ function Products() {
         await loadProducts()
         success('Product deleted successfully')
       } catch (err) {
-        showError('Failed to delete product')
+        console.error('Delete product error:', err)
+        showError(err.message || 'Failed to delete product')
       }
     }
   }
@@ -99,7 +112,8 @@ function Products() {
       await loadProducts()
       success('Product status updated')
     } catch (err) {
-      showError('Failed to update product status')
+      console.error('Toggle status error:', err)
+      showError(err.message || 'Failed to update product status')
     }
   }
 
@@ -120,6 +134,7 @@ function Products() {
     care: ''
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadingImages, setUploadingImages] = useState(false)
 
   const handleFormChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -151,44 +166,82 @@ function Products() {
     }
   }
 
-  const handleImageChange = async (e) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) {
+      console.log('No files selected')
+      return
+    }
+
+    console.log('Files selected:', files.map(f => ({ name: f.name, type: f.type, size: f.size })))
+
+    // Validate file types
+    const invalidFiles = files.filter(file => !file.type.startsWith('image/'))
+    if (invalidFiles.length > 0) {
+      showError('Please select only image files (JPG, PNG, or WebP)')
+      e.target.value = ''
+      return
+    }
+
+    // Validate file sizes (max 10MB each)
+    const oversizedFiles = files.filter(file => file.size > 10 * 1024 * 1024)
+    if (oversizedFiles.length > 0) {
+      showError('Some images exceed 10MB limit. Please select smaller files.')
+      e.target.value = ''
+      return
+    }
 
     try {
-      setIsSubmitting(true)
-      // Upload files to server
+      setUploadingImages(true)
+      console.log('Starting upload for:', files.length, 'file(s)')
+      
       const result = await adminUploadAPI.uploadImages(files)
+      console.log('Upload API response:', result)
       
-      // Add uploaded image URLs to form
-      setProductForm(prev => ({
-        ...prev,
-        images: [...prev.images, ...result.images]
-      }))
-      
-      success(`${files.length} image(s) uploaded successfully`)
+      if (result && result.images && Array.isArray(result.images) && result.images.length > 0) {
+        // Add uploaded image URLs to form
+        setProductForm(prev => ({
+          ...prev,
+          images: [...prev.images, ...result.images]
+        }))
+        success(`${result.images.length} image(s) uploaded successfully`)
+      } else {
+        console.error('Invalid response format:', result)
+        showError('Failed to get uploaded image URLs. Response: ' + JSON.stringify(result))
+      }
     } catch (err) {
+      console.error('Upload error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      })
       showError(err.message || 'Failed to upload images')
     } finally {
-      setIsSubmitting(false)
-      // Reset file input
+      setUploadingImages(false)
+      // Reset file input to allow re-selecting the same files
       e.target.value = ''
     }
   }
 
-  const handleRemoveImage = (index) => {
+  const handleRemoveImage = async (index) => {
     const imageToRemove = productForm.images[index]
-    // If it's an uploaded image (starts with /uploads), delete from server
-    if (imageToRemove.startsWith('/uploads')) {
-      adminUploadAPI.deleteImage(imageToRemove).catch(err => {
+    
+    // If it's an uploaded image (starts with /uploads or http), try to delete from server
+    if (imageToRemove && (imageToRemove.startsWith('/uploads') || imageToRemove.includes('/uploads/'))) {
+      try {
+        await adminUploadAPI.deleteImage(imageToRemove)
+      } catch (err) {
         console.error('Failed to delete image from server:', err)
-      })
+        // Continue with removal even if server deletion fails
+      }
     }
     
     setProductForm(prev => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index)
     }))
+    
+    success('Image removed')
   }
 
   const handleSubmit = async (e) => {
@@ -196,6 +249,25 @@ function Products() {
     setIsSubmitting(true)
     
     try {
+      // Validate required fields
+      if (!productForm.name || !productForm.categoryId || !productForm.subcategoryId) {
+        showError('Please fill in all required fields (Name, Category, Subcategory)')
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!productForm.images || productForm.images.length === 0) {
+        showError('Please upload at least one product image')
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!productForm.price || !productForm.stockCount) {
+        showError('Please fill in Price and Stock Quantity')
+        setIsSubmitting(false)
+        return
+      }
+
       const productData = {
         ...productForm,
         price: Number(productForm.price),
@@ -203,19 +275,36 @@ function Products() {
         stockCount: Number(productForm.stockCount),
         onSale: productForm.originalPrice && Number(productForm.originalPrice) > Number(productForm.price),
         inStock: Number(productForm.stockCount) > 0,
-        isActive: true
+        isActive: true,
+        // Ensure these are set explicitly
+        featured: productForm.featured || false,
+        new: productForm.new || false
       }
       
+      // Remove any undefined values
+      Object.keys(productData).forEach(key => {
+        if (productData[key] === undefined) {
+          delete productData[key]
+        }
+      })
+
+      console.log('Submitting product data:', productData)
+      
       if (isEditPage && editProductId) {
-        await adminProductsAPI.update(editProductId, productData)
+        const updated = await adminProductsAPI.update(editProductId, productData)
+        console.log('Product updated:', updated)
         success('Product updated successfully!')
       } else {
-        await adminProductsAPI.create(productData)
+        const newProduct = await adminProductsAPI.create(productData)
+        console.log('Product created:', newProduct)
         success('Product created successfully!')
       }
+      // Navigate back and products will reload via useEffect
       navigate('/admin/products')
     } catch (err) {
-      showError(isEditPage ? 'Failed to update product' : 'Failed to create product')
+      console.error('Product submit error:', err)
+      const errorMessage = err.message || (isEditPage ? 'Failed to update product' : 'Failed to create product')
+      showError(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
@@ -366,62 +455,60 @@ function Products() {
             </div>
 
             <div className="form-section">
-              <h3>Product Images</h3>
-              <div className="image-upload-area">
-                <p>Enter image URLs (one per line) or upload files</p>
-                <input 
-                  type="file" 
-                  multiple 
-                  accept="image/*" 
-                  onChange={handleImageChange}
-                />
-                <textarea 
-                  rows="3" 
-                  placeholder="Or paste image URLs (one per line)"
-                  onChange={(e) => {
-                    const urls = e.target.value.split('\n').filter(url => url.trim())
-                    setProductForm(prev => ({ ...prev, images: urls }))
-                  }}
-                />
-                {productForm.images.length > 0 && (
-                  <div className="image-preview">
-                    {productForm.images.map((img, idx) => {
-                      // Construct full URL for uploaded images
-                      const imageUrl = img.startsWith('/uploads') 
-                        ? `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${img}`
-                        : img
-                      return (
-                        <div key={idx} style={{ position: 'relative', display: 'inline-block', margin: '5px' }}>
-                          <img 
-                            src={imageUrl} 
-                            alt={`Preview ${idx}`} 
-                            style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }} 
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(idx)}
-                            style={{
-                              position: 'absolute',
-                              top: '5px',
-                              right: '5px',
-                              background: 'rgba(255, 0, 0, 0.7)',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '50%',
-                              width: '24px',
-                              height: '24px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                            title="Remove image"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      )
-                    })}
+              <h3>Product Images *</h3>
+              <div className="image-upload-section">
+                {productForm.images.length === 0 ? (
+                  <label className="image-upload-area">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      disabled={uploadingImages}
+                      style={{ display: 'none' }}
+                    />
+                    <div className="upload-placeholder">
+                      <Upload size={48} />
+                      <p>Click to upload product images</p>
+                      <span>JPG, PNG or WebP (Max 10MB each) - Multiple images supported</span>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="image-preview-wrapper">
+                    <div className="image-preview-grid">
+                      {productForm.images.map((img, idx) => {
+                        const imageUrl = getImageUrl(img)
+                        return (
+                          <div key={idx} className="image-preview-item">
+                            <div className="image-preview">
+                              <img src={imageUrl} alt={`Product image ${idx + 1}`} />
+                              <button
+                                type="button"
+                                className="remove-image-btn"
+                                onClick={() => handleRemoveImage(idx)}
+                                title="Remove image"
+                              >
+                                <X size={20} />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <label className="change-image-btn">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageUpload}
+                        disabled={uploadingImages}
+                        style={{ display: 'none' }}
+                      />
+                      <span className="btn btn-outline btn-small">
+                        <Upload size={16} />
+                        {uploadingImages ? 'Uploading...' : 'Add More Images'}
+                      </span>
+                    </label>
                   </div>
                 )}
               </div>
@@ -451,7 +538,7 @@ function Products() {
                 />
               </div>
               <div className="form-group">
-                <label>Size Options *</label>
+                <label>Size Options</label>
                 <div className="checkbox-group">
                   {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(size => (
                     <label key={size} className="checkbox-label">
@@ -466,6 +553,7 @@ function Products() {
                     </label>
                   ))}
                 </div>
+                <p className="form-hint">Optional - Select available sizes for this product</p>
               </div>
               <div className="form-row">
                 <div className="form-group">
@@ -581,46 +669,49 @@ function Products() {
                 </td>
               </tr>
             ) : (
-              filteredProducts.map(product => (
-                <tr key={product._id}>
-                  <td>
-                    <img src={product.images?.[0] || product.image || 'https://via.placeholder.com/50'} alt={product.name} className="table-image" />
-                  </td>
-                  <td>
-                    <strong>{product.name}</strong>
-                  </td>
-                  <td>
-                    {product.category?.name || 'N/A'} - {product.subcategory?.name || 'N/A'}
-                  </td>
-                  <td>₹{product.price.toLocaleString()}</td>
-                  <td>
-                    <span className={product.stockCount === 0 ? 'stock-low' : product.stockCount < 20 ? 'stock-warning' : ''}>
-                      {product.stockCount || 0}
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      className={`status-toggle ${product.isActive ? 'active' : 'inactive'}`}
-                      onClick={() => handleToggleStatus(product._id)}
-                    >
-                      {product.isActive ? 'Active' : 'Inactive'}
-                    </button>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button className="btn-icon" title="View" onClick={() => navigate(`/product/${product._id}`)}>
-                        <Eye size={16} />
+              filteredProducts.map(product => {
+                const productId = product.id || product._id
+                return (
+                  <tr key={productId}>
+                    <td>
+                      <img src={product.images?.[0] || product.image || 'https://via.placeholder.com/50'} alt={product.name} className="table-image" />
+                    </td>
+                    <td>
+                      <strong>{product.name}</strong>
+                    </td>
+                    <td>
+                      {product.category?.name || 'N/A'} - {product.subcategory?.name || 'N/A'}
+                    </td>
+                    <td>₹{product.price?.toLocaleString() || '0'}</td>
+                    <td>
+                      <span className={product.stockCount === 0 ? 'stock-low' : product.stockCount < 20 ? 'stock-warning' : ''}>
+                        {product.stockCount || 0}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className={`status-toggle ${product.isActive ? 'active' : 'inactive'}`}
+                        onClick={() => handleToggleStatus(productId)}
+                      >
+                        {product.isActive ? 'Active' : 'Inactive'}
                       </button>
-                      <button className="btn-icon" title="Edit" onClick={() => navigate(`/admin/products/edit/${product._id || product.id}`)}>
-                        <Edit size={16} />
-                      </button>
-                      <button className="btn-icon danger" title="Delete" onClick={() => handleDelete(product._id)}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button className="btn-icon" title="View" onClick={() => navigate(`/product/${productId}`)}>
+                          <Eye size={16} />
+                        </button>
+                        <button className="btn-icon" title="Edit" onClick={() => navigate(`/admin/products/edit/${productId}`)}>
+                          <Edit size={16} />
+                        </button>
+                        <button className="btn-icon danger" title="Delete" onClick={() => handleDelete(productId)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>

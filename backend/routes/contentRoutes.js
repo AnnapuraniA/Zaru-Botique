@@ -25,6 +25,27 @@ router.get('/hero', async (req, res) => {
   }
 })
 
+// @route   GET /api/content/featured-products
+// @desc    Get featured product IDs (public)
+// @access  Public
+router.get('/featured-products', async (req, res) => {
+  try {
+    const setting = await ContentSetting.findOne({
+      where: { section: 'featured', key: 'productIds' }
+    })
+
+    if (!setting || !setting.value) {
+      return res.json({ productIds: [] })
+    }
+
+    const productIds = JSON.parse(setting.value)
+    res.json({ productIds: Array.isArray(productIds) ? productIds : [] })
+  } catch (error) {
+    console.error('Get featured products error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 // @route   GET /api/content
 // @desc    Get all content settings (admin)
 // @access  Admin
@@ -93,6 +114,62 @@ router.put('/update', adminProtect, async (req, res) => {
     res.json({ message: 'Content updated', settings: updates })
   } catch (error) {
     console.error('Update content error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/admin/content/featured-products
+// @desc    Get featured product IDs (admin)
+// @access  Admin
+router.get('/featured-products', adminProtect, async (req, res) => {
+  try {
+    const setting = await ContentSetting.findOne({
+      where: { section: 'featured', key: 'productIds' }
+    })
+
+    if (!setting || !setting.value) {
+      return res.json({ productIds: [] })
+    }
+
+    const productIds = JSON.parse(setting.value)
+    res.json({ productIds: Array.isArray(productIds) ? productIds : [] })
+  } catch (error) {
+    console.error('Get featured products error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   PUT /api/admin/content/featured-products
+// @desc    Update featured product IDs (admin)
+// @access  Admin
+router.put('/featured-products', adminProtect, async (req, res) => {
+  try {
+    const { productIds } = req.body
+
+    if (!Array.isArray(productIds)) {
+      return res.status(400).json({ message: 'productIds must be an array' })
+    }
+
+    // Limit to 4 products
+    const limitedIds = productIds.slice(0, 4)
+
+    const [setting, created] = await ContentSetting.findOrCreate({
+      where: { section: 'featured', key: 'productIds' },
+      defaults: {
+        section: 'featured',
+        key: 'productIds',
+        value: JSON.stringify(limitedIds)
+      }
+    })
+
+    if (!created) {
+      setting.value = JSON.stringify(limitedIds)
+      await setting.save()
+    }
+
+    res.json({ message: 'Featured products updated', productIds: limitedIds })
+  } catch (error) {
+    console.error('Update featured products error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

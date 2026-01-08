@@ -85,7 +85,22 @@ function Products() {
           apiFilters.search = searchQuery
         }
         
+        console.log('Fetching products with filters:', apiFilters)
         const response = await productsAPI.getAll(apiFilters)
+        console.log('Products API response:', {
+          total: response.total,
+          productsCount: response.products?.length || 0,
+          products: response.products?.map(p => ({
+            id: p.id || p._id,
+            name: p.name,
+            isActive: p.isActive,
+            category: p.category?.name,
+            subcategory: p.subcategory?.name
+          })) || []
+        })
+        if (!response.products || response.products.length === 0) {
+          console.warn('No products returned from API. Response:', response)
+        }
         setAllProducts(response.products || [])
       } catch (err) {
         console.error('Failed to fetch products:', err)

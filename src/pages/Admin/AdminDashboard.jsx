@@ -121,7 +121,7 @@ function AdminDashboard() {
       items: [
         {
           id: 'content',
-          label: 'Content',
+          label: 'Home Page Content',
           icon: FileText,
           path: '/admin/content'
         },

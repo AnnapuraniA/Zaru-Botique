@@ -30,11 +30,15 @@ router.get('/', optionalAuth, async (req, res) => {
     // Build filter object
     const where = { isActive: true }
 
-    // Handle category filter (by slug)
+    // Handle category filter (by slug or name)
     if (category) {
+      const categoryLower = category.toLowerCase()
       const categoryRecord = await Category.findOne({
         where: { 
-          slug: category.toLowerCase(),
+          [Op.or]: [
+            { slug: categoryLower },
+            { name: { [Op.iLike]: `%${category}%` } }
+          ],
           isActive: true 
         }
       })
@@ -42,6 +46,7 @@ router.get('/', optionalAuth, async (req, res) => {
         where.categoryId = categoryRecord.id
       } else {
         // Return empty if category not found
+        console.log(`Category not found: ${category}`)
         return res.json({
           products: [],
           page: Number(page),
@@ -51,11 +56,15 @@ router.get('/', optionalAuth, async (req, res) => {
       }
     }
 
-    // Handle subcategory filter (by slug)
+    // Handle subcategory filter (by slug or name)
     if (subcategory) {
+      const subcategoryLower = subcategory.toLowerCase()
       const subcategoryRecord = await Subcategory.findOne({
         where: { 
-          slug: subcategory.toLowerCase(),
+          [Op.or]: [
+            { slug: subcategoryLower },
+            { name: { [Op.iLike]: `%${subcategory}%` } }
+          ],
           isActive: true 
         }
       })
@@ -63,6 +72,7 @@ router.get('/', optionalAuth, async (req, res) => {
         where.subcategoryId = subcategoryRecord.id
       } else {
         // Return empty if subcategory not found
+        console.log(`Subcategory not found: ${subcategory}`)
         return res.json({
           products: [],
           page: Number(page),
@@ -110,17 +120,34 @@ router.get('/', optionalAuth, async (req, res) => {
       }
     }
 
-    if (onSale === 'true') {
+    if (onSale === 'true' || onSale === true) {
       where.onSale = true
     }
 
-    if (featured === 'true') {
+    if (featured === 'true' || featured === true) {
       // Featured products - can be based on rating, sales, or a featured flag
-      // For now, using high rating as featured
-      where.rating = { [Op.gte]: 4.0 }
+      // For now, using high rating as featured OR featured flag
+      // Check if Op.or already exists (from colors filter)
+      if (where[Op.or]) {
+        // Combine with existing Op.or using Op.and
+        const existingOr = where[Op.or]
+        where[Op.and] = [
+          { [Op.or]: existingOr },
+          { [Op.or]: [
+            { rating: { [Op.gte]: 4.0 } },
+            { featured: true }
+          ]}
+        ]
+        delete where[Op.or]
+      } else {
+        where[Op.or] = [
+          { rating: { [Op.gte]: 4.0 } },
+          { featured: true }
+        ]
+      }
     }
 
-    if (newProducts === 'true') {
+    if (newProducts === 'true' || newProducts === true) {
       where.new = true
     }
 
@@ -164,6 +191,29 @@ router.get('/', optionalAuth, async (req, res) => {
       limit: Number(limit),
       offset: Number(offset)
     })
+
+    console.log(`Products API: Found ${count} products with filters:`, {
+      category,
+      subcategory,
+      isActive: where.isActive,
+      categoryId: where.categoryId,
+      subcategoryId: where.subcategoryId,
+      onSale: where.onSale,
+      featured: where[Op.or] || where.rating,
+      new: where.new,
+      search: search
+    })
+    
+    // Log first few products for debugging
+    if (products.length > 0) {
+      console.log('Sample products:', products.slice(0, 3).map(p => ({
+        id: p.id,
+        name: p.name,
+        isActive: p.isActive,
+        categoryId: p.categoryId,
+        subcategoryId: p.subcategoryId
+      })))
+    }
 
     res.json({
       products,

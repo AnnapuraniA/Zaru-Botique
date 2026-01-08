@@ -46,6 +46,10 @@ const User = sequelize.define('User', {
   wishlist: {
     type: DataTypes.ARRAY(DataTypes.UUID),
     defaultValue: []
+  },
+  status: {
+    type: DataTypes.ENUM('active', 'inactive'),
+    defaultValue: 'active'
   }
 }, {
   tableName: 'users',
