@@ -3,10 +3,12 @@ import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp, GitCompare }
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useHeaderData } from '../../hooks/useHeaderData'
+import { useLoginModal } from '../../context/LoginModalContext'
 
 function HeaderWeb() {
   const { isAuthenticated, user } = useAuth()
   const { cartCount, compareCount, isSticky } = useHeaderData()
+  const { openModal } = useLoginModal()
   const [expandedCategory, setExpandedCategory] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchExpanded, setIsSearchExpanded] = useState(false)
@@ -86,119 +88,129 @@ function HeaderWeb() {
   }
 
   return (
-    <div className={`header-wrapper ${!isHomePage ? 'header-footer-style' : ''}`}>
-      <header className={`header header-web ${!isHomePage ? 'header-footer-style' : ''} ${isSticky ? 'sticky' : ''} ${isHomePage ? 'home-header' : ''}`}>
-        <div className="container">
-          <div className={`header-content ${isHomePage ? 'home-header-content' : 'other-page-header-content'}`}>
-            {!isHomePage && (
+    <>
+      <div className={`header-wrapper ${!isHomePage ? 'header-footer-style' : ''}`}>
+        <header className={`header header-web ${!isHomePage ? 'header-footer-style' : ''} ${isSticky ? 'sticky' : ''} ${isHomePage ? 'home-header' : ''}`}>
+          <div className="container">
+            <div className={`header-content ${isHomePage ? 'home-header-content' : 'other-page-header-content'}`}>
               <Link to="/" className="brand-name">
                 Arudhra Fashions
               </Link>
-            )}
-            
-            {/* Categories - Always visible on web */}
-            <nav className={`main-nav ${isHomePage ? 'home-nav' : 'other-page-nav'}`}>
-              {categories.map((category) => (
-                <div 
-                  key={category.id} 
-                  className={`nav-category ${expandedCategory === category.slug ? 'expanded' : ''}`}
-                >
-                  <div className="nav-category-header">
-                    <button
-                      className="nav-category-btn"
-                      onClick={() => toggleCategory(category.slug)}
-                    >
-                      {category.name}
-                      {expandedCategory === category.slug ? (
-                        <ChevronUp size={18} />
-                      ) : (
-                        <ChevronDown size={18} />
-                      )}
-                    </button>
-                  </div>
-                  
-                  {expandedCategory === category.slug && (
-                    <div className="nav-subcategories">
+              
+              {/* Categories - Always visible on web */}
+              <nav className={`main-nav ${isHomePage ? 'home-nav' : 'other-page-nav'}`}>
+                {categories.map((category) => (
+                  <div 
+                    key={category.id} 
+                    className={`nav-category ${expandedCategory === category.slug ? 'expanded' : ''}`}
+                  >
+                    <div className="nav-category-header">
                       <button
-                        className="nav-subcategory-item main-category-link"
-                        onClick={() => handleCategoryClick(category.slug)}
+                        className="nav-category-btn"
+                        onClick={() => toggleCategory(category.slug)}
                       >
-                        View All {category.name}
+                        {category.name}
+                        {expandedCategory === category.slug ? (
+                          <ChevronUp size={18} />
+                        ) : (
+                          <ChevronDown size={18} />
+                        )}
                       </button>
-                      {(category.subcategories || []).map((subcategory) => (
+                    </div>
+                    
+                    {expandedCategory === category.slug && (
+                      <div className="nav-subcategories">
                         <button
-                          key={subcategory.id}
-                          className="nav-subcategory-item"
-                          onClick={() => handleSubcategoryClick(category.slug, subcategory.slug)}
+                          className="nav-subcategory-item main-category-link"
+                          onClick={() => handleCategoryClick(category.slug)}
                         >
-                          {subcategory.name}
+                          View All {category.name}
                         </button>
-                      ))}
+                        {(category.subcategories || []).map((subcategory) => (
+                          <button
+                            key={subcategory.id}
+                            className="nav-subcategory-item"
+                            onClick={() => handleSubcategoryClick(category.slug, subcategory.slug)}
+                          >
+                            {subcategory.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </nav>
+
+              <div className="header-actions">
+                <div className="search-wrapper">
+                  <button 
+                    className="search-icon-btn" 
+                    onClick={() => setIsSearchExpanded(!isSearchExpanded)}
+                    title="Search"
+                  >
+                    <Search size={20} />
+                  </button>
+                  {isSearchExpanded && (
+                    <div className="search-dropdown">
+                      <form className="search-box search-expanded" onSubmit={(e) => { handleSearch(e); setIsSearchExpanded(false); }}>
+                        <Search size={20} />
+                        <input 
+                          type="text" 
+                          placeholder="Search products..." 
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyPress={handleSearchKeyPress}
+                          autoFocus
+                        />
+                        <button 
+                          type="button" 
+                          className="search-close-btn"
+                          onClick={() => setIsSearchExpanded(false)}
+                        >
+                          ×
+                        </button>
+                      </form>
                     </div>
                   )}
                 </div>
-              ))}
-            </nav>
-
-            <div className="header-actions">
-              <div className="search-wrapper">
-                <button 
-                  className="search-icon-btn" 
-                  onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-                  title="Search"
-                >
-                  <Search size={20} />
-                </button>
-                {isSearchExpanded && (
-                  <div className="search-dropdown">
-                    <form className="search-box search-expanded" onSubmit={(e) => { handleSearch(e); setIsSearchExpanded(false); }}>
-                      <Search size={20} />
-                      <input 
-                        type="text" 
-                        placeholder="Search products..." 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyPress={handleSearchKeyPress}
-                        autoFocus
-                      />
-                      <button 
-                        type="button" 
-                        className="search-close-btn"
-                        onClick={() => setIsSearchExpanded(false)}
-                      >
-                        ×
-                      </button>
-                    </form>
-                  </div>
+                {!isHomePage && (
+                  <>
+                    <Link to="/wishlist" className="icon-btn" title="Wishlist">
+                      <Heart size={20} />
+                    </Link>
+                    <Link to="/cart" className="icon-btn" title="Shopping Cart">
+                      <ShoppingCart size={20} />
+                      {cartCount > 0 && (
+                        <span className="badge show">{cartCount > 99 ? '99+' : cartCount}</span>
+                      )}
+                    </Link>
+                  </>
+                )}
+                <Link to="/compare" className="icon-btn" title="Compare Products">
+                  <GitCompare size={20} />
+                  {compareCount > 0 && (
+                    <span className="badge show">{compareCount > 4 ? '4+' : compareCount}</span>
+                  )}
+                </Link>
+                {isAuthenticated ? (
+                  <Link to="/dashboard" className="icon-btn" title={user?.name || 'Profile'}>
+                    <User size={20} />
+                  </Link>
+                ) : (
+                  <button
+                    className="icon-btn"
+                    onClick={() => openModal('login')}
+                    title="Login/Register"
+                  >
+                    <User size={20} />
+                  </button>
                 )}
               </div>
-              {!isHomePage && (
-                <>
-                  <Link to="/wishlist" className="icon-btn" title="Wishlist">
-                    <Heart size={20} />
-                  </Link>
-                  <Link to="/cart" className="icon-btn" title="Shopping Cart">
-                    <ShoppingCart size={20} />
-                    {cartCount > 0 && (
-                      <span className="badge show">{cartCount > 99 ? '99+' : cartCount}</span>
-                    )}
-                  </Link>
-                </>
-              )}
-              <Link to="/compare" className="icon-btn" title="Compare Products">
-                <GitCompare size={20} />
-                {compareCount > 0 && (
-                  <span className="badge show">{compareCount > 4 ? '4+' : compareCount}</span>
-                )}
-              </Link>
-              <Link to="/dashboard" className="icon-btn" title={isAuthenticated ? user?.name || 'Profile' : 'Login/Register'}>
-                <User size={20} />
-              </Link>
             </div>
           </div>
-        </div>
-      </header>
-    </div>
+        </header>
+      </div>
+    </>
   )
 }
 

@@ -94,4 +94,109 @@ router.post('/:productId/reviews', protect, async (req, res) => {
   }
 })
 
+// @route   PUT /api/products/:productId/reviews/:reviewId
+// @desc    Update product review
+// @access  Private
+router.put('/:productId/reviews/:reviewId', protect, async (req, res) => {
+  try {
+    const { rating, comment } = req.body
+
+    if (!rating || !comment) {
+      return res.status(400).json({ message: 'Rating and comment are required' })
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ message: 'Rating must be between 1 and 5' })
+    }
+
+    const review = await Review.findByPk(req.params.reviewId)
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' })
+    }
+
+    // Check if review belongs to the product
+    if (review.productId !== req.params.productId) {
+      return res.status(400).json({ message: 'Review does not belong to this product' })
+    }
+
+    // Check if user owns the review
+    if (review.userId !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this review' })
+    }
+
+    // Update review
+    review.rating = rating
+    review.comment = comment
+    await review.save()
+
+    // Update product rating
+    const allReviews = await Review.findAll({
+      where: { productId: req.params.productId }
+    })
+    const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
+    
+    const product = await Product.findByPk(req.params.productId)
+    product.rating = Math.round(avgRating * 10) / 10
+    product.reviews = allReviews.length
+    await product.save()
+
+    const reviewWithUser = await Review.findByPk(review.id, {
+      include: [{
+        association: 'user',
+        attributes: ['name', 'mobile']
+      }]
+    })
+
+    res.json(reviewWithUser)
+  } catch (error) {
+    console.error('Update review error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   DELETE /api/products/:productId/reviews/:reviewId
+// @desc    Delete product review
+// @access  Private
+router.delete('/:productId/reviews/:reviewId', protect, async (req, res) => {
+  try {
+    const review = await Review.findByPk(req.params.reviewId)
+    if (!review) {
+      return res.status(404).json({ message: 'Review not found' })
+    }
+
+    // Check if review belongs to the product
+    if (review.productId !== req.params.productId) {
+      return res.status(400).json({ message: 'Review does not belong to this product' })
+    }
+
+    // Check if user owns the review
+    if (review.userId !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to delete this review' })
+    }
+
+    const productId = review.productId
+    await review.destroy()
+
+    // Update product rating
+    const allReviews = await Review.findAll({
+      where: { productId }
+    })
+    
+    const product = await Product.findByPk(productId)
+    if (allReviews.length > 0) {
+      const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
+      product.rating = Math.round(avgRating * 10) / 10
+    } else {
+      product.rating = 0
+    }
+    product.reviews = allReviews.length
+    await product.save()
+
+    res.json({ message: 'Review deleted successfully' })
+  } catch (error) {
+    console.error('Delete review error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 export default router

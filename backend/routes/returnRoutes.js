@@ -2,6 +2,7 @@ import express from 'express'
 import { Op } from 'sequelize'
 import Return from '../models/Return.js'
 import Order from '../models/Order.js'
+import User from '../models/User.js'
 import { adminProtect } from '../middleware/adminAuth.js'
 import { protect } from '../middleware/auth.js'
 
@@ -113,17 +114,39 @@ router.get('/all', adminProtect, async (req, res) => {
     const offset = (page - 1) * limit
     const { count, rows: returns } = await Return.findAndCountAll({
       where,
-      include: [{
-        association: 'user',
-        attributes: ['name', 'email', 'mobile']
-      }],
       order: [['createdAt', 'DESC']],
       limit: Number(limit),
       offset: Number(offset)
     })
 
+    // Format returns with customer name from User model
+    const formattedReturns = await Promise.all(returns.map(async (returnItem) => {
+      const user = await User.findByPk(returnItem.userId, {
+        attributes: ['name', 'email', 'mobile']
+      })
+      return {
+        id: returnItem.id,
+        returnId: returnItem.returnId,
+        orderId: returnItem.orderId,
+        customerName: user?.name || 'Unknown Customer',
+        customerEmail: user?.email || '',
+        productId: returnItem.productId,
+        productName: returnItem.productName,
+        reason: returnItem.reason,
+        status: returnItem.status,
+        amount: returnItem.amount,
+        refundAmount: returnItem.amount,
+        quantity: 1, // Default quantity, can be added to model if needed
+        refundStatus: returnItem.status === 'refunded' ? 'refunded' : 'pending',
+        createdAt: returnItem.createdAt,
+        updatedAt: returnItem.updatedAt,
+        approvedAt: returnItem.approvedAt,
+        refundedAt: returnItem.refundedAt
+      }
+    }))
+
     res.json({
-      returns,
+      returns: formattedReturns,
       page: Number(page),
       pages: Math.ceil(count / limit),
       total: count
@@ -139,20 +162,40 @@ router.get('/all', adminProtect, async (req, res) => {
 // @access  Admin
 router.get('/details/:id', adminProtect, async (req, res) => {
   try {
-    const returnRequest = await Return.findByPk(req.params.id, {
-      include: [{
-        association: 'user'
-      }, {
-        association: 'product',
-        attributes: ['id', 'name', 'images']
-      }]
-    })
+    const returnRequest = await Return.findByPk(req.params.id)
 
     if (!returnRequest) {
       return res.status(404).json({ message: 'Return request not found' })
     }
 
-    res.json(returnRequest)
+    // Get user details
+    const user = await User.findByPk(returnRequest.userId, {
+      attributes: ['name', 'email', 'mobile']
+    })
+
+    // Format response
+    const formattedReturn = {
+      id: returnRequest.id,
+      returnId: returnRequest.returnId,
+      orderId: returnRequest.orderId,
+      customerName: user?.name || 'Unknown Customer',
+      customerEmail: user?.email || '',
+      productId: returnRequest.productId,
+      productName: returnRequest.productName,
+      reason: returnRequest.reason,
+      description: returnRequest.reason, // Using reason as description
+      status: returnRequest.status,
+      amount: returnRequest.amount,
+      refundAmount: returnRequest.amount,
+      quantity: 1,
+      refundStatus: returnRequest.status === 'refunded' ? 'refunded' : 'pending',
+      createdAt: returnRequest.createdAt,
+      updatedAt: returnRequest.updatedAt,
+      approvedAt: returnRequest.approvedAt,
+      refundedAt: returnRequest.refundedAt
+    }
+
+    res.json(formattedReturn)
   } catch (error) {
     console.error('Get admin return error:', error)
     res.status(500).json({ message: 'Server error' })

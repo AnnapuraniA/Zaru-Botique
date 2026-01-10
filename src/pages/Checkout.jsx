@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CreditCard, Lock } from 'lucide-react'
+import { CreditCard, Lock, ChevronDown, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { cartAPI, ordersAPI, couponsAPI, settingsAPI } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
@@ -17,6 +17,11 @@ function Checkout() {
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [couponError, setCouponError] = useState('')
   const [validatingCoupon, setValidatingCoupon] = useState(false)
+  const [availableCoupons, setAvailableCoupons] = useState([])
+  const [showCouponDropdown, setShowCouponDropdown] = useState(false)
+  const [loadingCoupons, setLoadingCoupons] = useState(false)
+  const couponInputRef = useRef(null)
+  const couponDropdownRef = useRef(null)
   const [shippingCosts, setShippingCosts] = useState({
     free: 0,
     standard: 100,
@@ -93,11 +98,104 @@ function Checkout() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
+    // Validate zipcode to only allow numeric digits (6 digits for Indian zipcodes)
+    if (name === 'zipCode') {
+      const numericValue = value.replace(/\D/g, '').slice(0, 6)
+      setFormData(prev => ({
+        ...prev,
+        [name]: numericValue
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      }))
+    }
   }
+
+  // Load available coupons
+  const loadAvailableCoupons = async () => {
+    setLoadingCoupons(true)
+    try {
+      console.log('Loading available coupons, subtotal:', subtotal)
+      const response = await couponsAPI.getAvailable(subtotal)
+      console.log('Coupons response:', response)
+      setAvailableCoupons(response.coupons || [])
+    } catch (err) {
+      console.error('Failed to load coupons:', err)
+      showError('Failed to load available coupons')
+    } finally {
+      setLoadingCoupons(false)
+    }
+  }
+
+  // Handle coupon input focus/click
+  const handleCouponInputFocus = () => {
+    setShowCouponDropdown(true)
+    // Always load coupons when input is focused (if not already loaded or loading)
+    if (availableCoupons.length === 0 && !loadingCoupons) {
+      console.log('Input focused, loading coupons...')
+      loadAvailableCoupons()
+    }
+  }
+
+  // Handle coupon selection from dropdown
+  const handleSelectCoupon = async (coupon) => {
+    setCouponCode(coupon.code)
+    setShowCouponDropdown(false)
+    // Auto-apply the selected coupon
+    setValidatingCoupon(true)
+    setCouponError('')
+    try {
+      console.log('Validating selected coupon:', coupon)
+      const result = await couponsAPI.validate(coupon.code, subtotal)
+      console.log('Validation result:', result)
+      if (result.valid && result.coupon) {
+        // Use coupon data from dropdown (has original values) merged with validation result
+        const couponToApply = {
+          id: result.coupon.id || coupon.id,
+          code: coupon.code || result.coupon.code,
+          type: coupon.type || result.coupon.type,
+          discount: parseFloat(coupon.discount || result.coupon.discount || 0), // Original discount value from dropdown
+          maxDiscount: coupon.maxDiscount ? parseFloat(coupon.maxDiscount) : (result.coupon.maxDiscount ? parseFloat(result.coupon.maxDiscount) : null),
+          description: coupon.description || result.coupon.description,
+          minPurchase: coupon.minPurchase ? parseFloat(coupon.minPurchase) : (result.coupon.minPurchase ? parseFloat(result.coupon.minPurchase) : null)
+        }
+        console.log('Applying coupon (from dropdown):', couponToApply)
+        setAppliedCoupon(couponToApply)
+        setCouponError('')
+        success('Coupon applied successfully!')
+      } else {
+        setCouponError('Invalid coupon code')
+        setAppliedCoupon(null)
+      }
+    } catch (err) {
+      console.error('Failed to validate coupon:', err)
+      setCouponError(err.message || 'Invalid coupon code')
+      setAppliedCoupon(null)
+    } finally {
+      setValidatingCoupon(false)
+    }
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        couponDropdownRef.current &&
+        !couponDropdownRef.current.contains(event.target) &&
+        couponInputRef.current &&
+        !couponInputRef.current.contains(event.target)
+      ) {
+        setShowCouponDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   // Calculate totals
   const subtotal = cartItems.reduce((sum, item) => {
@@ -106,8 +204,62 @@ function Checkout() {
   }, 0)
   const shipping = shippingCosts[formData.shippingMethod] || 0
   const tax = subtotal * 0.18
-  const couponDiscount = appliedCoupon ? (appliedCoupon.discount || 0) : 0
+  
+  // Calculate coupon discount properly
+  let couponDiscount = 0
+  if (appliedCoupon) {
+    console.log('=== Calculating discount ===')
+    console.log('Applied coupon:', JSON.stringify(appliedCoupon, null, 2))
+    console.log('Subtotal:', subtotal, 'Shipping:', shipping, 'Tax:', tax)
+    
+    const discountValue = parseFloat(appliedCoupon.discount || 0)
+    const couponType = appliedCoupon.type
+    
+    console.log(`Coupon type: ${couponType}, Discount value: ${discountValue}`)
+    
+    if (couponType === 'percentage') {
+      // Percentage discount: calculate percentage of subtotal
+      couponDiscount = (subtotal * discountValue) / 100
+      console.log(`Percentage calculation: (${subtotal} * ${discountValue}) / 100 = ${couponDiscount}`)
+      
+      // Apply max discount cap if specified
+      if (appliedCoupon.maxDiscount) {
+        const maxDiscount = parseFloat(appliedCoupon.maxDiscount)
+        if (couponDiscount > maxDiscount) {
+          console.log(`Capping discount at max: ${maxDiscount}`)
+          couponDiscount = maxDiscount
+        }
+      }
+    } else if (couponType === 'fixed') {
+      // Fixed amount discount: use the discount value directly
+      couponDiscount = discountValue
+      console.log(`Fixed discount: ${couponDiscount}`)
+      
+      // Don't allow discount to exceed subtotal
+      if (couponDiscount > subtotal) {
+        console.log(`Capping discount at subtotal: ${subtotal}`)
+        couponDiscount = subtotal
+      }
+    } else if (couponType === 'free_shipping') {
+      // Free shipping discount: use current shipping cost
+      couponDiscount = shipping
+      console.log(`Free shipping discount: ${couponDiscount}`)
+    } else {
+      console.warn(`Unknown coupon type: ${couponType}`)
+    }
+    
+    console.log(`Final coupon discount: ₹${couponDiscount.toFixed(2)}`)
+  } else {
+    console.log('No coupon applied')
+  }
+  
   const total = Math.max(0, subtotal + shipping + tax - couponDiscount)
+  console.log(`=== Total Calculation ===`)
+  console.log(`Subtotal: ₹${subtotal.toFixed(2)}`)
+  console.log(`Shipping: ₹${shipping.toFixed(2)}`)
+  console.log(`Tax (18%): ₹${tax.toFixed(2)}`)
+  console.log(`Coupon Discount: -₹${couponDiscount.toFixed(2)}`)
+  console.log(`TOTAL: ₹${total.toFixed(2)}`)
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -119,9 +271,23 @@ function Checkout() {
     setCouponError('')
 
     try {
+      console.log('Validating coupon code:', couponCode, 'subtotal:', subtotal)
       const result = await couponsAPI.validate(couponCode, subtotal)
-      if (result.valid) {
-        setAppliedCoupon(result.coupon)
+      console.log('Validation result:', result)
+      if (result.valid && result.coupon) {
+        // Use the original discount value (percentage or fixed amount), not the calculated one
+        // The frontend will recalculate based on current subtotal
+        const couponToApply = {
+          id: result.coupon.id,
+          code: result.coupon.code,
+          type: result.coupon.type,
+          discount: parseFloat(result.coupon.discount) || 0, // Original discount value (percentage number or fixed amount)
+          maxDiscount: result.coupon.maxDiscount ? parseFloat(result.coupon.maxDiscount) : null,
+          description: result.coupon.description,
+          minPurchase: result.coupon.minPurchase ? parseFloat(result.coupon.minPurchase) : null
+        }
+        console.log('Applying coupon (manual entry):', couponToApply)
+        setAppliedCoupon(couponToApply)
         setCouponError('')
         success('Coupon applied successfully!')
       } else {
@@ -245,7 +411,12 @@ function Checkout() {
   return (
     <div className="checkout-page">
       <div className="container">
-        <h1>Checkout</h1>
+        <div className="checkout-header">
+          <h1>Checkout</h1>
+          {cartItems.length > 0 && (
+            <p className="checkout-item-count">{cartItems.length} {cartItems.length === 1 ? 'item' : 'items'} in your order</p>
+          )}
+        </div>
 
         <div className="checkout-layout">
           <div className="checkout-form">
@@ -338,55 +509,13 @@ function Checkout() {
                       value={formData.zipCode}
                       onChange={handleChange}
                       required
+                      placeholder="Enter 6-digit zipcode"
+                      pattern="[0-9]{6}"
+                      maxLength="6"
                     />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Shipping Method *</label>
-                  <div className="shipping-options">
-                    <label className="shipping-option">
-                      <input
-                        type="radio"
-                        name="shippingMethod"
-                        value="free"
-                        checked={formData.shippingMethod === 'free'}
-                        onChange={handleChange}
-                      />
-                      <div>
-                        <strong>Free Shipping</strong>
-                        <p>5-7 business days (Orders over ₹2000)</p>
-                      </div>
-                      <span>Free</span>
-                    </label>
-                    <label className="shipping-option">
-                      <input
-                        type="radio"
-                        name="shippingMethod"
-                        value="standard"
-                        checked={formData.shippingMethod === 'standard'}
-                        onChange={handleChange}
-                      />
-                      <div>
-                        <strong>Standard Shipping</strong>
-                        <p>3-5 business days</p>
-                      </div>
-                      <span>₹100.00</span>
-                    </label>
-                    <label className="shipping-option">
-                      <input
-                        type="radio"
-                        name="shippingMethod"
-                        value="express"
-                        checked={formData.shippingMethod === 'express'}
-                        onChange={handleChange}
-                      />
-                      <div>
-                        <strong>Express Shipping</strong>
-                        <p>1-2 business days</p>
-                      </div>
-                      <span>₹200.00</span>
-                    </label>
+                    {formData.zipCode && formData.zipCode.length !== 6 && (
+                      <small className="error-text">ZIP code must be 6 digits</small>
+                    )}
                   </div>
                 </div>
 
@@ -522,26 +651,95 @@ function Checkout() {
                 {/* Coupon Section */}
                 <div className="coupon-section">
                   {!appliedCoupon ? (
-                    <div className="coupon-input-group">
-                      <input
-                        type="text"
-                        placeholder="Enter coupon code"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        className={couponError ? 'error' : ''}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleApplyCoupon}
-                        disabled={validatingCoupon}
-                        className="btn btn-outline"
-                      >
-                        {validatingCoupon ? 'Applying...' : 'Apply'}
-                      </button>
+                    <div className="coupon-input-wrapper">
+                      <div className="coupon-input-group">
+                        <input
+                          ref={couponInputRef}
+                          type="text"
+                          placeholder="Enter coupon code"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          onFocus={handleCouponInputFocus}
+                          className={couponError ? 'error' : ''}
+                        />
+                        <button
+                          type="button"
+                          className="coupon-dropdown-toggle"
+                          onClick={() => {
+                            const newState = !showCouponDropdown
+                            setShowCouponDropdown(newState)
+                            console.log('Dropdown toggle clicked, newState:', newState, 'availableCoupons.length:', availableCoupons.length)
+                            if (newState && (availableCoupons.length === 0 || !loadingCoupons)) {
+                              console.log('Loading coupons from dropdown toggle...')
+                              loadAvailableCoupons()
+                            }
+                          }}
+                        >
+                          <ChevronDown size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          disabled={validatingCoupon}
+                          className="btn btn-outline"
+                        >
+                          {validatingCoupon ? 'Applying...' : 'Apply'}
+                        </button>
+                      </div>
+                      {showCouponDropdown && (
+                        <div ref={couponDropdownRef} className="coupon-dropdown">
+                          <div className="coupon-dropdown-header">
+                            <h4>Available Coupons</h4>
+                            <button
+                              type="button"
+                              className="close-dropdown"
+                              onClick={() => setShowCouponDropdown(false)}
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                          {loadingCoupons ? (
+                            <div className="coupon-loading">Loading coupons...</div>
+                          ) : availableCoupons.length === 0 ? (
+                            <div className="coupon-empty">No coupons available</div>
+                          ) : (
+                            <div className="coupon-list">
+                              {availableCoupons.map((coupon) => (
+                                <div
+                                  key={coupon.id}
+                                  className="coupon-item"
+                                  onClick={() => handleSelectCoupon(coupon)}
+                                >
+                                  <div className="coupon-item-header">
+                                    <strong>{coupon.code}</strong>
+                                    <span className="coupon-discount">
+                                      {coupon.type === 'percentage'
+                                        ? `${coupon.discount}% OFF`
+                                        : coupon.type === 'fixed'
+                                        ? `₹${coupon.discount} OFF`
+                                        : 'Free Shipping'}
+                                    </span>
+                                  </div>
+                                  {coupon.description && (
+                                    <p className="coupon-description">{coupon.description}</p>
+                                  )}
+                                  {coupon.minPurchase && (
+                                    <p className="coupon-min-purchase">
+                                      Min. purchase: ₹{coupon.minPurchase}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="coupon-applied">
-                      <span>Coupon: {appliedCoupon.code} - ₹{couponDiscount.toFixed(2)} off</span>
+                      <span>
+                        <strong>{appliedCoupon.code}</strong> - ₹{couponDiscount.toFixed(2)} off
+                      </span>
                       <button
                         type="button"
                         onClick={handleRemoveCoupon}
@@ -623,26 +821,95 @@ function Checkout() {
               {/* Coupon Section in Sidebar */}
               <div className="coupon-section">
                 {!appliedCoupon ? (
-                  <div className="coupon-input-group">
-                    <input
-                      type="text"
-                      placeholder="Coupon code"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      className={couponError ? 'error' : ''}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleApplyCoupon}
-                      disabled={validatingCoupon}
-                      className="btn btn-outline btn-small"
-                    >
-                      Apply
-                    </button>
+                  <div className="coupon-input-wrapper">
+                    <div className="coupon-input-group">
+                      <input
+                        ref={couponInputRef}
+                        type="text"
+                        placeholder="Coupon code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        onFocus={handleCouponInputFocus}
+                        className={couponError ? 'error' : ''}
+                      />
+                      <button
+                        type="button"
+                        className="coupon-dropdown-toggle"
+                        onClick={() => {
+                          const newState = !showCouponDropdown
+                          setShowCouponDropdown(newState)
+                          console.log('Dropdown toggle clicked (sidebar), newState:', newState, 'availableCoupons.length:', availableCoupons.length)
+                          if (newState && (availableCoupons.length === 0 || !loadingCoupons)) {
+                            console.log('Loading coupons from dropdown toggle (sidebar)...')
+                            loadAvailableCoupons()
+                          }
+                        }}
+                      >
+                        <ChevronDown size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={validatingCoupon}
+                        className="btn btn-outline btn-small"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    {showCouponDropdown && (
+                      <div ref={couponDropdownRef} className="coupon-dropdown">
+                        <div className="coupon-dropdown-header">
+                          <h4>Available Coupons</h4>
+                          <button
+                            type="button"
+                            className="close-dropdown"
+                            onClick={() => setShowCouponDropdown(false)}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        {loadingCoupons ? (
+                          <div className="coupon-loading">Loading coupons...</div>
+                        ) : availableCoupons.length === 0 ? (
+                          <div className="coupon-empty">No coupons available</div>
+                        ) : (
+                          <div className="coupon-list">
+                            {availableCoupons.map((coupon) => (
+                              <div
+                                key={coupon.id}
+                                className="coupon-item"
+                                onClick={() => handleSelectCoupon(coupon)}
+                              >
+                                <div className="coupon-item-header">
+                                  <strong>{coupon.code}</strong>
+                                  <span className="coupon-discount">
+                                    {coupon.type === 'percentage'
+                                      ? `${coupon.discount}% OFF`
+                                      : coupon.type === 'fixed'
+                                      ? `₹${coupon.discount} OFF`
+                                      : 'Free Shipping'}
+                                  </span>
+                                </div>
+                                {coupon.description && (
+                                  <p className="coupon-description">{coupon.description}</p>
+                                )}
+                                {coupon.minPurchase && (
+                                  <p className="coupon-min-purchase">
+                                    Min. purchase: ₹{coupon.minPurchase}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="coupon-applied">
-                    <span>{appliedCoupon.code}</span>
+                    <span>
+                      <strong>{appliedCoupon.code}</strong> - ₹{couponDiscount.toFixed(2)} off
+                    </span>
                     <button
                       type="button"
                       onClick={handleRemoveCoupon}

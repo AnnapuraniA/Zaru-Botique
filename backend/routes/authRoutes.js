@@ -1,5 +1,6 @@
 import express from 'express'
 import { Op } from 'sequelize'
+import crypto from 'crypto'
 import User from '../models/User.js'
 import Product from '../models/Product.js'
 import { generateToken } from '../utils/generateToken.js'
@@ -14,31 +15,51 @@ router.post('/register', async (req, res) => {
   try {
     const { mobile, password, name, email } = req.body
 
-    // Validation
-    if (!mobile || !password || !name) {
-      return res.status(400).json({ message: 'Please provide mobile, password, and name' })
+    // Validation - require at least mobile or email
+    if ((!mobile || mobile.trim() === '') && (!email || email.trim() === '')) {
+      return res.status(400).json({ message: 'Please provide either mobile number or email address' })
     }
 
-    if (mobile.length !== 10 || !/^[0-9]+$/.test(mobile)) {
+    if (!password || !name) {
+      return res.status(400).json({ message: 'Please provide password and name' })
+    }
+
+    // Validate mobile if provided
+    if (mobile && (mobile.length !== 10 || !/^[0-9]+$/.test(mobile))) {
       return res.status(400).json({ message: 'Please enter a valid 10-digit mobile number' })
+    }
+
+    // Validate email if provided
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Please enter a valid email address' })
     }
 
     if (password.length < 8) {
       return res.status(400).json({ message: 'Password must be at least 8 characters' })
     }
 
-    // Check if user exists
-    const userExists = await User.findOne({ where: { mobile } })
-    if (userExists) {
-      return res.status(400).json({ message: 'Mobile number already registered' })
+    // Check if user exists by mobile
+    if (mobile) {
+      const userExistsByMobile = await User.findOne({ where: { mobile } })
+      if (userExistsByMobile) {
+        return res.status(400).json({ message: 'Mobile number already registered' })
+      }
+    }
+
+    // Check if user exists by email
+    if (email) {
+      const userExistsByEmail = await User.findOne({ where: { email } })
+      if (userExistsByEmail) {
+        return res.status(400).json({ message: 'Email address already registered' })
+      }
     }
 
     // Create user
     const user = await User.create({
-      mobile,
+      mobile: mobile || null,
       password,
       name,
-      email: email || ''
+      email: email || null
     })
 
     if (user) {
@@ -56,6 +77,9 @@ router.post('/register', async (req, res) => {
     }
   } catch (error) {
     console.error('Register error:', error)
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ message: 'Mobile number or email already registered' })
+    }
     res.status(500).json({ message: 'Server error' })
   }
 })
@@ -65,13 +89,23 @@ router.post('/register', async (req, res) => {
 // @access  Public
 router.post('/login', async (req, res) => {
   try {
-    const { mobile, password } = req.body
+    const { mobile, email, password } = req.body
 
-    if (!mobile || !password) {
-      return res.status(400).json({ message: 'Please provide mobile and password' })
+    if ((!mobile || mobile.trim() === '') && (!email || email.trim() === '')) {
+      return res.status(400).json({ message: 'Please provide mobile number or email address' })
     }
 
-    const user = await User.findOne({ where: { mobile } })
+    if (!password) {
+      return res.status(400).json({ message: 'Please provide password' })
+    }
+
+    // Find user by mobile or email
+    let user = null
+    if (mobile) {
+      user = await User.findOne({ where: { mobile } })
+    } else if (email) {
+      user = await User.findOne({ where: { email } })
+    }
 
     if (user && (await user.matchPassword(password))) {
       const token = generateToken(user.id)
@@ -84,10 +118,74 @@ router.post('/login', async (req, res) => {
         token
       })
     } else {
-      res.status(401).json({ message: 'Invalid mobile number or password' })
+      res.status(401).json({ message: 'Invalid credentials' })
     }
   } catch (error) {
     console.error('Login error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send password reset instructions
+// @access  Public
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { emailOrMobile } = req.body
+
+    if (!emailOrMobile || emailOrMobile.trim() === '') {
+      return res.status(400).json({ message: 'Please provide email or mobile number' })
+    }
+
+    // Determine if it's email or mobile
+    const isEmail = emailOrMobile.includes('@')
+    const isMobile = /^[0-9]{10}$/.test(emailOrMobile.trim())
+
+    if (!isEmail && !isMobile) {
+      return res.status(400).json({ message: 'Please provide a valid email or 10-digit mobile number' })
+    }
+
+    // Find user by email or mobile
+    let user = null
+    if (isEmail) {
+      user = await User.findOne({ where: { email: emailOrMobile.trim() } })
+    } else {
+      user = await User.findOne({ where: { mobile: emailOrMobile.trim() } })
+    }
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({ 
+        message: 'If an account exists with this email/mobile, password reset instructions have been sent.' 
+      })
+    }
+
+    // Generate a simple reset token (in production, use a secure token stored in DB with expiry)
+    const resetToken = crypto.randomBytes(32).toString('hex')
+    
+    // TODO: In production, store resetToken in database with expiry time
+    // TODO: Send email/SMS with reset link
+    // For now, we'll just log it and return success
+    console.log(`Password reset requested for ${isEmail ? 'email' : 'mobile'}: ${emailOrMobile}`)
+    console.log(`Reset token (for development): ${resetToken}`)
+    console.log(`Reset link would be: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`)
+
+    // In production, implement actual email/SMS sending here
+    // Example email content:
+    // Subject: Reset Your Password - Arudhra Fashions
+    // Body: Click this link to reset your password: [reset link]
+    // Or SMS: Your password reset code is: [code]
+
+    res.json({ 
+      message: 'Password reset instructions have been sent to your email/mobile',
+      // In development, include token for testing (remove in production)
+      ...(process.env.NODE_ENV === 'development' && { 
+        resetToken,
+        resetLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`
+      })
+    })
+  } catch (error) {
+    console.error('Forgot password error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

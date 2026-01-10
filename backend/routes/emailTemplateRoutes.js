@@ -9,16 +9,20 @@ const router = express.Router()
 // @access  Admin
 router.get('/all', adminProtect, async (req, res) => {
   try {
-    const { type } = req.query
+    const { type, channel } = req.query
     const where = {}
 
     if (type) {
       where.type = type
     }
 
+    if (channel) {
+      where.channel = channel
+    }
+
     const templates = await EmailTemplate.findAll({
       where,
-      order: [['type', 'ASC'], ['name', 'ASC']]
+      order: [['channel', 'ASC'], ['type', 'ASC'], ['name', 'ASC']]
     })
 
     res.json(templates)
@@ -50,16 +54,22 @@ router.get('/:id', adminProtect, async (req, res) => {
 // @access  Admin
 router.post('/create', adminProtect, async (req, res) => {
   try {
-    const { name, type, subject, body, variables } = req.body
+    const { name, type, channel, subject, body, variables } = req.body
 
-    if (!name || !type || !subject || !body) {
-      return res.status(400).json({ message: 'All required fields must be filled' })
+    if (!name || !type || !body) {
+      return res.status(400).json({ message: 'Name, type, and body are required' })
+    }
+
+    // Subject is required only for email
+    if (channel === 'email' && !subject) {
+      return res.status(400).json({ message: 'Subject is required for email templates' })
     }
 
     const template = await EmailTemplate.create({
       name,
       type,
-      subject,
+      channel: channel || 'email',
+      subject: channel === 'email' ? subject : null,
       body,
       variables: variables || []
     })
@@ -84,9 +94,10 @@ router.put('/update/:id', adminProtect, async (req, res) => {
       return res.status(404).json({ message: 'Template not found' })
     }
 
-    template.subject = req.body.subject || template.subject
-    template.body = req.body.body || template.body
-    template.variables = req.body.variables || template.variables
+    if (req.body.channel) template.channel = req.body.channel
+    if (req.body.subject !== undefined) template.subject = req.body.subject
+    if (req.body.body) template.body = req.body.body
+    if (req.body.variables) template.variables = req.body.variables
     template.lastModified = new Date()
 
     await template.save()

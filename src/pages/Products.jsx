@@ -93,11 +93,18 @@ function Products() {
           products: response.products?.map(p => ({
             id: p.id || p._id,
             name: p.name,
+            price: p.price,
+            originalPrice: p.originalPrice,
             isActive: p.isActive,
             category: p.category?.name,
             subcategory: p.subcategory?.name
           })) || []
         })
+        // Log first product's full data to check price field
+        if (response.products && response.products.length > 0) {
+          console.log('First product full data:', response.products[0])
+          console.log('First product price:', response.products[0].price, 'type:', typeof response.products[0].price)
+        }
         if (!response.products || response.products.length === 0) {
           console.warn('No products returned from API. Response:', response)
         }

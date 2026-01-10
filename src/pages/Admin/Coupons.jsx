@@ -58,14 +58,33 @@ function Coupons() {
       return
     }
     try {
+      // Set default dates if not provided
+      let validFrom = formData.validFrom
+      let validUntil = formData.validUntil
+      
+      if (!validFrom || validFrom.trim() === '') {
+        // Default to today if not provided
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        validFrom = today.toISOString().split('T')[0]
+      }
+      
+      if (!validUntil || validUntil.trim() === '') {
+        // Default to 1 year from now if not provided
+        const oneYearLater = new Date()
+        oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
+        oneYearLater.setHours(23, 59, 59, 999)
+        validUntil = oneYearLater.toISOString().split('T')[0]
+      }
+      
       await adminCouponsAPI.create({
         ...formData,
         discount: parseFloat(formData.discount),
         minPurchase: formData.minPurchase ? parseFloat(formData.minPurchase) : 0,
         maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
         usageLimit: formData.usageLimit ? parseFloat(formData.usageLimit) : null,
-        validFrom: formData.validFrom || null,
-        validUntil: formData.validUntil || null
+        validFrom: validFrom,
+        validUntil: validUntil
       })
       setShowAddModal(false)
       setFormData({

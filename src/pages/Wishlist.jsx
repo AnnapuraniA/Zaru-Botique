@@ -19,6 +19,19 @@ function Wishlist() {
     } else {
       setLoading(false)
     }
+    
+    // Listen for wishlist updates
+    const handleWishlistUpdate = () => {
+      if (isAuthenticated) {
+        loadWishlist()
+      }
+    }
+    
+    window.addEventListener('wishlistUpdated', handleWishlistUpdate)
+    
+    return () => {
+      window.removeEventListener('wishlistUpdated', handleWishlistUpdate)
+    }
   }, [isAuthenticated])
 
   const loadWishlist = async () => {
@@ -51,6 +64,8 @@ function Wishlist() {
         return itemProductId !== productId
       }))
       success('Removed from wishlist')
+      // Dispatch wishlist update event
+      window.dispatchEvent(new Event('wishlistUpdated'))
     } catch (err) {
       console.error('Failed to remove from wishlist:', err)
       showError('Failed to remove from wishlist')
@@ -70,6 +85,8 @@ function Wishlist() {
         await cartAPI.addItem(productId, 1)
       }
       success('All items added to cart!')
+      // Dispatch cart update event
+      window.dispatchEvent(new Event('cartUpdated'))
     } catch (err) {
       console.error('Failed to add items to cart:', err)
       showError('Failed to add items to cart')
@@ -86,6 +103,8 @@ function Wishlist() {
     try {
       await cartAPI.addItem(productId, 1)
       success('Added to cart!')
+      // Dispatch cart update event
+      window.dispatchEvent(new Event('cartUpdated'))
     } catch (err) {
       console.error('Failed to add to cart:', err)
       showError('Failed to add to cart')
@@ -108,15 +127,18 @@ function Wishlist() {
 
   const totalValue = wishlistItems.reduce((sum, item) => {
     const product = item.product || item
-    return sum + (product.price || 0)
+    const price = typeof product.price === 'number' ? product.price : (parseFloat(product.price) || 0)
+    return Number(sum) + Number(price)
   }, 0)
   
   const totalSavings = wishlistItems.reduce((sum, item) => {
     const product = item.product || item
-    if (product.originalPrice) {
-      return sum + (product.originalPrice - product.price)
+    const originalPrice = typeof product.originalPrice === 'number' ? product.originalPrice : (parseFloat(product.originalPrice) || 0)
+    const price = typeof product.price === 'number' ? product.price : (parseFloat(product.price) || 0)
+    if (originalPrice > price) {
+      return Number(sum) + (Number(originalPrice) - Number(price))
     }
-    return sum
+    return Number(sum)
   }, 0)
 
   if (!isAuthenticated) {
@@ -154,30 +176,31 @@ function Wishlist() {
     <div className="wishlist-page">
       <div className="container">
         {/* Header Section */}
-        <div className="wishlist-header-section">
+        <div className="wishlist-header">
           <div className="wishlist-header-content">
-            <div className="wishlist-title-wrapper">
+            <div className="wishlist-title-section">
               <div className="wishlist-icon-wrapper">
-                <Heart size={32} fill="currentColor" />
-                <Sparkles size={20} className="sparkle-icon" />
+                <Heart size={40} fill="currentColor" />
               </div>
               <div>
                 <h1>My Wishlist</h1>
-                <p className="wishlist-subtitle">
-                  {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} saved for later
-                </p>
+                {wishlistItems.length > 0 && (
+                  <p className="wishlist-subtitle">
+                    {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} saved for later
+                  </p>
+                )}
               </div>
             </div>
             {wishlistItems.length > 0 && (
               <div className="wishlist-stats">
                 <div className="stat-item">
                   <span className="stat-label">Total Value</span>
-                  <span className="stat-value">₹{totalValue.toFixed(2)}</span>
+                  <span className="stat-value">₹{(Number(totalValue) || 0).toFixed(2)}</span>
                 </div>
                 {totalSavings > 0 && (
                   <div className="stat-item savings">
                     <span className="stat-label">You Save</span>
-                    <span className="stat-value">₹{totalSavings.toFixed(2)}</span>
+                    <span className="stat-value">₹{(Number(totalSavings) || 0).toFixed(2)}</span>
                   </div>
                 )}
               </div>
@@ -191,28 +214,17 @@ function Wishlist() {
             <div className="wishlist-actions-bar">
               <div className="wishlist-actions-left">
                 <button className="action-btn primary" onClick={addAllToCart}>
-                  <ShoppingCart size={18} />
+                  <ShoppingCart size={20} />
                   Add All to Cart
                 </button>
                 <button className="action-btn" onClick={shareWishlist}>
-                  <Share2 size={18} />
+                  <Share2 size={20} />
                   Share Wishlist
                 </button>
               </div>
               <div className="wishlist-actions-right">
-                <span className="items-count">{wishlistItems.length} items</span>
+                <span className="items-count">{wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'}</span>
               </div>
-            </div>
-
-            {/* Navigation Actions */}
-            <div className="wishlist-navigation">
-              <Link to="/products/women" className="nav-action-btn">
-                Continue Shopping
-              </Link>
-              <Link to="/cart" className="nav-action-btn primary">
-                <ShoppingCart size={18} />
-                Go to Cart
-              </Link>
             </div>
 
             {/* Products Grid */}
@@ -246,7 +258,7 @@ function Wishlist() {
                           aria-label="Remove from wishlist"
                           title="Remove from wishlist"
                         >
-                          <X size={18} />
+                          <X size={16} />
                         </button>
                       </div>
                       <div className="wishlist-item-info">
@@ -256,9 +268,9 @@ function Wishlist() {
                         <p className="wishlist-item-category">{productCategory}</p>
                         <div className="wishlist-item-price-section">
                           {productOriginalPrice && typeof productOriginalPrice === 'number' && (
-                            <span className="original-price">₹{productOriginalPrice.toFixed(2)}</span>
+                            <span className="original-price">₹{(Number(productOriginalPrice) || 0).toFixed(2)}</span>
                           )}
-                          <span className="current-price">₹{productPrice.toFixed(2)}</span>
+                          <span className="current-price">₹{(Number(productPrice) || 0).toFixed(2)}</span>
                         </div>
                         <div className="wishlist-item-actions">
                           <Link
@@ -271,7 +283,7 @@ function Wishlist() {
                             className="btn btn-outline btn-small"
                             onClick={() => addToCart(productId)}
                           >
-                            <ShoppingCart size={16} />
+                            <ShoppingCart size={14} />
                             Add to Cart
                           </button>
                         </div>

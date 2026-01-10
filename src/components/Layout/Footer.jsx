@@ -1,17 +1,18 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Facebook, Instagram, Mail } from 'lucide-react'
 import { useDevice } from '../../hooks/useDevice'
+import { useLoginModal } from '../../context/LoginModalContext'
 
 function Footer() {
-  const navigate = useNavigate()
   const isMobile = useDevice()
+  const { openModal } = useLoginModal()
 
   const handleSignIn = () => {
-    navigate('/dashboard', { state: { tab: 'login' } })
+    openModal('login')
   }
 
   const handleCreateAccount = () => {
-    navigate('/dashboard', { state: { tab: 'register' } })
+    openModal('register')
   }
   return (
     <footer className={`footer ${isMobile ? 'footer-mobile' : 'footer-web'}`}>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, X, Check, Package, Plus, Edit2, Trash2, Image as ImageIcon } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
-import { adminContentAPI, adminProductsAPI, adminNewArrivalsAPI } from '../../utils/adminApi'
+import { adminContentAPI, adminProductsAPI, adminNewArrivalsAPI, adminTestimonialsAPI, adminSaleStripAPI } from '../../utils/adminApi'
 import { getImageUrl } from '../../utils/api'
 
 function Content() {
@@ -32,9 +32,37 @@ function Content() {
     imagePreview: null
   })
 
+  // Testimonials state
+  const [testimonials, setTestimonials] = useState([])
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true)
+  const [showTestimonialModal, setShowTestimonialModal] = useState(false)
+  const [editingTestimonial, setEditingTestimonial] = useState(null)
+  const [testimonialForm, setTestimonialForm] = useState({
+    name: '',
+    content: '',
+    rating: ''
+  })
+
+  // Sale Strip state
+  const [saleStrips, setSaleStrips] = useState([])
+  const [loadingSaleStrips, setLoadingSaleStrips] = useState(true)
+  const [showSaleStripModal, setShowSaleStripModal] = useState(false)
+  const [editingSaleStrip, setEditingSaleStrip] = useState(null)
+  const [saleStripForm, setSaleStripForm] = useState({
+    title: '',
+    description: '',
+    discount: '',
+    startDate: '',
+    endDate: '',
+    backgroundColor: '#ff0000',
+    textColor: '#ffffff'
+  })
+
   useEffect(() => {
     loadFeaturedProducts()
     loadNewArrivals()
+    loadTestimonials()
+    loadSaleStrips()
   }, [])
 
   useEffect(() => {
@@ -249,6 +277,200 @@ function Content() {
     }
   }
 
+  // Testimonials functions
+  const loadTestimonials = async () => {
+    try {
+      setLoadingTestimonials(true)
+      const data = await adminTestimonialsAPI.getAll()
+      setTestimonials(data || [])
+    } catch (err) {
+      console.error('Error loading testimonials:', err)
+      showError('Failed to load testimonials')
+    } finally {
+      setLoadingTestimonials(false)
+    }
+  }
+
+  const handleAddTestimonial = () => {
+    setEditingTestimonial(null)
+    setTestimonialForm({
+      name: '',
+      content: '',
+      rating: ''
+    })
+    setShowTestimonialModal(true)
+  }
+
+  const handleEditTestimonial = (testimonial) => {
+    setEditingTestimonial(testimonial)
+    setTestimonialForm({
+      name: testimonial.name || '',
+      content: testimonial.content || '',
+      rating: testimonial.rating || ''
+    })
+    setShowTestimonialModal(true)
+  }
+
+  const handleDeleteTestimonial = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this testimonial?')) {
+      return
+    }
+    try {
+      await adminTestimonialsAPI.delete(id)
+      success('Testimonial deleted successfully')
+      await loadTestimonials()
+    } catch (err) {
+      console.error('Error deleting testimonial:', err)
+      showError('Failed to delete testimonial')
+    }
+  }
+
+  const handleSaveTestimonial = async () => {
+    try {
+      if (!testimonialForm.name || !testimonialForm.content) {
+        showError('Name and content are required')
+        return
+      }
+
+      setSaving(true)
+      
+      const formData = {
+        name: testimonialForm.name,
+        content: testimonialForm.content,
+        rating: testimonialForm.rating || null
+      }
+
+      if (editingTestimonial) {
+        await adminTestimonialsAPI.update(editingTestimonial.id, formData)
+        success('Testimonial updated successfully')
+      } else {
+        await adminTestimonialsAPI.create(formData)
+        success('Testimonial added successfully')
+      }
+
+      await loadTestimonials()
+      setShowTestimonialModal(false)
+      setEditingTestimonial(null)
+      setTestimonialForm({
+        name: '',
+        content: '',
+        rating: ''
+      })
+    } catch (err) {
+      console.error('Error saving testimonial:', err)
+      showError('Failed to save testimonial')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Sale Strip functions
+  const loadSaleStrips = async () => {
+    try {
+      setLoadingSaleStrips(true)
+      const data = await adminSaleStripAPI.getAll()
+      setSaleStrips(data || [])
+    } catch (err) {
+      console.error('Error loading sale strips:', err)
+      showError('Failed to load sale strips')
+    } finally {
+      setLoadingSaleStrips(false)
+    }
+  }
+
+  const handleAddSaleStrip = () => {
+    setEditingSaleStrip(null)
+    const now = new Date()
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    setSaleStripForm({
+      title: '',
+      description: '',
+      discount: '',
+      startDate: now.toISOString().slice(0, 16),
+      endDate: tomorrow.toISOString().slice(0, 16),
+      backgroundColor: '#ff0000',
+      textColor: '#ffffff'
+    })
+    setShowSaleStripModal(true)
+  }
+
+  const handleEditSaleStrip = (saleStrip) => {
+    setEditingSaleStrip(saleStrip)
+    setSaleStripForm({
+      title: saleStrip.title || '',
+      description: saleStrip.description || '',
+      discount: saleStrip.discount || '',
+      startDate: saleStrip.startDate ? new Date(saleStrip.startDate).toISOString().slice(0, 16) : '',
+      endDate: saleStrip.endDate ? new Date(saleStrip.endDate).toISOString().slice(0, 16) : '',
+      backgroundColor: saleStrip.backgroundColor || '#ff0000',
+      textColor: saleStrip.textColor || '#ffffff'
+    })
+    setShowSaleStripModal(true)
+  }
+
+  const handleDeleteSaleStrip = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this sale strip?')) {
+      return
+    }
+    try {
+      await adminSaleStripAPI.delete(id)
+      success('Sale strip deleted successfully')
+      await loadSaleStrips()
+    } catch (err) {
+      console.error('Error deleting sale strip:', err)
+      showError('Failed to delete sale strip')
+    }
+  }
+
+  const handleSaveSaleStrip = async () => {
+    try {
+      if (!saleStripForm.title || !saleStripForm.startDate || !saleStripForm.endDate) {
+        showError('Title, start date, and end date are required')
+        return
+      }
+
+      setSaving(true)
+      
+      const formData = {
+        title: saleStripForm.title,
+        description: saleStripForm.description || '',
+        discount: saleStripForm.discount || '',
+        startDate: saleStripForm.startDate,
+        endDate: saleStripForm.endDate,
+        backgroundColor: saleStripForm.backgroundColor,
+        textColor: saleStripForm.textColor
+      }
+
+      if (editingSaleStrip) {
+        await adminSaleStripAPI.update(editingSaleStrip.id, formData)
+        success('Sale strip updated successfully')
+      } else {
+        await adminSaleStripAPI.create(formData)
+        success('Sale strip added successfully')
+      }
+
+      await loadSaleStrips()
+      setShowSaleStripModal(false)
+      setEditingSaleStrip(null)
+      setSaleStripForm({
+        title: '',
+        description: '',
+        discount: '',
+        startDate: '',
+        endDate: '',
+        backgroundColor: '#ff0000',
+        textColor: '#ffffff'
+      })
+    } catch (err) {
+      console.error('Error saving sale strip:', err)
+      showError('Failed to save sale strip')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-header">
@@ -384,6 +606,148 @@ function Content() {
             <p className="text-muted">No new arrivals added yet. Click "Add New Arrival" to get started.</p>
           )}
         </div>
+
+        {/* Testimonials Section */}
+        <div className="content-section-card">
+          <div className="section-header">
+            <div>
+              <h2>Testimonials</h2>
+              <p className="section-note">Manage customer testimonials displayed on the home page. Testimonials will scroll horizontally in box cards above the footer. For smooth scrolling, add at least 2-3 testimonials.</p>
+            </div>
+            <button 
+              className="btn btn-primary"
+              onClick={handleAddTestimonial}
+            >
+              <Plus size={18} />
+              Add Testimonial
+            </button>
+          </div>
+          
+          {loadingTestimonials ? (
+            <p>Loading...</p>
+          ) : testimonials.length > 0 ? (
+            <div className="testimonials-list">
+              <div className="testimonials-grid">
+                {testimonials.map(testimonial => (
+                  <div key={testimonial.id} className="testimonial-card">
+                    <div className="testimonial-info">
+                      <h4>{testimonial.name}</h4>
+                      <p className="testimonial-content">{testimonial.content}</p>
+                      {testimonial.rating && (
+                        <div className="testimonial-rating">
+                          {'★'.repeat(testimonial.rating)}{'☆'.repeat(5 - testimonial.rating)}
+                        </div>
+                      )}
+                      {testimonial.visible ? (
+                        <span className="badge badge-success">Visible</span>
+                      ) : (
+                        <span className="badge badge-secondary">Hidden</span>
+                      )}
+                    </div>
+                    <div className="testimonial-actions">
+                      <button
+                        className="btn-icon"
+                        onClick={() => handleEditTestimonial(testimonial)}
+                        title="Edit"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        className="btn-icon btn-danger"
+                        onClick={() => handleDeleteTestimonial(testimonial.id)}
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted">No testimonials added yet. Click "Add Testimonial" to get started.</p>
+          )}
+        </div>
+
+        {/* Sale Strip Section */}
+        <div className="content-section-card">
+          <div className="section-header">
+            <div>
+              <h2>Sale/Offer Strip</h2>
+              <p className="section-note">Add promotional sale strips with countdown timer. The strip will be displayed between header and hero section on the home page. Only active strips (within date range) will be shown.</p>
+            </div>
+            <button 
+              className="btn btn-primary"
+              onClick={handleAddSaleStrip}
+            >
+              <Plus size={18} />
+              Add Sale Strip
+            </button>
+          </div>
+          
+          {loadingSaleStrips ? (
+            <p>Loading...</p>
+          ) : saleStrips.length > 0 ? (
+            <div className="sale-strips-list">
+              <div className="sale-strips-grid">
+                {saleStrips.map(saleStrip => {
+                  const now = new Date()
+                  const startDate = new Date(saleStrip.startDate)
+                  const endDate = new Date(saleStrip.endDate)
+                  const isActive = now >= startDate && now <= endDate
+                  const isUpcoming = now < startDate
+                  const isExpired = now > endDate
+
+                  return (
+                    <div key={saleStrip.id} className="sale-strip-card">
+                      <div className="sale-strip-info">
+                        <h4>{saleStrip.title}</h4>
+                        {saleStrip.description && (
+                          <p className="sale-strip-description">{saleStrip.description}</p>
+                        )}
+                        {saleStrip.discount && (
+                          <p className="sale-strip-discount"><strong>{saleStrip.discount}</strong></p>
+                        )}
+                        <div className="sale-strip-dates">
+                          <p><strong>Start:</strong> {new Date(saleStrip.startDate).toLocaleString()}</p>
+                          <p><strong>End:</strong> {new Date(saleStrip.endDate).toLocaleString()}</p>
+                        </div>
+                        <div className="sale-strip-status">
+                          {isActive && <span className="badge badge-success">Active</span>}
+                          {isUpcoming && <span className="badge badge-warning">Upcoming</span>}
+                          {isExpired && <span className="badge badge-secondary">Expired</span>}
+                          {saleStrip.visible ? (
+                            <span className="badge badge-success">Visible</span>
+                          ) : (
+                            <span className="badge badge-secondary">Hidden</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="sale-strip-actions">
+                        <button
+                          className="btn-icon"
+                          onClick={() => handleEditSaleStrip(saleStrip)}
+                          title="Edit"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          className="btn-icon btn-danger"
+                          onClick={() => handleDeleteSaleStrip(saleStrip.id)}
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted">No sale strips added yet. Click "Add Sale Strip" to get started.</p>
+          )}
+        </div>
       </div>
 
       {/* New Arrival Form Modal */}
@@ -511,6 +875,132 @@ function Content() {
         </div>
       )}
 
+      {/* Sale Strip Form Modal */}
+      {showSaleStripModal && (
+        <div className="modal-overlay" onClick={() => !saving && setShowSaleStripModal(false)}>
+          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editingSaleStrip ? 'Edit Sale Strip' : 'Add Sale Strip'}</h2>
+              <button 
+                className="btn-icon" 
+                onClick={() => !saving && setShowSaleStripModal(false)}
+                disabled={saving}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Title *</label>
+                <input
+                  type="text"
+                  value={saleStripForm.title}
+                  onChange={(e) => setSaleStripForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g., Flash Sale, Limited Time Offer"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={saleStripForm.description}
+                  onChange={(e) => setSaleStripForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Enter description (optional)"
+                  rows={2}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Discount/Offer Text</label>
+                <input
+                  type="text"
+                  value={saleStripForm.discount}
+                  onChange={(e) => setSaleStripForm(prev => ({ ...prev, discount: e.target.value }))}
+                  placeholder="e.g., 50% OFF, FLAT ₹500 OFF, Buy 2 Get 1"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Start Date & Time *</label>
+                  <input
+                    type="datetime-local"
+                    value={saleStripForm.startDate}
+                    onChange={(e) => setSaleStripForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Date & Time *</label>
+                  <input
+                    type="datetime-local"
+                    value={saleStripForm.endDate}
+                    onChange={(e) => setSaleStripForm(prev => ({ ...prev, endDate: e.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Background Color</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      type="color"
+                      value={saleStripForm.backgroundColor}
+                      onChange={(e) => setSaleStripForm(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                      style={{ width: '60px', height: '40px' }}
+                    />
+                    <input
+                      type="text"
+                      value={saleStripForm.backgroundColor}
+                      onChange={(e) => setSaleStripForm(prev => ({ ...prev, backgroundColor: e.target.value }))}
+                      placeholder="#ff0000"
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Text Color</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      type="color"
+                      value={saleStripForm.textColor}
+                      onChange={(e) => setSaleStripForm(prev => ({ ...prev, textColor: e.target.value }))}
+                      style={{ width: '60px', height: '40px' }}
+                    />
+                    <input
+                      type="text"
+                      value={saleStripForm.textColor}
+                      onChange={(e) => setSaleStripForm(prev => ({ ...prev, textColor: e.target.value }))}
+                      placeholder="#ffffff"
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn btn-outline" 
+                onClick={() => setShowSaleStripModal(false)}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSaveSaleStrip}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : editingSaleStrip ? 'Update' : 'Add'} Sale Strip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Product Selection Modal */}
       {showProductModal && (
         <div className="modal-overlay" onClick={() => setShowProductModal(false)}>
@@ -582,6 +1072,75 @@ function Content() {
                 disabled={saving || selectedProductIds.length === 0}
               >
                 {saving ? 'Saving...' : 'Save Collections'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Testimonial Form Modal */}
+      {showTestimonialModal && (
+        <div className="modal-overlay" onClick={() => !saving && setShowTestimonialModal(false)}>
+          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editingTestimonial ? 'Edit Testimonial' : 'Add Testimonial'}</h2>
+              <button 
+                className="btn-icon" 
+                onClick={() => !saving && setShowTestimonialModal(false)}
+                disabled={saving}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Name *</label>
+                <input
+                  type="text"
+                  value={testimonialForm.name}
+                  onChange={(e) => setTestimonialForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter customer name"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Content *</label>
+                <textarea
+                  value={testimonialForm.content}
+                  onChange={(e) => setTestimonialForm(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="Enter testimonial content"
+                  rows={5}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Rating (1-5)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  value={testimonialForm.rating}
+                  onChange={(e) => setTestimonialForm(prev => ({ ...prev, rating: e.target.value }))}
+                  placeholder="Optional: 1-5"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn btn-outline" 
+                onClick={() => setShowTestimonialModal(false)}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleSaveTestimonial}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : editingTestimonial ? 'Update' : 'Add'} Testimonial
               </button>
             </div>
           </div>

@@ -1,9 +1,12 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import { AdminAuthProvider } from './context/AdminAuthContext'
 import { ToastProvider } from './components/Toast/ToastContainer'
+import { LoginModalProvider, useLoginModal } from './context/LoginModalContext'
 import { Header, Footer } from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
+import LoginModal from './components/LoginModal'
 import Home from './pages/Home'
 import Products from './pages/Products'
 import ProductDetail from './pages/ProductDetail'
@@ -22,16 +25,29 @@ import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import NotFound from './pages/NotFound'
 import ServerError from './pages/ServerError'
-import AdminLogin from './pages/Admin/AdminLogin'
 import AdminDashboard from './pages/Admin/AdminDashboard'
+
+// Scroll to top on route change
+function ScrollToTop() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+
+  return null
+}
 
 // Layout wrapper for public pages
 function PublicLayout({ children }) {
+  const { isOpen, closeModal, initialMode } = useLoginModal()
+  
   return (
     <div className="App">
       <Header />
       <main>{children}</main>
       <Footer />
+      <LoginModal isOpen={isOpen} onClose={closeModal} initialMode={initialMode} />
     </div>
   )
 }
@@ -42,11 +58,12 @@ function App() {
       <AuthProvider>
         <AdminAuthProvider>
           <ToastProvider>
-            <Router>
+            <LoginModalProvider>
+              <Router>
+              <ScrollToTop />
               <Routes>
                 {/* Admin Routes - No Header/Footer */}
-                <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin" element={<Navigate to="/" replace />} />
                 <Route path="/admin/*" element={<AdminDashboard />} />
                 
                 {/* Public Routes - With Header/Footer */}
@@ -71,6 +88,7 @@ function App() {
                 <Route path="*" element={<PublicLayout><NotFound /></PublicLayout>} />
               </Routes>
             </Router>
+            </LoginModalProvider>
           </ToastProvider>
         </AdminAuthProvider>
       </AuthProvider>

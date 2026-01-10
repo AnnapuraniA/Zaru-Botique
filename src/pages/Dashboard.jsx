@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Package, User, Heart, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle } from 'lucide-react'
+import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import ConfirmationModal from '../components/Modal/ConfirmationModal'
 import { useToast } from '../components/Toast/ToastContainer'
@@ -35,7 +35,7 @@ function Dashboard() {
     expYear: '',
     cvv: ''
   })
-  const [loginForm, setLoginForm] = useState({ mobile: '', password: '' })
+  const [loginForm, setLoginForm] = useState({ loginInput: '', password: '' })
   const [registerForm, setRegisterForm] = useState({ mobile: '', password: '', confirmPassword: '', name: '', email: '' })
   const [resetForm, setResetForm] = useState({ mobile: '', newPassword: '', confirmPassword: '' })
   const [profileForm, setProfileForm] = useState({
@@ -118,7 +118,19 @@ function Dashboard() {
     setSuccessMessage('')
     
     try {
-      await login(loginForm.mobile, loginForm.password)
+      const input = loginForm.loginInput.trim()
+      const isEmail = input.includes('@')
+      const isMobile = /^[0-9]{10}$/.test(input)
+      
+      if (!input) {
+        throw new Error('Please enter your email or mobile number')
+      }
+      
+      if (!isEmail && !isMobile) {
+        throw new Error('Please enter a valid email or 10-digit mobile number')
+      }
+      
+      await login(isMobile ? input : null, isEmail ? input : null, loginForm.password)
       showSuccessToast('Login successful!')
       setActiveTab('orders')
       // Merge guest cart
@@ -137,6 +149,36 @@ function Dashboard() {
     setError('')
     setSuccessMessage('')
     
+    // Validate that at least mobile or email is provided
+    const hasMobile = registerForm.mobile && registerForm.mobile.trim().length > 0
+    const hasEmail = registerForm.email && registerForm.email.trim().length > 0
+    
+    if (!hasMobile && !hasEmail) {
+      setError('Please provide either mobile number or email address')
+      showError('Please provide either mobile number or email address')
+      return
+    }
+    
+    // Validate mobile if provided
+    if (hasMobile && (registerForm.mobile.length !== 10 || !/^[0-9]+$/.test(registerForm.mobile))) {
+      setError('Please enter a valid 10-digit mobile number')
+      showError('Please enter a valid 10-digit mobile number')
+      return
+    }
+    
+    // Validate email if provided
+    if (hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.email)) {
+      setError('Please enter a valid email address')
+      showError('Please enter a valid email address')
+      return
+    }
+    
+    if (!registerForm.name || registerForm.name.trim().length === 0) {
+      setError('Please enter your full name')
+      showError('Please enter your full name')
+      return
+    }
+    
     if (registerForm.password !== registerForm.confirmPassword) {
       setError('Passwords do not match')
       showError('Passwords do not match')
@@ -150,7 +192,7 @@ function Dashboard() {
     }
     
     try {
-      await register(registerForm.mobile, registerForm.password, registerForm.name, registerForm.email)
+      await register(registerForm.mobile || null, registerForm.password, registerForm.name, registerForm.email || null)
       showSuccessToast('Registration successful!')
       setActiveTab('orders')
       // Merge guest cart
@@ -256,10 +298,6 @@ function Dashboard() {
                     <User size={20} />
                     <span>Profile</span>
                   </button>
-                  <Link to="/wishlist" className={`nav-item ${activeTab === 'wishlist' ? 'active' : ''}`}>
-                    <Heart size={20} />
-                    <span>Wishlist</span>
-                  </Link>
                   <button
                     className={`nav-item ${activeTab === 'addresses' ? 'active' : ''}`}
                     onClick={() => setActiveTab('addresses')}
@@ -309,15 +347,13 @@ function Dashboard() {
                 {successMessage && <div className="alert alert-success">{successMessage}</div>}
                 <form onSubmit={handleLogin} className="auth-form">
                   <div className="form-group">
-                    <label>Mobile Number</label>
+                    <label>Mobile Number/Email</label>
                     <input
-                      type="tel"
-                      value={loginForm.mobile}
-                      onChange={(e) => setLoginForm({ ...loginForm, mobile: e.target.value })}
+                      type="text"
+                      value={loginForm.loginInput}
+                      onChange={(e) => setLoginForm({ ...loginForm, loginInput: e.target.value })}
                       required
-                      placeholder="Enter mobile number"
-                      pattern="[0-9]{10}"
-                      maxLength="10"
+                      placeholder="Enter mobile number or email"
                     />
                   </div>
                   <div className="form-group">
@@ -412,12 +448,11 @@ function Dashboard() {
                 {successMessage && <div className="alert alert-success">{successMessage}</div>}
                 <form onSubmit={handleRegister} className="auth-form">
                   <div className="form-group">
-                    <label>Mobile Number <span className="required">*</span></label>
+                    <label>Mobile Number <span className="optional">(Optional)</span></label>
                     <input
                       type="tel"
                       value={registerForm.mobile}
                       onChange={(e) => setRegisterForm({ ...registerForm, mobile: e.target.value })}
-                      required
                       placeholder="9876543210"
                       pattern="[0-9]{10}"
                       maxLength="10"
@@ -441,6 +476,7 @@ function Dashboard() {
                       onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
                       placeholder="your@email.com"
                     />
+                    <p className="form-hint">Please provide at least mobile number or email address</p>
                   </div>
                   <div className="form-group">
                     <label>Password <span className="required">*</span></label>

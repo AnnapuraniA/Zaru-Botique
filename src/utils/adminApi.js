@@ -563,18 +563,58 @@ export const adminNewArrivalsAPI = {
     })
 }
 
-// Admin Analytics API
-export const adminAnalyticsAPI = {
-  getRevenue: (period = '30days') =>
-    apiCall(`/admin/analytics/revenue?period=${period}`),
-  getSales: (period = '30days') =>
-    apiCall(`/admin/analytics/sales?period=${period}`),
-  getCustomers: (period = '30days') =>
-    apiCall(`/admin/analytics/customers?period=${period}`),
-  getProducts: (period = '30days') =>
-    apiCall(`/admin/analytics/products?period=${period}`),
-  getCategories: (period = '30days') =>
-    apiCall(`/admin/analytics/categories?period=${period}`)
+// Admin Testimonials API
+export const adminTestimonialsAPI = {
+  getAll: () => apiCall('/admin/testimonials/all'),
+  
+  create: (data) =>
+    apiCall('/admin/testimonials/create', {
+      method: 'POST',
+      body: data
+    }),
+  
+  update: (id, data) =>
+    apiCall(`/admin/testimonials/update/${id}`, {
+      method: 'PUT',
+      body: data
+    }),
+  
+  delete: (id) => apiCall(`/admin/testimonials/delete/${id}`, { method: 'DELETE' }),
+  
+  updatePosition: (id, position) =>
+    apiCall(`/admin/testimonials/position/${id}`, {
+      method: 'PUT',
+      body: { position }
+    }),
+  
+  toggleVisibility: (id) =>
+    apiCall(`/admin/testimonials/visibility/${id}`, {
+      method: 'PUT'
+    })
+}
+
+// Admin Sale Strip API
+export const adminSaleStripAPI = {
+  getAll: () => apiCall('/admin/sale-strips/all'),
+  
+  create: (data) =>
+    apiCall('/admin/sale-strips/create', {
+      method: 'POST',
+      body: data
+    }),
+  
+  update: (id, data) =>
+    apiCall(`/admin/sale-strips/update/${id}`, {
+      method: 'PUT',
+      body: data
+    }),
+  
+  delete: (id) => apiCall(`/admin/sale-strips/delete/${id}`, { method: 'DELETE' }),
+  
+  toggleVisibility: (id) =>
+    apiCall(`/admin/sale-strips/visibility/${id}`, {
+      method: 'PUT'
+    })
 }
 
 // Admin Inventory API
@@ -601,9 +641,12 @@ export const adminInventoryAPI = {
 
 // Admin Email Templates API
 export const adminEmailTemplatesAPI = {
-  getAll: (type) => {
-    const query = type ? `?type=${type}` : ''
-    return apiCall(`/admin/email-templates/all${query}`)
+  getAll: (filters = {}) => {
+    const queryParams = new URLSearchParams()
+    if (filters.type) queryParams.append('type', filters.type)
+    if (filters.channel) queryParams.append('channel', filters.channel)
+    const query = queryParams.toString()
+    return apiCall(`/admin/email-templates/all${query ? `?${query}` : ''}`)
   },
   getById: (id) => apiCall(`/admin/email-templates/${id}`),
   create: (templateData) =>
@@ -616,31 +659,6 @@ export const adminEmailTemplatesAPI = {
       method: 'PUT',
       body: templateData
     })
-}
-
-// Admin Reports API
-export const adminReportsAPI = {
-  getSales: (startDate, endDate, format = 'json') => {
-    const params = new URLSearchParams()
-    if (startDate) params.append('startDate', startDate)
-    if (endDate) params.append('endDate', endDate)
-    params.append('format', format)
-    return apiCall(`/admin/reports/sales?${params.toString()}`)
-  },
-  getCustomers: (format = 'json') =>
-    apiCall(`/admin/reports/customers?format=${format}`),
-  getProducts: (format = 'json') =>
-    apiCall(`/admin/reports/products?format=${format}`),
-  getOrders: (startDate, endDate, status, format = 'json') => {
-    const params = new URLSearchParams()
-    if (startDate) params.append('startDate', startDate)
-    if (endDate) params.append('endDate', endDate)
-    if (status) params.append('status', status)
-    params.append('format', format)
-    return apiCall(`/admin/reports/orders?${params.toString()}`)
-  },
-  getInventory: (format = 'json') =>
-    apiCall(`/admin/reports/inventory?format=${format}`)
 }
 
 export default {
@@ -659,9 +677,7 @@ export default {
   adminDiscountsAPI,
   adminNewsletterAPI,
   adminContentAPI,
-  adminAnalyticsAPI,
   adminInventoryAPI,
-  adminEmailTemplatesAPI,
-  adminReportsAPI
+  adminEmailTemplatesAPI
 }
 

@@ -50,7 +50,7 @@ export function AuthProvider({ children }) {
   }
 
   // Register new user
-  const register = async (mobile, password, name, email = '') => {
+  const register = async (mobile, password, name, email) => {
     try {
       const response = await authAPI.register(mobile, password, name, email)
       // Backend returns: { _id, mobile, name, email, token }
@@ -69,10 +69,10 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Login user
-  const login = async (mobile, password) => {
+  // Login user (mobile or email)
+  const login = async (mobile, email, password) => {
     try {
-      const response = await authAPI.login(mobile, password)
+      const response = await authAPI.login(mobile, email, password)
       // Backend returns: { _id, mobile, name, email, token }
       const token = response.token
       // Store token

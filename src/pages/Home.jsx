@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Newsletter from '../components/Newsletter/Newsletter'
 import ProductCard from '../components/ProductCard/ProductCard'
-import { bannersAPI, productsAPI, contentAPI, newArrivalsAPI, getImageUrl } from '../utils/api'
+import { bannersAPI, productsAPI, contentAPI, newArrivalsAPI, testimonialsAPI, saleStripAPI, getImageUrl } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
 import { useDevice } from '../hooks/useDevice'
 
@@ -27,9 +27,16 @@ function Home() {
   const [newProducts, setNewProducts] = useState([])
   const [newArrivals, setNewArrivals] = useState([])
   const [currentArrivalIndex, setCurrentArrivalIndex] = useState(0)
-  const [selectedArrival, setSelectedArrival] = useState(null)
-  const [isHoveringArrivals, setIsHoveringArrivals] = useState(false)
   const arrivalIntervalRef = useRef(null)
+  const [testimonials, setTestimonials] = useState([])
+  const [isHoveringTestimonials, setIsHoveringTestimonials] = useState(false)
+  const testimonialScrollRef = useRef(null)
+  const carouselSectionRef = useRef(null)
+  const [parallaxOffset, setParallaxOffset] = useState(0)
+  const [saleStrips, setSaleStrips] = useState([])
+  const [currentSaleStripIndex, setCurrentSaleStripIndex] = useState(0)
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+  const saleStripIntervalRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const { error: showError } = useToast()
 
@@ -57,7 +64,7 @@ function Home() {
     }
   }, [banners.length])
 
-  // Auto-rotate new arrivals (3 seconds, pause on hover or when modal is open)
+  // Auto-rotate new arrivals (3 seconds)
   useEffect(() => {
     // Always clear existing interval first
     if (arrivalIntervalRef.current) {
@@ -65,8 +72,8 @@ function Home() {
       arrivalIntervalRef.current = null
     }
 
-    // Only set up interval if we have multiple arrivals, not hovering, and modal is not open
-    if (newArrivals.length > 1 && !isHoveringArrivals && !selectedArrival) {
+    // Set up interval if we have multiple arrivals
+    if (newArrivals.length > 1) {
       arrivalIntervalRef.current = setInterval(() => {
         setCurrentArrivalIndex((prev) => {
           return (prev + 1) % newArrivals.length
@@ -81,7 +88,70 @@ function Home() {
         arrivalIntervalRef.current = null
       }
     }
-  }, [newArrivals.length, isHoveringArrivals, selectedArrival])
+  }, [newArrivals.length])
+
+  // Auto-scroll testimonials horizontally
+  useEffect(() => {
+    // Only enable scrolling if we have at least 2 testimonials (or content is wider than container)
+    if (!testimonialScrollRef.current || testimonials.length === 0) {
+      return
+    }
+
+    const scrollContainer = testimonialScrollRef.current
+    let scrollPosition = 0
+    let intervalId = null
+
+    const startScrolling = () => {
+      // Clear any existing interval
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+
+      intervalId = setInterval(() => {
+        if (!scrollContainer || isHoveringTestimonials) {
+          return
+        }
+
+        const containerWidth = scrollContainer.clientWidth
+        const contentWidth = scrollContainer.scrollWidth
+
+        // Only scroll if content is wider than container
+        // With duplication, content should be wider (2x testimonials)
+        if (contentWidth > containerWidth) {
+          scrollPosition += 1 // 1 pixel per interval
+          const oneSetWidth = contentWidth / 2 // Divide by 2 since we duplicate testimonials
+
+          if (scrollPosition >= oneSetWidth) {
+            // Reset to start for seamless infinite loop (jump back by one set width)
+            scrollPosition = scrollPosition - oneSetWidth
+            scrollContainer.scrollLeft = scrollPosition
+          } else {
+            scrollContainer.scrollLeft = scrollPosition
+          }
+        }
+      }, 20) // Update every 20ms for smooth scrolling
+    }
+
+    // Start scrolling after DOM is ready
+    const startTimeout = setTimeout(() => {
+      if (scrollContainer) {
+        // Check if content is actually wider than container before starting
+        const containerWidth = scrollContainer.clientWidth
+        const contentWidth = scrollContainer.scrollWidth
+        
+        if (contentWidth > containerWidth) {
+          startScrolling()
+        }
+      }
+    }, 500)
+
+    return () => {
+      clearTimeout(startTimeout)
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
+  }, [testimonials.length, isHoveringTestimonials])
 
   // Calculate banner heights based on image aspect ratios (full width)
   useEffect(() => {
@@ -110,6 +180,28 @@ function Home() {
     window.addEventListener('resize', calculateHeights)
     return () => window.removeEventListener('resize', calculateHeights)
   }, [banners])
+
+  // Parallax scroll effect for carousel section
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!carouselSectionRef.current) return
+      
+      const rect = carouselSectionRef.current.getBoundingClientRect()
+      const windowHeight = window.innerHeight
+      
+      // Calculate parallax offset when section is in viewport
+      if (rect.top < windowHeight && rect.bottom > 0) {
+        const scrollProgress = (windowHeight - rect.top) / (windowHeight + rect.height)
+        const offset = scrollProgress * 30 // Adjust multiplier for parallax intensity
+        setParallaxOffset(offset)
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    handleScroll() // Initial call
+    
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const loadHomeData = async () => {
     try {
@@ -186,6 +278,32 @@ function Home() {
         console.error('Failed to load new arrivals:', err)
         setNewArrivals([])
       }
+
+      // Load testimonials
+      try {
+        const testimonialsData = await testimonialsAPI.getAll()
+        if (Array.isArray(testimonialsData)) {
+          setTestimonials(testimonialsData)
+        }
+      } catch (err) {
+        console.error('Failed to load testimonials:', err)
+        setTestimonials([])
+      }
+
+      // Load active sale strips
+      try {
+        const saleStripData = await saleStripAPI.getActive()
+        // Backend now returns array of active strips
+        if (Array.isArray(saleStripData) && saleStripData.length > 0) {
+          setSaleStrips(saleStripData)
+          setCurrentSaleStripIndex(0)
+        } else {
+          setSaleStrips([])
+        }
+      } catch (err) {
+        console.error('Failed to load sale strips:', err)
+        setSaleStrips([])
+      }
     } catch (err) {
       console.error('Failed to load home data:', err)
       // Don't show error toast on initial load to avoid blocking UI
@@ -203,12 +321,127 @@ function Home() {
   }
 
 
-  const handleArrivalClick = (arrival) => {
-    setSelectedArrival(arrival)
-  }
+
+  // Auto-rotate sale strips if multiple
+  useEffect(() => {
+    if (saleStrips.length <= 1) {
+      return
+    }
+
+    if (saleStripIntervalRef.current) {
+      clearInterval(saleStripIntervalRef.current)
+    }
+
+    saleStripIntervalRef.current = setInterval(() => {
+      setCurrentSaleStripIndex((prev) => (prev + 1) % saleStrips.length)
+    }, 5000) // Rotate every 5 seconds
+
+    return () => {
+      if (saleStripIntervalRef.current) {
+        clearInterval(saleStripIntervalRef.current)
+      }
+    }
+  }, [saleStrips.length])
+
+  // Countdown timer for current sale strip
+  useEffect(() => {
+    if (saleStrips.length === 0 || !saleStrips[currentSaleStripIndex]) {
+      return
+    }
+
+    const currentStrip = saleStrips[currentSaleStripIndex]
+
+    const updateCountdown = () => {
+      const now = new Date().getTime()
+      const endDate = new Date(currentStrip.endDate).getTime()
+      const difference = endDate - now
+
+      if (difference <= 0) {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+        // Remove expired sale strip
+        setSaleStrips(prev => prev.filter((_, index) => index !== currentSaleStripIndex))
+        if (currentSaleStripIndex >= saleStrips.length - 1) {
+          setCurrentSaleStripIndex(0)
+        }
+        return
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000)
+
+      setCountdown({ days, hours, minutes, seconds })
+    }
+
+    updateCountdown()
+    const interval = setInterval(updateCountdown, 1000)
+
+    return () => clearInterval(interval)
+  }, [saleStrips, currentSaleStripIndex])
 
   return (
     <div className="home-page">
+      {/* Sale Strip */}
+      {saleStrips.length > 0 && saleStrips[currentSaleStripIndex] && (
+        <div 
+          className="sale-strip"
+          style={{
+            backgroundColor: saleStrips[currentSaleStripIndex].backgroundColor || '#ff0000',
+            color: saleStrips[currentSaleStripIndex].textColor || '#ffffff'
+          }}
+        >
+          <div className="container">
+            <div className="sale-strip-content">
+              <div className="sale-strip-text">
+                <div className="sale-strip-title-row">
+                  <h3>{saleStrips[currentSaleStripIndex].title}</h3>
+                  {saleStrips[currentSaleStripIndex].description && (
+                    <p>{saleStrips[currentSaleStripIndex].description}</p>
+                  )}
+                </div>
+                {saleStrips[currentSaleStripIndex].discount && (
+                  <span className="sale-strip-discount">{saleStrips[currentSaleStripIndex].discount}</span>
+                )}
+              </div>
+              <div className="sale-strip-countdown">
+                <div className="countdown-item">
+                  <span className="countdown-value">{String(countdown.days).padStart(2, '0')}</span>
+                  <span className="countdown-label">Days</span>
+                </div>
+                <span className="countdown-separator">:</span>
+                <div className="countdown-item">
+                  <span className="countdown-value">{String(countdown.hours).padStart(2, '0')}</span>
+                  <span className="countdown-label">Hours</span>
+                </div>
+                <span className="countdown-separator">:</span>
+                <div className="countdown-item">
+                  <span className="countdown-value">{String(countdown.minutes).padStart(2, '0')}</span>
+                  <span className="countdown-label">Mins</span>
+                </div>
+                <span className="countdown-separator">:</span>
+                <div className="countdown-item">
+                  <span className="countdown-value">{String(countdown.seconds).padStart(2, '0')}</span>
+                  <span className="countdown-label">Secs</span>
+                </div>
+              </div>
+            </div>
+            {saleStrips.length > 1 && (
+              <div className="sale-strip-indicators">
+                {saleStrips.map((_, index) => (
+                  <button
+                    key={index}
+                    className={`sale-strip-indicator ${index === currentSaleStripIndex ? 'active' : ''}`}
+                    onClick={() => setCurrentSaleStripIndex(index)}
+                    aria-label={`Go to offer ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Hero Section with Banners */}
       {banners.length > 0 ? (
         <section 
@@ -318,12 +551,15 @@ function Home() {
       {/* New Arrivals Carousel */}
       {newArrivals.length >= 5 && (
         <section 
+          ref={carouselSectionRef}
           className="new-arrivals-carousel-section"
-          onMouseEnter={() => setIsHoveringArrivals(true)}
-          onMouseLeave={() => setIsHoveringArrivals(false)}
+          style={{
+            transform: `translateY(${parallaxOffset}px)`
+          }}
         >
           <div className="container">
             <h2>New Arrivals</h2>
+            <p className="new-arrivals-subtitle">Curated Collection Just For You</p>
             <div className="new-arrivals-carousel">
               {newArrivals.map((arrival, index) => {
                 // Calculate relative position from current index
@@ -355,12 +591,25 @@ function Home() {
                   <div
                     key={arrival.id}
                     className={`arrival-slide ${positionClass}`}
-                    onClick={() => handleArrivalClick(arrival)}
                   >
-                    <img 
-                      src={getImageUrl(arrival.image)} 
-                      alt={arrival.title}
-                    />
+                    <div className="arrival-slide-content">
+                      <img 
+                        src={getImageUrl(arrival.image)} 
+                        alt={arrival.title}
+                      />
+                      <div className="arrival-slide-info">
+                        <h3>{arrival.title}</h3>
+                        {arrival.description && (
+                          <p>{arrival.description}</p>
+                        )}
+                        <div className="arrival-slide-price">
+                          <span className="current-price">₹{parseFloat(arrival.price).toLocaleString()}</span>
+                          {arrival.originalPrice && parseFloat(arrival.originalPrice) > parseFloat(arrival.price) && (
+                            <span className="original-price">₹{parseFloat(arrival.originalPrice).toLocaleString()}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )
               })}
@@ -388,58 +637,57 @@ function Home() {
         </section>
       )}
 
+      {/* Testimonials Section */}
+      {testimonials.length > 0 && (
+        <section 
+          className="testimonials-section"
+          onMouseEnter={() => setIsHoveringTestimonials(true)}
+          onMouseLeave={() => setIsHoveringTestimonials(false)}
+        >
+          <div className="container" style={{ overflow: 'hidden' }}>
+            <h2 className="testimonials-heading">What Our Customers Say</h2>
+            <div className="testimonials-carousel" ref={testimonialScrollRef}>
+              {/* Render testimonials - duplicate only if we have multiple for seamless scroll */}
+              {testimonials.map((testimonial, index) => (
+                <div key={testimonial.id} className="testimonial-card">
+                  <div className="testimonial-content">
+                    <p>"{testimonial.content}"</p>
+                  </div>
+                  <div className="testimonial-author">
+                    <h4>{testimonial.name}</h4>
+                    {testimonial.rating && (
+                      <div className="testimonial-rating">
+                        {'★'.repeat(testimonial.rating)}{'☆'.repeat(5 - testimonial.rating)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {/* Only duplicate if we have testimonials (for infinite scroll) */}
+              {testimonials.length > 0 && testimonials.map((testimonial, index) => (
+                <div key={`duplicate-${testimonial.id}-${index}`} className="testimonial-card">
+                  <div className="testimonial-content">
+                    <p>"{testimonial.content}"</p>
+                  </div>
+                  <div className="testimonial-author">
+                    <h4>{testimonial.name}</h4>
+                    {testimonial.rating && (
+                      <div className="testimonial-rating">
+                        {'★'.repeat(testimonial.rating)}{'☆'.repeat(5 - testimonial.rating)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {showNewsletter && (
         <Newsletter onClose={() => setShowNewsletter(false)} />
       )}
 
-      {/* New Arrival Detail Modal */}
-      {selectedArrival && (
-        <div 
-          className="modal-overlay arrival-detail-modal"
-          onClick={() => setSelectedArrival(null)}
-        >
-          <div 
-            className="arrival-detail-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button 
-              className="arrival-detail-close"
-              onClick={() => setSelectedArrival(null)}
-            >
-              <X size={24} />
-            </button>
-            <div className="arrival-detail-wrapper">
-              <div className="arrival-detail-image">
-                <img 
-                  src={getImageUrl(selectedArrival.image)} 
-                  alt={selectedArrival.title}
-                />
-              </div>
-              <div className="arrival-detail-info">
-                <h2>{selectedArrival.title}</h2>
-                {selectedArrival.description && (
-                  <p className="arrival-detail-description">{selectedArrival.description}</p>
-                )}
-                <div className="arrival-detail-price">
-                  <span className="current-price">₹{parseFloat(selectedArrival.price).toLocaleString()}</span>
-                  {selectedArrival.originalPrice && parseFloat(selectedArrival.originalPrice) > parseFloat(selectedArrival.price) && (
-                    <span className="original-price">₹{parseFloat(selectedArrival.originalPrice).toLocaleString()}</span>
-                  )}
-                </div>
-                {selectedArrival.link && (
-                  <Link 
-                    to={selectedArrival.link} 
-                    className="btn btn-primary"
-                    onClick={() => setSelectedArrival(null)}
-                  >
-                    View Details
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

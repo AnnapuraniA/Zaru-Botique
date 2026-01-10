@@ -16,9 +16,14 @@ const EmailTemplate = sequelize.define('EmailTemplate', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  channel: {
+    type: DataTypes.ENUM('email', 'sms'),
+    defaultValue: 'email',
+    allowNull: false
+  },
   subject: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true // Optional for SMS
   },
   body: {
     type: DataTypes.TEXT,

@@ -60,6 +60,16 @@ const apiCall = async (endpoint, options = {}) => {
     config.body = JSON.stringify(body)
   }
   
+  // Debug logging for cart/wishlist operations
+  if (endpoint.includes('/cart') || endpoint.includes('/wishlist')) {
+    const token = getToken()
+    console.log(`API Call: ${method} ${endpoint}`, {
+      hasToken: !!token,
+      includeAuth,
+      body
+    })
+  }
+  
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
     
@@ -72,6 +82,17 @@ const apiCall = async (endpoint, options = {}) => {
       } catch (e) {
         errorMessage = `HTTP ${response.status}: ${response.statusText}`
       }
+      
+      // Log detailed error for debugging
+      if (endpoint.includes('/cart') || endpoint.includes('/wishlist')) {
+        console.error(`API Error for ${endpoint}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          errorMessage,
+          hasToken: !!getToken()
+        })
+      }
+      
       throw new Error(errorMessage)
     }
     
@@ -102,10 +123,10 @@ export const authAPI = {
       includeAuth: false
     }),
   
-  login: (mobile, password) =>
+  login: (mobile, email, password) =>
     apiCall('/auth/login', {
       method: 'POST',
-      body: { mobile, password },
+      body: { mobile, email, password },
       includeAuth: false
     }),
   
@@ -113,6 +134,13 @@ export const authAPI = {
     apiCall('/auth/reset-password', {
       method: 'POST',
       body: { mobile, newPassword },
+      includeAuth: false
+    }),
+  
+  forgotPassword: (emailOrMobile) =>
+    apiCall('/auth/forgot-password', {
+      method: 'POST',
+      body: { emailOrMobile },
       includeAuth: false
     }),
   
@@ -152,6 +180,17 @@ export const productsAPI = {
     apiCall(`/products/${productId}/reviews`, {
       method: 'POST',
       body: { rating, comment }
+    }),
+  
+  updateReview: (productId, reviewId, rating, comment) =>
+    apiCall(`/products/${productId}/reviews/${reviewId}`, {
+      method: 'PUT',
+      body: { rating, comment }
+    }),
+  
+  deleteReview: (productId, reviewId) =>
+    apiCall(`/products/${productId}/reviews/${reviewId}`, {
+      method: 'DELETE'
     })
 }
 
@@ -262,6 +301,11 @@ export const couponsAPI = {
     const queryParams = new URLSearchParams()
     if (orderTotal) queryParams.append('orderTotal', orderTotal)
     return apiCall(`/coupons/validate/${code}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`, { includeAuth: false })
+  },
+  getAvailable: (orderTotal) => {
+    const queryParams = new URLSearchParams()
+    if (orderTotal) queryParams.append('orderTotal', orderTotal)
+    return apiCall(`/coupons/available${queryParams.toString() ? `?${queryParams.toString()}` : ''}`, { includeAuth: false })
   }
 }
 
@@ -325,6 +369,16 @@ export const newArrivalsAPI = {
   getAll: () => apiCall('/new-arrivals', { includeAuth: false })
 }
 
+// Testimonials API
+export const testimonialsAPI = {
+  getAll: () => apiCall('/testimonials', { includeAuth: false })
+}
+
+// Sale Strip API
+export const saleStripAPI = {
+  getActive: () => apiCall('/sale-strips', { includeAuth: false }) // Returns array of active strips
+}
+
 export default {
   authAPI,
   productsAPI,
@@ -340,6 +394,8 @@ export default {
   returnsAPI,
   newsletterAPI,
   contentAPI,
-  newArrivalsAPI
+  newArrivalsAPI,
+  testimonialsAPI,
+  saleStripAPI
 }
 

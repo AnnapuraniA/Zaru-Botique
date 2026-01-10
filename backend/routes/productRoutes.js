@@ -204,19 +204,45 @@ router.get('/', optionalAuth, async (req, res) => {
       search: search
     })
     
-    // Log first few products for debugging
+    // Log first few products for debugging including price
     if (products.length > 0) {
-      console.log('Sample products:', products.slice(0, 3).map(p => ({
+      console.log('Sample products with price data:', products.slice(0, 3).map(p => ({
         id: p.id,
         name: p.name,
+        price: p.price,
+        priceType: typeof p.price,
+        originalPrice: p.originalPrice,
+        originalPriceType: typeof p.originalPrice,
         isActive: p.isActive,
         categoryId: p.categoryId,
         subcategoryId: p.subcategoryId
       })))
+      // Log raw first product to see all fields
+      const firstProduct = products[0]
+      console.log('First product raw data:', {
+        id: firstProduct.id,
+        name: firstProduct.name,
+        price: firstProduct.price,
+        originalPrice: firstProduct.originalPrice,
+        dataValues: firstProduct.dataValues
+      })
     }
 
+    // Ensure price is properly serialized (DECIMAL fields from PostgreSQL can be strings)
+    const serializedProducts = products.map(product => {
+      const productData = product.toJSON ? product.toJSON() : product
+      // Ensure price is a number
+      if (productData.price !== null && productData.price !== undefined) {
+        productData.price = parseFloat(productData.price)
+      }
+      if (productData.originalPrice !== null && productData.originalPrice !== undefined) {
+        productData.originalPrice = parseFloat(productData.originalPrice)
+      }
+      return productData
+    })
+
     res.json({
-      products,
+      products: serializedProducts,
       page: Number(page),
       pages: Math.ceil(count / limit),
       total: count

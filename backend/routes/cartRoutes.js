@@ -16,6 +16,14 @@ router.get('/', protect, async (req, res) => {
       cart = await Cart.create({ userId: req.user.id, items: [] })
     }
 
+    // Ensure items is always an array
+    if (!Array.isArray(cart.items)) {
+      cart.items = []
+    }
+
+    console.log('GET cart - items count:', cart.items?.length || 0)
+    console.log('GET cart - items:', JSON.stringify(cart.items, null, 2))
+
     res.json(cart)
   } catch (error) {
     console.error('Get cart error:', error)
@@ -45,8 +53,11 @@ router.post('/', protect, async (req, res) => {
       cart = await Cart.create({ userId: req.user.id, items: [] })
     }
 
-    // Get current items array
-    const items = cart.items || []
+    // Get current items array - ensure it's an array
+    let items = Array.isArray(cart.items) ? [...cart.items] : []
+    
+    console.log('Current cart items before update:', JSON.stringify(items, null, 2))
+    console.log('Adding product:', productId, 'quantity:', quantity, 'size:', size, 'color:', color)
 
     // Check if item already exists in cart
     const existingItemIndex = items.findIndex(
@@ -58,26 +69,49 @@ router.post('/', protect, async (req, res) => {
     if (existingItemIndex >= 0) {
       // Update quantity
       items[existingItemIndex].quantity += quantity
+      console.log('Updated existing item quantity')
     } else {
       // Add new item
-      items.push({
+      const newItem = {
         product: productId,
         name: product.name,
-        image: product.images[0],
+        image: product.images && product.images.length > 0 ? product.images[0] : '',
         price: parseFloat(product.price),
         quantity,
-        size,
-        color
-      })
+        size: size || null,
+        color: color || null
+      }
+      items.push(newItem)
+      console.log('Added new item:', JSON.stringify(newItem, null, 2))
     }
 
-    cart.items = items
-    await cart.save()
+    console.log('Items array before save:', JSON.stringify(items, null, 2))
 
+    // Use raw query to update JSONB field - more reliable for JSONB
+    const updateResult = await Cart.sequelize.query(
+      `UPDATE carts SET items = :items::jsonb, "updatedAt" = NOW() WHERE id = :cartId RETURNING *`,
+      {
+        replacements: {
+          items: JSON.stringify(items),
+          cartId: cart.id
+        },
+        type: Cart.sequelize.QueryTypes.SELECT
+      }
+    )
+    
+    console.log('Update result:', JSON.stringify(updateResult, null, 2))
+    
+    // Reload to get the latest data
+    await cart.reload()
+    
+    console.log('Cart after reload - items count:', cart.items?.length || 0)
+    console.log('Cart after reload - items:', JSON.stringify(cart.items, null, 2))
+    
     res.json(cart)
   } catch (error) {
     console.error('Add to cart error:', error)
-    res.status(500).json({ message: 'Server error' })
+    console.error('Error stack:', error.stack)
+    res.status(500).json({ message: 'Server error', error: error.message })
   }
 })
 
@@ -105,9 +139,21 @@ router.put('/:itemId', protect, async (req, res) => {
     }
 
     items[itemIndex].quantity = quantity
-    cart.items = items
-    await cart.save()
-
+    // Use raw query to update JSONB field
+    await Cart.sequelize.query(
+      `UPDATE carts SET items = :items::jsonb, "updatedAt" = NOW() WHERE id = :cartId`,
+      {
+        replacements: {
+          items: JSON.stringify(items),
+          cartId: cart.id
+        },
+        type: Cart.sequelize.QueryTypes.UPDATE
+      }
+    )
+    
+    // Reload to get the latest data
+    await cart.reload()
+    
     res.json(cart)
   } catch (error) {
     console.error('Update cart error:', error)
@@ -126,9 +172,21 @@ router.delete('/:itemId', protect, async (req, res) => {
     }
 
     const items = (cart.items || []).filter(item => item.product !== req.params.itemId)
-    cart.items = items
-    await cart.save()
-
+    // Use raw query to update JSONB field
+    await Cart.sequelize.query(
+      `UPDATE carts SET items = :items::jsonb, "updatedAt" = NOW() WHERE id = :cartId`,
+      {
+        replacements: {
+          items: JSON.stringify(items),
+          cartId: cart.id
+        },
+        type: Cart.sequelize.QueryTypes.UPDATE
+      }
+    )
+    
+    // Reload to get the latest data
+    await cart.reload()
+    
     res.json(cart)
   } catch (error) {
     console.error('Remove from cart error:', error)
@@ -146,9 +204,20 @@ router.delete('/', protect, async (req, res) => {
       return res.status(404).json({ message: 'Cart not found' })
     }
 
-    cart.items = []
-    await cart.save()
-
+    // Use raw query to update JSONB field
+    await Cart.sequelize.query(
+      `UPDATE carts SET items = '[]'::jsonb, "updatedAt" = NOW() WHERE id = :cartId`,
+      {
+        replacements: {
+          cartId: cart.id
+        },
+        type: Cart.sequelize.QueryTypes.UPDATE
+      }
+    )
+    
+    // Reload to get the latest data
+    await cart.reload()
+    
     res.json({ message: 'Cart cleared' })
   } catch (error) {
     console.error('Clear cart error:', error)

@@ -36,6 +36,12 @@ function ProductCard({ product, compact = false }) {
     }
 
     try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        showError('Please login again')
+        return
+      }
+
       if (isWishlisted) {
         await wishlistAPI.remove(productId)
         setIsWishlisted(false)
@@ -45,9 +51,14 @@ function ProductCard({ product, compact = false }) {
         setIsWishlisted(true)
         success('Added to wishlist')
       }
+      window.dispatchEvent(new Event('wishlistUpdated'))
     } catch (err) {
       console.error('Failed to update wishlist:', err)
-      showError('Failed to update wishlist')
+      const errorMessage = err.message || 'Failed to update wishlist'
+      showError(errorMessage)
+      if (errorMessage.includes('authorized') || errorMessage.includes('401')) {
+        showError('Session expired. Please login again.')
+      }
     }
   }
 
@@ -62,13 +73,22 @@ function ProductCard({ product, compact = false }) {
     }
 
     try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        showError('Please login again')
+        return
+      }
+
       await cartAPI.addItem(productId, 1)
       success('Added to cart!')
-      // Dispatch cart update event
       window.dispatchEvent(new Event('cartUpdated'))
     } catch (err) {
       console.error('Failed to add to cart:', err)
-      showError('Failed to add to cart')
+      const errorMessage = err.message || 'Failed to add to cart'
+      showError(errorMessage)
+      if (errorMessage.includes('authorized') || errorMessage.includes('401')) {
+        showError('Session expired. Please login again.')
+      }
     }
   }
 
@@ -82,7 +102,6 @@ function ProductCard({ product, compact = false }) {
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`
       window.open(whatsappUrl, '_blank')
     } else if (platform === 'instagram') {
-      // Instagram doesn't support direct sharing via URL, so we'll copy the link
       navigator.clipboard.writeText(url)
       success('Link copied! Paste it in Instagram')
     }
@@ -98,24 +117,40 @@ function ProductCard({ product, compact = false }) {
     setShowShareMenu(false)
   }
 
+  // Calculate price - ensure it's always a number
+  const getPrice = () => {
+    if (product.price === null || product.price === undefined) return 0
+    const priceValue = typeof product.price === 'number' ? product.price : parseFloat(product.price)
+    return isNaN(priceValue) ? 0 : priceValue
+  }
+
+  const price = getPrice()
+  const originalPrice = product.originalPrice 
+    ? (typeof product.originalPrice === 'number' ? product.originalPrice : parseFloat(product.originalPrice))
+    : null
+
   return (
     <>
-      <div className="product-card">
-        <Link to={`/product/${productId}`} className="product-link">
-          <div className="product-image-wrapper">
-            <img src={product.images?.[0] || product.image} alt={product.name} />
-            {product.onSale && <span className="badge sale-badge">Sale</span>}
-            {product.new && <span className="badge new-badge">New</span>}
-            <div className="product-card-actions">
+      <div className="product-card-new">
+        <Link to={`/product/${productId}`} className="product-link-new">
+          <div className="product-image-wrapper-new">
+            <img 
+              src={product.images?.[0] || product.image} 
+              alt={product.name}
+              loading="lazy"
+            />
+            {product.onSale && <span className="product-badge product-badge-sale">Sale</span>}
+            {product.new && <span className="product-badge product-badge-new">New</span>}
+            <div className="product-actions-new">
               <button 
-                className="product-action-btn wishlist-btn"
+                className="product-action-btn-new"
                 onClick={handleWishlist}
                 aria-label="Add to wishlist"
               >
                 <Heart size={18} fill={isWishlisted ? 'currentColor' : 'none'} />
               </button>
               <button 
-                className="product-action-btn quick-view-btn"
+                className="product-action-btn-new"
                 onClick={(e) => {
                   e.preventDefault()
                   setShowQuickView(true)
@@ -124,9 +159,9 @@ function ProductCard({ product, compact = false }) {
               >
                 <Eye size={18} />
               </button>
-              <div className="share-menu-wrapper">
+              <div className="share-menu-wrapper-new">
                 <button 
-                  className="product-action-btn share-btn"
+                  className="product-action-btn-new"
                   onClick={(e) => {
                     e.preventDefault()
                     setShowShareMenu(!showShareMenu)
@@ -136,16 +171,16 @@ function ProductCard({ product, compact = false }) {
                   <Share2 size={18} />
                 </button>
                 {showShareMenu && (
-                  <div className="share-menu" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={(e) => handleShare('instagram', e)} className="share-option">
+                  <div className="share-menu-new" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={(e) => handleShare('instagram', e)} className="share-option-new">
                       <Instagram size={16} />
                       Instagram
                     </button>
-                    <button onClick={(e) => handleShare('whatsapp', e)} className="share-option">
+                    <button onClick={(e) => handleShare('whatsapp', e)} className="share-option-new">
                       <MessageCircle size={16} />
                       WhatsApp
                     </button>
-                    <button onClick={handleCopyLink} className="share-option">
+                    <button onClick={handleCopyLink} className="share-option-new">
                       <Share2 size={16} />
                       Copy Link
                     </button>
@@ -154,38 +189,37 @@ function ProductCard({ product, compact = false }) {
               </div>
             </div>
           </div>
-        <div className="product-info">
-          <h3 className="product-name">{product.name}</h3>
-          <p className="product-category">
-            {product.category?.name || product.category}{product.subcategory ? ` - ${product.subcategory?.name || product.subcategory}` : ''}
-          </p>
-          {product.rating && !compact && (
-            <div className="product-rating">
-              <div className="stars">
-                {[...Array(5)].map((_, i) => (
-                  <Star 
-                    key={i} 
-                    size={14} 
-                    fill={i < Math.floor(product.rating || 0) ? '#C89E7E' : 'none'}
-                    color="#C89E7E"
-                  />
-                ))}
+          <div className="product-info-new">
+            <h3 className="product-name-new">{product.name}</h3>
+            <p className="product-category-new">
+              {product.category?.name || product.category}
+              {product.subcategory && ` - ${product.subcategory?.name || product.subcategory}`}
+            </p>
+            {product.rating && !compact && (
+              <div className="product-rating-new">
+                <div className="stars-new">
+                  {[...Array(5)].map((_, i) => (
+                    <Star 
+                      key={i} 
+                      size={14} 
+                      fill={i < Math.floor(product.rating || 0) ? '#C89E7E' : 'none'}
+                      color="#C89E7E"
+                    />
+                  ))}
+                </div>
+                <span className="rating-text-new">({product.reviews || 0})</span>
               </div>
-              <span className="rating-text">({product.reviews || 0})</span>
-            </div>
-          )}
-          {!compact && (
-            <div className="product-price">
-              {product.originalPrice && typeof product.originalPrice === 'number' && (
-                <span className="original-price">₹{product.originalPrice.toFixed(2)}</span>
+            )}
+            <div className="product-price-container-new">
+              {originalPrice && originalPrice > price && originalPrice > 0 && (
+                <span className="product-original-price-new">₹{originalPrice.toFixed(2)}</span>
               )}
-              <span className="current-price">₹{(typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2)}</span>
+              <span className="product-current-price-new">₹{price.toFixed(2)}</span>
             </div>
-          )}
-        </div>
-      </Link>
+          </div>
+        </Link>
         {!compact && (
-          <button className="add-to-cart-btn" onClick={handleAddToCart}>
+          <button className="add-to-cart-btn-new" onClick={handleAddToCart}>
             <ShoppingCart size={16} />
             Add to Cart
           </button>
@@ -197,4 +231,3 @@ function ProductCard({ product, compact = false }) {
 }
 
 export default ProductCard
-

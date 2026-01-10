@@ -26,12 +26,12 @@ import categoryRoutes from './routes/categoryRoutes.js'
 import discountRoutes from './routes/discountRoutes.js'
 import newsletterRoutes from './routes/newsletterRoutes.js'
 import contentRoutes from './routes/contentRoutes.js'
-import analyticsRoutes from './routes/analyticsRoutes.js'
 import inventoryRoutes from './routes/inventoryRoutes.js'
 import emailTemplateRoutes from './routes/emailTemplateRoutes.js'
-import reportRoutes from './routes/reportRoutes.js'
 import uploadRoutes from './routes/uploadRoutes.js'
 import newArrivalRoutes from './routes/newArrivalRoutes.js'
+import testimonialRoutes from './routes/testimonialRoutes.js'
+import saleStripRoutes from './routes/saleStripRoutes.js'
 
 // Load environment variables
 dotenv.config()
@@ -39,7 +39,12 @@ dotenv.config()
 const app = express()
 
 // Middleware
-app.use(cors())
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
@@ -68,6 +73,8 @@ app.use('/api/newsletter', newsletterRoutes)
 app.use('/api/content', contentRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/new-arrivals', newArrivalRoutes)
+app.use('/api/testimonials', testimonialRoutes)
+app.use('/api/sale-strips', saleStripRoutes)
 
 // Admin Routes
 app.use('/api/admin/auth', adminAuthRoutes)
@@ -83,10 +90,10 @@ app.use('/api/admin/discounts', discountRoutes)
 app.use('/api/admin/newsletter', newsletterRoutes)
 app.use('/api/admin/content', contentRoutes)
 app.use('/api/admin/new-arrivals', newArrivalRoutes)
-app.use('/api/admin/analytics', analyticsRoutes)
+app.use('/api/admin/testimonials', testimonialRoutes)
+app.use('/api/admin/sale-strips', saleStripRoutes)
 app.use('/api/admin/inventory', inventoryRoutes)
 app.use('/api/admin/email-templates', emailTemplateRoutes)
-app.use('/api/admin/reports', reportRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

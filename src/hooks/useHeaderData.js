@@ -18,7 +18,20 @@ export function useHeaderData() {
       if (isAuthenticated) {
         try {
           const response = await cartAPI.get()
-          const count = (response.items || []).reduce((sum, item) => sum + (item.quantity || 1), 0)
+          console.log('Header cart response:', response) // Debug log
+          
+          // Handle different response structures
+          let items = []
+          if (Array.isArray(response)) {
+            items = response
+          } else if (response?.items) {
+            items = Array.isArray(response.items) ? response.items : []
+          } else if (response?.data?.items) {
+            items = Array.isArray(response.data.items) ? response.data.items : []
+          }
+          
+          const count = items.reduce((sum, item) => sum + (item.quantity || 1), 0)
+          console.log('Cart count calculated:', count, 'from', items.length, 'items')
           setCartCount(count)
         } catch (err) {
           console.error('Failed to load cart count:', err)
@@ -40,12 +53,17 @@ export function useHeaderData() {
         setCartCount(count)
       }
     }
+    
+    const handleCartUpdate = () => {
+      loadCartCount()
+    }
+    
     window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('cartUpdated', loadCartCount)
+    window.addEventListener('cartUpdated', handleCartUpdate)
     
     return () => {
       window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('cartUpdated', loadCartCount)
+      window.removeEventListener('cartUpdated', handleCartUpdate)
     }
   }, [isAuthenticated])
 

@@ -7,6 +7,95 @@ import { protect } from '../middleware/auth.js'
 
 const router = express.Router()
 
+// @route   GET /api/coupons/available
+// @desc    Get all available coupons (public)
+// @access  Public
+router.get('/available', async (req, res) => {
+  try {
+    const { orderTotal } = req.query
+    const now = new Date()
+    
+    console.log('Fetching available coupons at:', now.toISOString())
+    console.log('Order total:', orderTotal)
+
+    // First get all active coupons
+    const coupons = await Coupon.findAll({
+      where: {
+        status: 'active'
+      },
+      order: [['createdAt', 'DESC']]
+    })
+
+    console.log(`Total active coupons in DB: ${coupons.length}`)
+    
+    // Filter coupons based on date validity, order total and usage limit
+    const availableCoupons = coupons
+      .filter(coupon => {
+        console.log(`Checking coupon: ${coupon.code}`)
+        console.log(`  - validFrom: ${coupon.validFrom} (type: ${typeof coupon.validFrom})`)
+        console.log(`  - validUntil: ${coupon.validUntil} (type: ${typeof coupon.validUntil})`)
+        console.log(`  - used: ${coupon.used}, limit: ${coupon.usageLimit}`)
+        console.log(`  - minPurchase: ${coupon.minPurchase}`)
+        
+        // Check date validity - be more lenient with date comparisons
+        if (coupon.validFrom) {
+          const validFrom = new Date(coupon.validFrom)
+          // Compare dates only (ignore time)
+          const validFromDate = new Date(validFrom.getFullYear(), validFrom.getMonth(), validFrom.getDate())
+          const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          
+          if (validFromDate > nowDate) {
+            console.log(`  - Rejected: Coupon hasn't started yet`)
+            return false
+          }
+        }
+        
+        if (coupon.validUntil) {
+          const validUntil = new Date(coupon.validUntil)
+          // Compare dates only (ignore time) - set to end of day
+          const validUntilDate = new Date(validUntil.getFullYear(), validUntil.getMonth(), validUntil.getDate())
+          const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          
+          if (validUntilDate < nowDate) {
+            console.log(`  - Rejected: Coupon has expired`)
+            return false
+          }
+        }
+        
+        // Check usage limit
+        if (coupon.usageLimit && coupon.used >= coupon.usageLimit) {
+          console.log(`  - Rejected: Usage limit reached`)
+          return false
+        }
+        
+        // Check minimum purchase if orderTotal is provided
+        if (orderTotal && coupon.minPurchase && parseFloat(orderTotal) < parseFloat(coupon.minPurchase)) {
+          console.log(`  - Rejected: Order total (${orderTotal}) is less than min purchase (${coupon.minPurchase})`)
+          return false
+        }
+        
+        console.log(`  - ✓ Accepted: Coupon is available`)
+        return true
+      })
+      .map(coupon => ({
+        id: coupon.id,
+        code: coupon.code,
+        type: coupon.type,
+        discount: coupon.discount,
+        maxDiscount: coupon.maxDiscount,
+        description: coupon.description,
+        minPurchase: coupon.minPurchase,
+        validUntil: coupon.validUntil
+      }))
+
+    console.log(`Returning ${availableCoupons.length} available coupons out of ${coupons.length} active coupons`)
+    res.json({ coupons: availableCoupons })
+  } catch (error) {
+    console.error('Get available coupons error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 // @route   GET /api/coupons/validate/:code
 // @desc    Validate coupon code (public)
 // @access  Public (but can be protected if needed)
@@ -41,17 +130,17 @@ router.get('/validate/:code', async (req, res) => {
       })
     }
 
-    // Calculate discount
-    let discount = 0
+    // Calculate discount for display purposes
+    let calculatedDiscount = 0
     if (coupon.type === 'percentage') {
-      discount = (parseFloat(orderTotal || 0) * parseFloat(coupon.discount)) / 100
-      if (coupon.maxDiscount && discount > parseFloat(coupon.maxDiscount)) {
-        discount = parseFloat(coupon.maxDiscount)
+      calculatedDiscount = (parseFloat(orderTotal || 0) * parseFloat(coupon.discount)) / 100
+      if (coupon.maxDiscount && calculatedDiscount > parseFloat(coupon.maxDiscount)) {
+        calculatedDiscount = parseFloat(coupon.maxDiscount)
       }
     } else if (coupon.type === 'fixed') {
-      discount = parseFloat(coupon.discount)
+      calculatedDiscount = parseFloat(coupon.discount)
     } else if (coupon.type === 'free_shipping') {
-      discount = 0 // Free shipping handled separately
+      calculatedDiscount = 0 // Free shipping handled separately on frontend
     }
 
     res.json({
@@ -60,8 +149,11 @@ router.get('/validate/:code', async (req, res) => {
         id: coupon.id,
         code: coupon.code,
         type: coupon.type,
-        discount: discount,
-        description: coupon.description
+        discount: parseFloat(coupon.discount), // Original discount value (percentage number or fixed amount)
+        calculatedDiscount: calculatedDiscount, // Calculated discount amount for reference
+        maxDiscount: coupon.maxDiscount ? parseFloat(coupon.maxDiscount) : null,
+        description: coupon.description,
+        minPurchase: coupon.minPurchase ? parseFloat(coupon.minPurchase) : null
       }
     })
   } catch (error) {
@@ -114,10 +206,32 @@ router.get('/all', adminProtect, async (req, res) => {
 // @access  Admin
 router.post('/create', adminProtect, async (req, res) => {
   try {
-    const coupon = await Coupon.create({
+    // Ensure dates are properly formatted
+    const couponData = {
       ...req.body,
       code: req.body.code.toUpperCase()
-    })
+    }
+    
+    // Set default dates if not provided
+    if (!couponData.validFrom) {
+      couponData.validFrom = new Date() // Start from today
+    }
+    if (!couponData.validUntil) {
+      // Default to 1 year from now if not specified
+      const oneYearLater = new Date()
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
+      couponData.validUntil = oneYearLater
+    }
+    
+    // Ensure dates are Date objects
+    if (couponData.validFrom && typeof couponData.validFrom === 'string') {
+      couponData.validFrom = new Date(couponData.validFrom)
+    }
+    if (couponData.validUntil && typeof couponData.validUntil === 'string') {
+      couponData.validUntil = new Date(couponData.validUntil)
+    }
+    
+    const coupon = await Coupon.create(couponData)
     res.status(201).json(coupon)
   } catch (error) {
     console.error('Create coupon error:', error)

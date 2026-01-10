@@ -1,9 +1,9 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { Heart, ShoppingCart, Star, Share2, Minus, Plus, ChevronLeft, ChevronRight, Check, Package, Truck, RotateCcw, Shield, Instagram, MessageCircle, GitCompare } from 'lucide-react'
+import { Heart, ShoppingCart, Star, Share2, Minus, Plus, ChevronLeft, ChevronRight, Check, Package, Truck, RotateCcw, Shield, Instagram, MessageCircle, GitCompare, Edit2, Trash2, X } from 'lucide-react'
 import ProductCard from '../components/ProductCard/ProductCard'
 import { useToast } from '../components/Toast/ToastContainer'
-import { productsAPI, cartAPI, wishlistAPI } from '../utils/api'
+import { productsAPI, cartAPI, wishlistAPI, authAPI } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 
 function ProductDetail() {
@@ -21,8 +21,16 @@ function ProductDetail() {
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [isInCompare, setIsInCompare] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
-  const [activeTab, setActiveTab] = useState('details')
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [hasUserReviewed, setHasUserReviewed] = useState(false)
+  const [editingReviewId, setEditingReviewId] = useState(null)
+  const [editReviewRating, setEditReviewRating] = useState(0)
+  const [editReviewComment, setEditReviewComment] = useState('')
+  const [isUpdatingReview, setIsUpdatingReview] = useState(false)
+  const [deletingReviewId, setDeletingReviewId] = useState(null)
   const { success, error: showError } = useToast()
 
   // Fetch product data
@@ -52,7 +60,8 @@ function ProductDetail() {
         try {
           const reviewsData = await productsAPI.getReviews(id)
           // Backend returns array directly, not wrapped in reviews property
-          setReviews(Array.isArray(reviewsData) ? reviewsData : (reviewsData.reviews || []))
+          const reviewsList = Array.isArray(reviewsData) ? reviewsData : (reviewsData.reviews || [])
+          setReviews(reviewsList)
         } catch (err) {
           console.error('Failed to fetch reviews:', err)
           setReviews([])
@@ -90,6 +99,66 @@ function ProductDetail() {
     }
   }, [id, isAuthenticated])
 
+  const [currentUserId, setCurrentUserId] = useState(null)
+
+  // Get current user ID
+  useEffect(() => {
+    const getCurrentUserId = async () => {
+      if (isAuthenticated) {
+        try {
+          const token = localStorage.getItem('token')
+          if (token) {
+            const userData = await authAPI.getMe()
+            setCurrentUserId(userData.id || userData._id)
+          }
+        } catch (err) {
+          console.error('Failed to get current user:', err)
+          setCurrentUserId(null)
+        }
+      } else {
+        setCurrentUserId(null)
+      }
+    }
+    getCurrentUserId()
+  }, [isAuthenticated])
+
+  // Check if logged-in user has already reviewed this product
+  useEffect(() => {
+    if (currentUserId && reviews.length > 0) {
+      const userReviewed = reviews.some(review => {
+        const reviewUserId = review.userId || review.user?._id || review.user?.id
+        return reviewUserId?.toString() === currentUserId?.toString()
+      })
+      setHasUserReviewed(userReviewed)
+    } else {
+      setHasUserReviewed(false)
+    }
+  }, [reviews, currentUserId])
+
+  // Match product-info-wrapper height to product-images container
+  useEffect(() => {
+    if (!product) return
+
+    const matchHeights = () => {
+      const productImagesEl = document.querySelector('.product-images')
+      const productInfoWrapperEl = document.querySelector('.product-info-wrapper')
+      
+      if (productImagesEl && productInfoWrapperEl) {
+        const imagesHeight = productImagesEl.offsetHeight
+        productInfoWrapperEl.style.minHeight = `${imagesHeight}px`
+      }
+    }
+
+    // Use setTimeout to ensure DOM is fully rendered
+    const timeoutId = setTimeout(matchHeights, 100)
+    window.addEventListener('resize', matchHeights)
+
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener('resize', matchHeights)
+    }
+  }, [product])
+
   const nextImage = () => {
     if (product && product.images && product.images.length > 0) {
       setSelectedImageIndex((prev) => (prev + 1) % product.images.length)
@@ -110,13 +179,24 @@ function ProductDetail() {
     }
     
     try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        showError('Please login again')
+        return
+      }
+
       await cartAPI.addItem(id, quantity, selectedSize, selectedColor)
       success('Product added to cart!')
       // Dispatch cart update event
       window.dispatchEvent(new Event('cartUpdated'))
     } catch (err) {
       console.error('Failed to add to cart:', err)
-      showError('Failed to add product to cart')
+      const errorMessage = err.message || 'Failed to add product to cart'
+      showError(errorMessage)
+      // If unauthorized, might need to re-login
+      if (errorMessage.includes('authorized') || errorMessage.includes('401')) {
+        showError('Session expired. Please login again.')
+      }
     }
   }
 
@@ -128,6 +208,12 @@ function ProductDetail() {
     }
     
     try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        showError('Please login again')
+        return
+      }
+
       if (isWishlisted) {
         await wishlistAPI.remove(id)
         setIsWishlisted(false)
@@ -137,9 +223,16 @@ function ProductDetail() {
         setIsWishlisted(true)
         success('Added to wishlist')
       }
+      // Dispatch wishlist update event
+      window.dispatchEvent(new Event('wishlistUpdated'))
     } catch (err) {
       console.error('Failed to update wishlist:', err)
-      showError('Failed to update wishlist')
+      const errorMessage = err.message || 'Failed to update wishlist'
+      showError(errorMessage)
+      // If unauthorized, might need to re-login
+      if (errorMessage.includes('authorized') || errorMessage.includes('401')) {
+        showError('Session expired. Please login again.')
+      }
     }
   }
 
@@ -150,6 +243,146 @@ function ProductDetail() {
       setIsInCompare(compareIds.includes(id))
     }
   }, [id])
+
+  const handleSubmitReview = async () => {
+    if (!isAuthenticated) {
+      showError('Please login to add a review')
+      return
+    }
+
+    if (reviewRating === 0) {
+      showError('Please select a rating')
+      return
+    }
+
+    if (!reviewComment.trim()) {
+      showError('Please enter a review comment')
+      return
+    }
+
+    try {
+      setIsSubmittingReview(true)
+      const newReview = await productsAPI.addReview(id, reviewRating, reviewComment)
+      
+      // Refresh reviews list
+      const reviewsData = await productsAPI.getReviews(id)
+      const reviewsList = Array.isArray(reviewsData) ? reviewsData : (reviewsData.reviews || [])
+      setReviews(reviewsList)
+      
+      // Refresh product to get updated rating
+      const updatedProduct = await productsAPI.getById(id)
+      setProduct(updatedProduct)
+      
+      // Reset form
+      setReviewRating(0)
+      setReviewComment('')
+      setHasUserReviewed(true)
+      
+      success('Review submitted successfully!')
+    } catch (err) {
+      console.error('Failed to submit review:', err)
+      showError(err.message || 'Failed to submit review')
+    } finally {
+      setIsSubmittingReview(false)
+    }
+  }
+
+  const handleEditReview = (review) => {
+    setEditingReviewId(review._id || review.id)
+    setEditReviewRating(review.rating || 0)
+    setEditReviewComment(review.comment || '')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingReviewId(null)
+    setEditReviewRating(0)
+    setEditReviewComment('')
+  }
+
+  const handleUpdateReview = async (reviewId) => {
+    if (editReviewRating === 0) {
+      showError('Please select a rating')
+      return
+    }
+
+    if (!editReviewComment.trim()) {
+      showError('Please enter a review comment')
+      return
+    }
+
+    try {
+      setIsUpdatingReview(true)
+      await productsAPI.updateReview(id, reviewId, editReviewRating, editReviewComment)
+      
+      // Refresh reviews list
+      const reviewsData = await productsAPI.getReviews(id)
+      const reviewsList = Array.isArray(reviewsData) ? reviewsData : (reviewsData.reviews || [])
+      setReviews(reviewsList)
+      
+      // Refresh product to get updated rating
+      const updatedProduct = await productsAPI.getById(id)
+      setProduct(updatedProduct)
+      
+      // Reset edit form
+      setEditingReviewId(null)
+      setEditReviewRating(0)
+      setEditReviewComment('')
+      
+      success('Review updated successfully!')
+    } catch (err) {
+      console.error('Failed to update review:', err)
+      showError(err.message || 'Failed to update review')
+    } finally {
+      setIsUpdatingReview(false)
+    }
+  }
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!window.confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      setDeletingReviewId(reviewId)
+      await productsAPI.deleteReview(id, reviewId)
+      
+      // Refresh reviews list
+      const reviewsData = await productsAPI.getReviews(id)
+      const reviewsList = Array.isArray(reviewsData) ? reviewsData : (reviewsData.reviews || [])
+      setReviews(reviewsList)
+      
+      // Refresh product to get updated rating
+      const updatedProduct = await productsAPI.getById(id)
+      setProduct(updatedProduct)
+      
+      // Check if user still has a review
+      if (reviewsList.length > 0) {
+        const token = localStorage.getItem('token')
+        if (token) {
+          try {
+            const userData = await authAPI.getMe()
+            const userReviewed = reviewsList.some(review => {
+              const reviewUserId = review.userId || review.user?._id || review.user?.id
+              const currentUserId = userData.id || userData._id
+              return reviewUserId?.toString() === currentUserId?.toString()
+            })
+            setHasUserReviewed(userReviewed)
+          } catch (err) {
+            console.error('Failed to check user review status:', err)
+          }
+        }
+      } else {
+        setHasUserReviewed(false)
+      }
+      
+      success('Review deleted successfully!')
+    } catch (err) {
+      console.error('Failed to delete review:', err)
+      showError(err.message || 'Failed to delete review')
+    } finally {
+      setDeletingReviewId(null)
+    }
+  }
 
   const handleToggleCompare = () => {
     const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
@@ -212,13 +445,6 @@ function ProductDetail() {
   const productColors = product.colors || []
   const productSizes = product.sizes || []
   
-  const shippingInfo = {
-    'Free Shipping': 'On orders above ₹2000',
-    'Standard Delivery': '5-7 business days',
-    'Express Delivery': '2-3 business days (₹200)',
-    'Returns': '30 days return policy',
-    'Exchange': 'Easy exchange available'
-  }
 
   return (
     <div className="product-detail-page">
@@ -363,24 +589,27 @@ function ProductDetail() {
                     </span>
                   )}
                 </div>
-                <div className="stock-info">
-                  <span className={`stock-status ${product.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                    {product.inStock ? (
-                      <>
-                        <Check size={16} />
-                        In Stock ({product.stockCount || 0} available)
-                      </>
-                    ) : (
-                      <>
-                        <span style={{ marginRight: '0.5rem' }}>⚠️</span>
-                        Out of Stock
-                      </>
-                    )}
-                  </span>
-                </div>
               </div>
 
               <p className="product-description">{product.description}</p>
+
+              {/* Material and Care Instructions */}
+              {(product.material || product.care) && (
+                <div className="product-material-care">
+                  {product.material && (
+                    <div className="material-care-item">
+                      <strong>Material:</strong>
+                      <span>{product.material}</span>
+                    </div>
+                  )}
+                  {product.care && (
+                    <div className="material-care-item">
+                      <strong>Care Instructions:</strong>
+                      <span>{product.care}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
             <div className="product-options">
               {productSizes.length > 0 && (
@@ -471,182 +700,217 @@ function ProductDetail() {
                   </button>
                 </div>
               </div>
-
-              <div className="product-features">
-                <div className="feature-item">
-                  <div className="feature-icon">
-                    <Package size={24} />
-                  </div>
-                  <div className="feature-content">
-                    <strong>Free Shipping</strong>
-                    <span>On orders above ₹2000</span>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <div className="feature-icon">
-                    <RotateCcw size={24} />
-                  </div>
-                  <div className="feature-content">
-                    <strong>Easy Returns</strong>
-                    <span>30 days return policy</span>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <div className="feature-icon">
-                    <Shield size={24} />
-                  </div>
-                  <div className="feature-content">
-                    <strong>Secure Payment</strong>
-                    <span>100% secure checkout</span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Product Tabs */}
+        {/* Reviews Section */}
         <div className="product-tabs-section">
-          <div className="product-tabs">
-            <button
-              className={`tab-btn ${activeTab === 'details' ? 'active' : ''}`}
-              onClick={() => setActiveTab('details')}
-            >
-              Product Details
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'specifications' ? 'active' : ''}`}
-              onClick={() => setActiveTab('specifications')}
-            >
-              Specifications
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'shipping' ? 'active' : ''}`}
-              onClick={() => setActiveTab('shipping')}
-            >
-              Shipping & Returns
-            </button>
-            <button
-              className={`tab-btn ${activeTab === 'reviews' ? 'active' : ''}`}
-              onClick={() => setActiveTab('reviews')}
-            >
-              Reviews ({reviews.length})
-            </button>
-          </div>
-
-          <div className="tab-content">
-            {activeTab === 'details' && (
-              <div className="tab-panel">
-                <h3>Product Description</h3>
-                <p>{product.fullDescription}</p>
-                <div className="detail-list">
-                  <div className="detail-item">
-                    <strong>Material:</strong> {product.material}
-                  </div>
-                  <div className="detail-item">
-                    <strong>Care Instructions:</strong> {product.care}
-                  </div>
-                  <div className="detail-item">
-                    <strong>Brand:</strong> {product.brand}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'specifications' && (
-              <div className="tab-panel">
-                <h3>Product Specifications</h3>
-                {product.specifications && Object.keys(product.specifications).length > 0 ? (
-                  <table className="specifications-table">
-                    <tbody>
-                      {Object.entries(product.specifications).map(([key, value]) => (
-                        <tr key={key}>
-                          <td><strong>{key}</strong></td>
-                          <td>{value}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <p>No specifications available for this product.</p>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'shipping' && (
-              <div className="tab-panel">
-                <h3>Shipping & Returns</h3>
-                <div className="shipping-info">
-                  {Object.entries(shippingInfo).map(([key, value]) => (
-                    <div key={key} className="shipping-item">
-                      <Truck size={20} />
-                      <div>
-                        <strong>{key}</strong>
-                        <p>{value}</p>
-                      </div>
-                    </div>
+          <div className="reviews-header">
+            <h3>Customer Reviews</h3>
+            <div className="average-rating">
+              <div className="rating-display">
+                <span className="rating-number">{product.rating || 0}</span>
+                <div className="stars">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      size={20}
+                      fill={i < Math.floor(product.rating || 0) ? '#C89E7E' : 'none'}
+                      color="#C89E7E"
+                    />
                   ))}
                 </div>
+                <span className="review-count">Based on {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</span>
               </div>
-            )}
+            </div>
+          </div>
 
-            {activeTab === 'reviews' && (
-              <div className="tab-panel">
-                <div className="reviews-header">
-                  <h3>Customer Reviews</h3>
-                  <div className="average-rating">
-                    <div className="rating-display">
-                      <span className="rating-number">{product.rating}</span>
-                      <div className="stars">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            size={20}
-                            fill={i < Math.floor(product.rating) ? '#C89E7E' : 'none'}
-                            color="#C89E7E"
-                          />
-                        ))}
-                      </div>
-                      <span className="review-count">Based on {product.reviews} reviews</span>
-                    </div>
+          {/* Add Review Form - Only for logged-in users */}
+          {isAuthenticated && !hasUserReviewed && (
+            <div className="add-review-section">
+              <h4>Write a Review</h4>
+              <div className="add-review-form">
+                <div className="review-rating-input">
+                  <label>Your Rating</label>
+                  <div className="rating-stars-input">
+                    {[...Array(5)].map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className="rating-star-btn"
+                        onClick={() => setReviewRating(i + 1)}
+                        onMouseEnter={() => {}}
+                      >
+                        <Star
+                          size={28}
+                          fill={i < reviewRating ? '#C89E7E' : 'none'}
+                          color="#C89E7E"
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </button>
+                    ))}
+                    {reviewRating > 0 && (
+                      <span className="rating-value-text">{reviewRating} {reviewRating === 1 ? 'star' : 'stars'}</span>
+                    )}
                   </div>
                 </div>
-                <div className="reviews-list">
-                  {reviews.length > 0 ? (
-                    reviews.map(review => {
-                      const reviewId = review._id || review.id
-                      const reviewerName = review.userName || review.user?.name || review.name || 'Anonymous'
-                      const reviewDate = review.createdAt 
-                        ? new Date(review.createdAt).toLocaleDateString() 
-                        : review.date || 'N/A'
-                      
-                      return (
-                        <div key={reviewId} className="review-item">
-                          <div className="review-header">
-                            <div>
-                              <strong>{reviewerName}</strong>
-                              <div className="review-rating">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    size={14}
-                                    fill={i < (review.rating || 0) ? '#C89E7E' : 'none'}
-                                    color="#C89E7E"
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <span className="review-date">{reviewDate}</span>
-                          </div>
-                          <p className="review-comment">{review.comment || ''}</p>
-                        </div>
-                      )
-                    })
-                  ) : (
-                    <p>No reviews yet. Be the first to review this product!</p>
-                  )}
+                <div className="review-comment-input">
+                  <label htmlFor="review-comment">Your Review</label>
+                  <textarea
+                    id="review-comment"
+                    className="review-textarea"
+                    placeholder="Share your experience with this product..."
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    rows={5}
+                  />
                 </div>
+                <button
+                  className="btn btn-primary submit-review-btn"
+                  onClick={handleSubmitReview}
+                  disabled={isSubmittingReview || reviewRating === 0 || !reviewComment.trim()}
+                >
+                  {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
               </div>
+            </div>
+          )}
+
+          {isAuthenticated && hasUserReviewed && (
+            <div className="review-already-submitted">
+              <p>You have already reviewed this product.</p>
+            </div>
+          )}
+
+          {!isAuthenticated && (
+            <div className="review-login-prompt">
+              <p>Please <Link to="/dashboard" className="login-link">login</Link> to add a review.</p>
+            </div>
+          )}
+
+          <div className="reviews-list">
+            <h4 className="reviews-list-title">All Reviews</h4>
+            {reviews.length > 0 ? (
+              reviews.map(review => {
+                const reviewId = review._id || review.id
+                const reviewerName = review.userName || review.user?.name || review.name || 'Anonymous'
+                const reviewDate = review.createdAt 
+                  ? new Date(review.createdAt).toLocaleDateString() 
+                  : review.date || 'N/A'
+                
+                // Check if this review belongs to the logged-in user
+                const reviewUserId = review.userId || review.user?._id || review.user?.id
+                const isOwnReview = currentUserId && reviewUserId?.toString() === currentUserId?.toString()
+                const isEditing = editingReviewId === reviewId
+                
+                return (
+                  <div key={reviewId} className="review-item">
+                    <div className="review-header">
+                      <div>
+                        <strong>{reviewerName}</strong>
+                        {!isEditing && (
+                          <div className="review-rating">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                size={14}
+                                fill={i < (review.rating || 0) ? '#C89E7E' : 'none'}
+                                color="#C89E7E"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="review-header-right">
+                        <span className="review-date">{reviewDate}</span>
+                        {isOwnReview && !isEditing && (
+                          <div className="review-actions">
+                            <button
+                              className="review-action-btn edit-btn"
+                              onClick={() => handleEditReview(review)}
+                              title="Edit review"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              className="review-action-btn delete-btn"
+                              onClick={() => handleDeleteReview(reviewId)}
+                              disabled={deletingReviewId === reviewId}
+                              title="Delete review"
+                            >
+                              {deletingReviewId === reviewId ? (
+                                <span className="loading-spinner">...</span>
+                              ) : (
+                                <Trash2 size={16} />
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {isEditing ? (
+                      <div className="edit-review-form">
+                        <div className="review-rating-input">
+                          <label>Your Rating</label>
+                          <div className="rating-stars-input">
+                            {[...Array(5)].map((_, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                className="rating-star-btn"
+                                onClick={() => setEditReviewRating(i + 1)}
+                              >
+                                <Star
+                                  size={24}
+                                  fill={i < editReviewRating ? '#C89E7E' : 'none'}
+                                  color="#C89E7E"
+                                  style={{ cursor: 'pointer' }}
+                                />
+                              </button>
+                            ))}
+                            {editReviewRating > 0 && (
+                              <span className="rating-value-text">{editReviewRating} {editReviewRating === 1 ? 'star' : 'stars'}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="review-comment-input">
+                          <label htmlFor={`edit-review-comment-${reviewId}`}>Your Review</label>
+                          <textarea
+                            id={`edit-review-comment-${reviewId}`}
+                            className="review-textarea"
+                            placeholder="Share your experience with this product..."
+                            value={editReviewComment}
+                            onChange={(e) => setEditReviewComment(e.target.value)}
+                            rows={5}
+                          />
+                        </div>
+                        <div className="edit-review-actions">
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => handleUpdateReview(reviewId)}
+                            disabled={isUpdatingReview || editReviewRating === 0 || !editReviewComment.trim()}
+                          >
+                            {isUpdatingReview ? 'Updating...' : 'Update Review'}
+                          </button>
+                          <button
+                            className="btn btn-secondary"
+                            onClick={handleCancelEdit}
+                            disabled={isUpdatingReview}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="review-comment">{review.comment || ''}</p>
+                    )}
+                  </div>
+                )
+              })
+            ) : (
+              <p className="no-reviews-message">No reviews yet. Be the first to review this product!</p>
             )}
           </div>
         </div>

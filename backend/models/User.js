@@ -10,7 +10,7 @@ const User = sequelize.define('User', {
   },
   mobile: {
     type: DataTypes.STRING(10),
-    allowNull: false,
+    allowNull: true,
     unique: true,
     validate: {
       len: [10, 10],
@@ -31,6 +31,7 @@ const User = sequelize.define('User', {
   email: {
     type: DataTypes.STRING,
     allowNull: true,
+    unique: true,
     validate: {
       isEmail: true
     }

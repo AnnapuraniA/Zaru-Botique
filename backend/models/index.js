@@ -19,6 +19,8 @@ import EmailTemplate from './EmailTemplate.js'
 import CouponUsage from './CouponUsage.js'
 import InventoryLog from './InventoryLog.js'
 import NewArrival from './NewArrival.js'
+import Testimonial from './Testimonial.js'
+import SaleStrip from './SaleStrip.js'
 
 // Set up associations
 User.hasOne(Cart, { foreignKey: 'userId', as: 'cart' })
@@ -80,5 +82,7 @@ export {
   EmailTemplate,
   CouponUsage,
   InventoryLog,
-  NewArrival
+  NewArrival,
+  Testimonial,
+  SaleStrip
 }

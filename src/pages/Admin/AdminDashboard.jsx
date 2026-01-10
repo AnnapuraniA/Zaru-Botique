@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, Package, FolderTree, ShoppingBag, Users, FileText, 
-  MessageSquare, BarChart3, Boxes, Settings, LogOut, Menu, X, ChevronDown, ChevronRight,
-  Tag, Mail, RotateCcw, Ticket, Image as ImageIcon, FileText as FileTextIcon, Download
+  MessageSquare, Boxes, Settings, LogOut, Menu, X, ChevronDown, ChevronRight,
+  Tag, Mail, RotateCcw, Ticket, Image as ImageIcon, FileText as FileTextIcon,
+  Search
 } from 'lucide-react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import DashboardOverview from './DashboardOverview'
@@ -13,7 +14,6 @@ import Orders from './Orders'
 import Customers from './Customers'
 import Content from './Content'
 import Queries from './Queries'
-import Analytics from './Analytics'
 import Inventory from './Inventory'
 import AdminSettings from './AdminSettings'
 import Discounts from './Discounts'
@@ -22,7 +22,6 @@ import Returns from './Returns'
 import Coupons from './Coupons'
 import Banners from './Banners'
 import EmailTemplates from './EmailTemplates'
-import Reports from './Reports'
 
 function AdminDashboard() {
   const { admin, logout } = useAdminAuth()
@@ -30,43 +29,37 @@ function AdminDashboard() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedSections, setExpandedSections] = useState({})
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isTransitioning, setIsTransitioning] = useState(false)
 
   const menuSections = [
     {
-      id: 'main',
-      label: 'Main',
+      id: 'core',
+      label: 'Core',
+      priority: 1,
       items: [
         {
           id: 'overview',
           label: 'Dashboard',
           icon: LayoutDashboard,
           path: '/admin/dashboard',
-          exact: true
+          exact: true,
+          badge: null
         },
         {
           id: 'orders',
           label: 'Orders',
           icon: ShoppingBag,
-          path: '/admin/orders'
-        },
-        {
-          id: 'customers',
-          label: 'Customers',
-          icon: Users,
-          path: '/admin/customers'
+          path: '/admin/orders',
+          badge: null
         }
       ]
     },
     {
       id: 'catalog',
-      label: 'Catalog',
+      label: 'Catalog Management',
+      priority: 2,
       items: [
-        {
-          id: 'categories',
-          label: 'Categories',
-          icon: FolderTree,
-          path: '/admin/categories'
-        },
         {
           id: 'products',
           label: 'Products',
@@ -78,6 +71,12 @@ function AdminDashboard() {
           ]
         },
         {
+          id: 'categories',
+          label: 'Categories',
+          icon: FolderTree,
+          path: '/admin/categories'
+        },
+        {
           id: 'inventory',
           label: 'Inventory',
           icon: Boxes,
@@ -86,8 +85,34 @@ function AdminDashboard() {
       ]
     },
     {
+      id: 'customers',
+      label: 'Customer Management',
+      priority: 3,
+      items: [
+        {
+          id: 'customers',
+          label: 'Customers',
+          icon: Users,
+          path: '/admin/customers'
+        },
+        {
+          id: 'queries',
+          label: 'Customer Queries',
+          icon: MessageSquare,
+          path: '/admin/queries'
+        },
+        {
+          id: 'returns',
+          label: 'Returns & Refunds',
+          icon: RotateCcw,
+          path: '/admin/returns'
+        }
+      ]
+    },
+    {
       id: 'marketing',
-      label: 'Marketing',
+      label: 'Marketing & Promotions',
+      priority: 4,
       items: [
         {
           id: 'discounts',
@@ -118,6 +143,7 @@ function AdminDashboard() {
     {
       id: 'content',
       label: 'Content & Communication',
+      priority: 5,
       items: [
         {
           id: 'content',
@@ -127,45 +153,16 @@ function AdminDashboard() {
         },
         {
           id: 'email-templates',
-          label: 'Email Templates',
+          label: 'SMS/Email Templates',
           icon: FileTextIcon,
           path: '/admin/email-templates'
-        },
-        {
-          id: 'queries',
-          label: 'Customer Queries',
-          icon: MessageSquare,
-          path: '/admin/queries'
-        }
-      ]
-    },
-    {
-      id: 'reports',
-      label: 'Reports & Analytics',
-      items: [
-        {
-          id: 'analytics',
-          label: 'Analytics',
-          icon: BarChart3,
-          path: '/admin/analytics'
-        },
-        {
-          id: 'reports',
-          label: 'Reports & Export',
-          icon: Download,
-          path: '/admin/reports'
-        },
-        {
-          id: 'returns',
-          label: 'Returns & Refunds',
-          icon: RotateCcw,
-          path: '/admin/returns'
         }
       ]
     },
     {
       id: 'system',
-      label: 'System',
+      label: 'System Settings',
+      priority: 6,
       items: [
         {
           id: 'settings',
@@ -186,7 +183,7 @@ function AdminDashboard() {
 
   const handleLogout = () => {
     logout()
-    navigate('/admin/login')
+    navigate('/')
   }
 
   const isActive = (path, exact = false) => {
@@ -203,7 +200,7 @@ function AdminDashboard() {
   return (
     <div className="admin-dashboard">
       {/* Sidebar */}
-      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'} ${isTransitioning ? 'transitioning' : ''}`}>
         <div className="admin-sidebar-header">
           <div className="admin-logo">
             <img src="/Logo.png" alt="Arudhra Fashions Logo" className="admin-logo-img" />
@@ -212,24 +209,71 @@ function AdminDashboard() {
               <span>Admin Panel</span>
             </div>
           </div>
-          <button 
-            className="sidebar-toggle"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label="Toggle sidebar"
-          >
-            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+          {sidebarOpen && (
+            <button 
+              className="sidebar-toggle"
+              onClick={() => {
+                setIsTransitioning(true)
+                setSidebarOpen(false)
+                setTimeout(() => setIsTransitioning(false), 400)
+              }}
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
+            >
+              <X size={18} />
+            </button>
+          )}
+          {!sidebarOpen && (
+            <button 
+              className="sidebar-toggle"
+              onClick={() => {
+                setIsTransitioning(true)
+                setSidebarOpen(true)
+                setTimeout(() => setIsTransitioning(false), 400)
+              }}
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <Menu size={20} />
+            </button>
+          )}
         </div>
 
         <nav className="admin-nav">
-          {menuSections.map(section => (
+          {sidebarOpen && (
+            <div className="nav-search">
+              <Search size={18} />
+              <input
+                type="text"
+                placeholder="Search menu..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="nav-search-input"
+              />
+            </div>
+          )}
+          {menuSections
+            .filter(section => {
+              if (!searchQuery) return true
+              const sectionMatch = section.label.toLowerCase().includes(searchQuery.toLowerCase())
+              const itemsMatch = section.items.some(item => 
+                item.label.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+              return sectionMatch || itemsMatch
+            })
+            .map(section => (
             <div key={section.id} className="nav-section">
               {sidebarOpen && (
                 <div className="nav-section-label">
                   {section.label}
                 </div>
               )}
-              {section.items.map(item => {
+              {section.items
+                .filter(item => {
+                  if (!searchQuery) return true
+                  return item.label.toLowerCase().includes(searchQuery.toLowerCase())
+                })
+                .map(item => {
                 const Icon = item.icon
                 const hasChildren = item.children && item.children.length > 0
                 const isExpanded = expandedSections[item.id]
@@ -304,7 +348,6 @@ function AdminDashboard() {
             <Route path="customers" element={<Customers />} />
             <Route path="content" element={<Content />} />
             <Route path="queries" element={<Queries />} />
-            <Route path="analytics" element={<Analytics />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="discounts" element={<Discounts />} />
             <Route path="coupons" element={<Coupons />} />
@@ -312,7 +355,6 @@ function AdminDashboard() {
             <Route path="newsletter" element={<Newsletter />} />
             <Route path="returns" element={<Returns />} />
             <Route path="email-templates" element={<EmailTemplates />} />
-            <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
