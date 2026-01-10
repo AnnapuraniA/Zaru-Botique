@@ -279,4 +279,102 @@ router.put('/profile', protect, async (req, res) => {
   }
 })
 
+// @route   PUT /api/auth/change-password
+// @desc    Change password (requires current password)
+// @access  Private
+router.put('/change-password', protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Please provide both current and new password' })
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' })
+    }
+
+    const user = await User.findByPk(req.user.id)
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    // Verify current password
+    const isMatch = await user.matchPassword(currentPassword)
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' })
+    }
+
+    // Update password
+    user.password = newPassword
+    await user.save()
+
+    res.json({ message: 'Password changed successfully' })
+  } catch (error) {
+    console.error('Change password error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/auth/preferences
+// @desc    Get user preferences
+// @access  Private
+router.get('/preferences', protect, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id)
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+    
+    const preferences = user.preferences || {
+      emailNotifications: true,
+      smsNotifications: false,
+      newsletter: false
+    }
+    
+    res.json(preferences)
+  } catch (error) {
+    console.error('Get preferences error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   PUT /api/auth/preferences
+// @desc    Update user preferences
+// @access  Private
+router.put('/preferences', protect, async (req, res) => {
+  try {
+    const { emailNotifications, smsNotifications, newsletter } = req.body
+    
+    const user = await User.findByPk(req.user.id)
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+    
+    const currentPreferences = user.preferences || {
+      emailNotifications: true,
+      smsNotifications: false,
+      newsletter: false
+    }
+    
+    const updatedPreferences = {
+      ...currentPreferences,
+      ...(emailNotifications !== undefined && { emailNotifications }),
+      ...(smsNotifications !== undefined && { smsNotifications }),
+      ...(newsletter !== undefined && { newsletter })
+    }
+    
+    await user.update(
+      { preferences: updatedPreferences },
+      { fields: ['preferences'] }
+    )
+    
+    res.json(updatedPreferences)
+  } catch (error) {
+    console.error('Update preferences error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 export default router

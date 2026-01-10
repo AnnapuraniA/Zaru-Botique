@@ -119,6 +119,18 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Change password
+  const changePassword = async (currentPassword, newPassword) => {
+    if (!user) return
+
+    try {
+      await authAPI.changePassword(currentPassword, newPassword)
+    } catch (error) {
+      console.error('Change password error:', error)
+      throw error
+    }
+  }
+
   // Merge guest cart with user cart (for use after login)
   const mergeCart = (guestCart) => {
     if (!user || !guestCart || guestCart.length === 0) return
@@ -137,6 +149,7 @@ export function AuthProvider({ children }) {
     logout,
     resetPassword,
     updateProfile,
+    changePassword,
     mergeCart
   }
 

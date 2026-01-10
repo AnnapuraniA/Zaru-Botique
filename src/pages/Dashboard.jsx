@@ -1,22 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle } from 'lucide-react'
+import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useLoginModal } from '../context/LoginModalContext'
 import ConfirmationModal from '../components/Modal/ConfirmationModal'
 import { useToast } from '../components/Toast/ToastContainer'
-import { ordersAPI, addressesAPI, paymentAPI, cartAPI } from '../utils/api'
+import { ordersAPI, addressesAPI, paymentAPI, cartAPI, authAPI, newsletterAPI } from '../utils/api'
 
 function Dashboard() {
-  const { user, logout, isAuthenticated, login, register, resetPassword, updateProfile, mergeCart } = useAuth()
+  const { user, logout, isAuthenticated, updateProfile, changePassword } = useAuth()
+  const { openModal } = useLoginModal()
   const navigate = useNavigate()
   const location = useLocation()
   const { success: showSuccessToast, error: showError } = useToast()
-  const [activeTab, setActiveTab] = useState(isAuthenticated ? 'orders' : 'login')
+  const [activeTab, setActiveTab] = useState('orders')
   const [orders, setOrders] = useState([])
   const [addresses, setAddresses] = useState([])
   const [paymentMethods, setPaymentMethods] = useState([])
   const [loading, setLoading] = useState(false)
   const [showAddAddress, setShowAddAddress] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState(null)
   const [showAddPayment, setShowAddPayment] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [newAddress, setNewAddress] = useState({
@@ -26,27 +29,44 @@ function Dashboard() {
     city: '',
     state: '',
     zip: '',
-    isDefault: false
+    isDefault: false,
+    otherDetail: ''
   })
   const [newPayment, setNewPayment] = useState({
-    cardNumber: '',
+    methodType: 'card', // card, upi, netbanking, wallet
     cardName: '',
-    expMonth: '',
-    expYear: '',
-    cvv: ''
+    upiId: '',
+    netBankingBank: '',
+    walletProvider: ''
   })
-  const [loginForm, setLoginForm] = useState({ loginInput: '', password: '' })
-  const [registerForm, setRegisterForm] = useState({ mobile: '', password: '', confirmPassword: '', name: '', email: '' })
-  const [resetForm, setResetForm] = useState({ mobile: '', newPassword: '', confirmPassword: '' })
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false)
+  const razorpayFormRef = useRef(null)
+  const paymentFormRef = useRef(null)
+  const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
     mobile: user?.mobile || ''
   })
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [showResetPassword, setShowResetPassword] = useState(false)
   const [searchOrderQuery, setSearchOrderQuery] = useState('')
+  const [preferences, setPreferences] = useState({
+    emailNotifications: true,
+    smsNotifications: false,
+    newsletter: false
+  })
+  const [newsletterStatus, setNewsletterStatus] = useState({ subscribed: false, email: null })
+  const [loadingPreferences, setLoadingPreferences] = useState(false)
 
   // Load data when authenticated
   useEffect(() => {
@@ -54,8 +74,52 @@ function Dashboard() {
       loadOrders()
       loadAddresses()
       loadPaymentMethods()
+      loadPreferences()
+      loadNewsletterStatus()
     }
   }, [isAuthenticated])
+
+  // Load Razorpay script
+  useEffect(() => {
+    const loadRazorpay = () => {
+      if (window.Razorpay) {
+        setRazorpayLoaded(true)
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.async = true
+      script.onload = () => {
+        setRazorpayLoaded(true)
+      }
+      script.onerror = () => {
+        console.error('Failed to load Razorpay script')
+        showError('Failed to load payment gateway. Please refresh the page.')
+      }
+      document.body.appendChild(script)
+
+      return () => {
+        // Cleanup if component unmounts
+        if (document.body.contains(script)) {
+          document.body.removeChild(script)
+        }
+      }
+    }
+
+    if (showAddPayment) {
+      loadRazorpay()
+    }
+  }, [showAddPayment])
+
+  // Scroll to payment form when editing starts
+  useEffect(() => {
+    if (showAddPayment && editingPaymentId && paymentFormRef.current) {
+      setTimeout(() => {
+        paymentFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }, [showAddPayment, editingPaymentId])
 
   // Update profile form when user changes
   useEffect(() => {
@@ -94,10 +158,13 @@ function Dashboard() {
     try {
       const response = await addressesAPI.getAll()
       // Backend returns array directly
-      setAddresses(Array.isArray(response) ? response : (response.addresses || []))
+      const addressesList = Array.isArray(response) ? response : (response.addresses || [])
+      setAddresses(addressesList)
+      return addressesList
     } catch (err) {
       console.error('Failed to load addresses:', err)
       setAddresses([])
+      throw err
     }
   }
 
@@ -112,128 +179,66 @@ function Dashboard() {
     }
   }
 
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    setError('')
-    setSuccessMessage('')
-    
+  const loadPreferences = async () => {
     try {
-      const input = loginForm.loginInput.trim()
-      const isEmail = input.includes('@')
-      const isMobile = /^[0-9]{10}$/.test(input)
-      
-      if (!input) {
-        throw new Error('Please enter your email or mobile number')
-      }
-      
-      if (!isEmail && !isMobile) {
-        throw new Error('Please enter a valid email or 10-digit mobile number')
-      }
-      
-      await login(isMobile ? input : null, isEmail ? input : null, loginForm.password)
-      showSuccessToast('Login successful!')
-      setActiveTab('orders')
-      // Merge guest cart
-      const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
-      if (guestCart.length > 0 && mergeCart) {
-        mergeCart(guestCart)
-      }
+      setLoadingPreferences(true)
+      const prefs = await authAPI.getPreferences()
+      setPreferences(prefs)
     } catch (err) {
-      setError(err.message)
-      showError(err.message)
+      console.error('Failed to load preferences:', err)
+      // Use defaults if API fails
+    } finally {
+      setLoadingPreferences(false)
     }
   }
 
-  const handleRegister = async (e) => {
-    e.preventDefault()
-    setError('')
-    setSuccessMessage('')
-    
-    // Validate that at least mobile or email is provided
-    const hasMobile = registerForm.mobile && registerForm.mobile.trim().length > 0
-    const hasEmail = registerForm.email && registerForm.email.trim().length > 0
-    
-    if (!hasMobile && !hasEmail) {
-      setError('Please provide either mobile number or email address')
-      showError('Please provide either mobile number or email address')
-      return
-    }
-    
-    // Validate mobile if provided
-    if (hasMobile && (registerForm.mobile.length !== 10 || !/^[0-9]+$/.test(registerForm.mobile))) {
-      setError('Please enter a valid 10-digit mobile number')
-      showError('Please enter a valid 10-digit mobile number')
-      return
-    }
-    
-    // Validate email if provided
-    if (hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.email)) {
-      setError('Please enter a valid email address')
-      showError('Please enter a valid email address')
-      return
-    }
-    
-    if (!registerForm.name || registerForm.name.trim().length === 0) {
-      setError('Please enter your full name')
-      showError('Please enter your full name')
-      return
-    }
-    
-    if (registerForm.password !== registerForm.confirmPassword) {
-      setError('Passwords do not match')
-      showError('Passwords do not match')
-      return
-    }
-    
-    if (registerForm.password.length < 8) {
-      setError('Password must be at least 8 characters')
-      showError('Password must be at least 8 characters')
-      return
-    }
-    
+  const loadNewsletterStatus = async () => {
     try {
-      await register(registerForm.mobile || null, registerForm.password, registerForm.name, registerForm.email || null)
-      showSuccessToast('Registration successful!')
-      setActiveTab('orders')
-      // Merge guest cart
-      const guestCart = JSON.parse(localStorage.getItem('cart_guest') || '[]')
-      if (guestCart.length > 0 && mergeCart) {
-        mergeCart(guestCart)
+      const status = await newsletterAPI.getStatus()
+      setNewsletterStatus(status)
+      // Update preferences newsletter status
+      if (status.subscribed !== undefined) {
+        setPreferences(prev => ({ ...prev, newsletter: status.subscribed }))
       }
     } catch (err) {
-      setError(err.message)
-      showError(err.message)
+      console.error('Failed to load newsletter status:', err)
     }
   }
 
-  const handleResetPassword = async (e) => {
-    e.preventDefault()
-    setError('')
-    setSuccessMessage('')
-    
-    if (resetForm.newPassword !== resetForm.confirmPassword) {
-      setError('Passwords do not match')
-      showError('Passwords do not match')
-      return
-    }
-    
-    if (resetForm.newPassword.length < 8) {
-      setError('Password must be at least 8 characters')
-      showError('Password must be at least 8 characters')
-      return
-    }
-    
+  const handlePreferenceChange = async (key, value) => {
     try {
-      await resetPassword(resetForm.mobile, resetForm.newPassword)
-      showSuccessToast('Password reset successful! You can now login.')
-      setShowResetPassword(false)
-      setActiveTab('login')
-      setResetForm({ mobile: '', newPassword: '', confirmPassword: '' })
+      const updatedPreferences = { ...preferences, [key]: value }
+      setPreferences(updatedPreferences)
+      
+      // Special handling for newsletter
+      if (key === 'newsletter') {
+        if (value) {
+          if (!user?.email) {
+            showError('Please add an email address to your account first')
+            setPreferences(prev => ({ ...prev, newsletter: false }))
+            return
+          }
+          await newsletterAPI.subscribeUser()
+          await loadNewsletterStatus()
+          showSuccessToast('Subscribed to newsletter successfully')
+        } else {
+          await newsletterAPI.unsubscribeUser()
+          await loadNewsletterStatus()
+          showSuccessToast('Unsubscribed from newsletter')
+        }
+      } else {
+        // Save other preferences
+        await authAPI.updatePreferences({ [key]: value })
+        showSuccessToast('Preferences updated successfully')
+      }
     } catch (err) {
-      setError(err.message)
-      showError(err.message)
+      console.error('Failed to update preference:', err)
+      showError(err.response?.data?.message || 'Failed to update preference')
+      // Revert the change
+      setPreferences(prev => ({ ...prev, [key]: !value }))
     }
   }
+
 
   const handleLogout = () => {
     logout()
@@ -255,6 +260,38 @@ function Dashboard() {
     }
   }
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSuccessMessage('')
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError('New passwords do not match')
+      showError('New passwords do not match')
+      return
+    }
+    
+    if (passwordForm.newPassword.length < 8) {
+      setError('Password must be at least 8 characters')
+      showError('Password must be at least 8 characters')
+      return
+    }
+    
+    try {
+      await changePassword(passwordForm.currentPassword, passwordForm.newPassword)
+      showSuccessToast('Password changed successfully!')
+      setShowChangePassword(false)
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      })
+    } catch (err) {
+      setError(err.message)
+      showError(err.message)
+    }
+  }
+
 
   // Orders are loaded from API
 
@@ -263,250 +300,91 @@ function Dashboard() {
       <div className="container">
         <h1>{isAuthenticated ? 'My Account' : 'Account'}</h1>
         <div className="dashboard-content">
-          <aside className="dashboard-sidebar">
-            <nav className="dashboard-nav">
-              {!isAuthenticated ? (
-                <>
-                  <button
-                    className={`nav-item ${activeTab === 'login' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('login')}
-                  >
-                    <User size={20} />
-                    <span>Login</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'register' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('register')}
-                  >
-                    <User size={20} />
-                    <span>Register</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('orders')}
-                  >
-                    <Package size={20} />
-                    <span>Orders</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('profile')}
-                  >
-                    <User size={20} />
-                    <span>Profile</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'addresses' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('addresses')}
-                  >
-                    <MapPin size={20} />
-                    <span>Addresses</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'payment' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('payment')}
-                  >
-                    <CreditCard size={20} />
-                    <span>Payment Methods</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'track' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('track')}
-                  >
-                    <Truck size={20} />
-                    <span>Track Order</span>
-                  </button>
-                  <button
-                    className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('settings')}
-                  >
-                    <Settings size={20} />
-                    <span>Settings</span>
-                  </button>
-                  <button
-                    className="nav-item logout-btn"
-                    onClick={handleLogout}
-                  >
-                    <LogOut size={20} />
-                    <span>Logout</span>
-                  </button>
-                </>
-              )}
-            </nav>
-          </aside>
+          {isAuthenticated ? (
+            <aside className="dashboard-sidebar">
+              <nav className="dashboard-nav">
+                <button
+                  className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('orders')}
+                >
+                  <Package size={20} />
+                  <span>Orders</span>
+                </button>
+                <button
+                  className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('profile')}
+                >
+                  <User size={20} />
+                  <span>Profile</span>
+                </button>
+                <button
+                  className={`nav-item ${activeTab === 'addresses' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('addresses')}
+                >
+                  <MapPin size={20} />
+                  <span>Addresses</span>
+                </button>
+                <button
+                  className={`nav-item ${activeTab === 'payment' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('payment')}
+                >
+                  <CreditCard size={20} />
+                  <span>Payment Methods</span>
+                </button>
+                <button
+                  className={`nav-item ${activeTab === 'track' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('track')}
+                >
+                  <Truck size={20} />
+                  <span>Track Order</span>
+                </button>
+                <button
+                  className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('settings')}
+                >
+                  <Settings size={20} />
+                  <span>Settings</span>
+                </button>
+                <button
+                  className="nav-item logout-btn"
+                  onClick={handleLogout}
+                >
+                  <LogOut size={20} />
+                  <span>Logout</span>
+                </button>
+              </nav>
+            </aside>
+          ) : null}
 
           <div className="dashboard-main">
-            {/* Login Tab */}
-            {!isAuthenticated && activeTab === 'login' && (
+            {!isAuthenticated ? (
               <div className="dashboard-section">
-                <h2>Login</h2>
-                {error && <div className="alert alert-error">{error}</div>}
-                {successMessage && <div className="alert alert-success">{successMessage}</div>}
-                <form onSubmit={handleLogin} className="auth-form">
-                  <div className="form-group">
-                    <label>Mobile Number/Email</label>
-                    <input
-                      type="text"
-                      value={loginForm.loginInput}
-                      onChange={(e) => setLoginForm({ ...loginForm, loginInput: e.target.value })}
-                      required
-                      placeholder="Enter mobile number or email"
-                    />
+                <div className="login-prompt">
+                  <div className="login-prompt-icon">
+                    <LogIn size={64} />
                   </div>
-                  <div className="form-group">
-                    <label>Password</label>
-                    <input
-                      type="password"
-                      value={loginForm.password}
-                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                      required
-                      placeholder="Enter your password"
-                    />
-                  </div>
-                  <div className="dashboard-login-actions">
-                    <button type="submit" className="btn btn-primary dashboard-login-btn">
-                      Sign In
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline dashboard-forgot-btn"
-                      onClick={() => setShowResetPassword(true)}
-                    >
-                      <Lock size={14} />
-                      Forgot Password?
-                    </button>
-                  </div>
-                </form>
-
-                {showResetPassword && (
-                  <div className="reset-password-section">
-                    <h3>Reset Password</h3>
-                    <form onSubmit={handleResetPassword} className="auth-form">
-                      <div className="form-group">
-                        <label>Mobile Number <span className="required">*</span></label>
-                        <input
-                          type="tel"
-                          value={resetForm.mobile}
-                          onChange={(e) => setResetForm({ ...resetForm, mobile: e.target.value })}
-                          required
-                          placeholder="Enter mobile number"
-                          pattern="[0-9]{10}"
-                          maxLength="10"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>New Password</label>
-                        <input
-                          type="password"
-                          value={resetForm.newPassword}
-                          onChange={(e) => setResetForm({ ...resetForm, newPassword: e.target.value })}
-                          required
-                          placeholder="At least 8 characters"
-                          minLength="8"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Confirm New Password</label>
-                        <input
-                          type="password"
-                          value={resetForm.confirmPassword}
-                          onChange={(e) => setResetForm({ ...resetForm, confirmPassword: e.target.value })}
-                          required
-                          placeholder="Confirm your password"
-                          minLength="8"
-                        />
-                      </div>
-                      <div className="form-actions">
-                        <button type="submit" className="btn btn-primary">
-                          Reset Password
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          onClick={() => {
-                            setShowResetPassword(false)
-                            setResetForm({ mobile: '', newPassword: '', confirmPassword: '' })
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Register Tab */}
-            {!isAuthenticated && activeTab === 'register' && (
-              <div className="dashboard-section">
-                <h2>Create Account</h2>
-                {error && <div className="alert alert-error">{error}</div>}
-                {successMessage && <div className="alert alert-success">{successMessage}</div>}
-                <form onSubmit={handleRegister} className="auth-form">
-                  <div className="form-group">
-                    <label>Mobile Number <span className="optional">(Optional)</span></label>
-                    <input
-                      type="tel"
-                      value={registerForm.mobile}
-                      onChange={(e) => setRegisterForm({ ...registerForm, mobile: e.target.value })}
-                      placeholder="9876543210"
-                      pattern="[0-9]{10}"
-                      maxLength="10"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Full Name <span className="required">*</span></label>
-                    <input
-                      type="text"
-                      value={registerForm.name}
-                      onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                      required
-                      placeholder="Your full name"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Email Address <span className="optional">(Optional)</span></label>
-                    <input
-                      type="email"
-                      value={registerForm.email}
-                      onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                      placeholder="your@email.com"
-                    />
-                    <p className="form-hint">Please provide at least mobile number or email address</p>
-                  </div>
-                  <div className="form-group">
-                    <label>Password <span className="required">*</span></label>
-                    <input
-                      type="password"
-                      value={registerForm.password}
-                      onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                      required
-                      placeholder="At least 8 characters"
-                      minLength="8"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Confirm Password <span className="required">*</span></label>
-                    <input
-                      type="password"
-                      value={registerForm.confirmPassword}
-                      onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
-                      required
-                      placeholder="Confirm your password"
-                      minLength="8"
-                    />
-                  </div>
-                  <button type="submit" className="btn btn-primary dashboard-login-btn">
-                    Create Account
+                  <h2>Please Login to Continue</h2>
+                  <p>You need to be logged in to access your account dashboard.</p>
+                  <button 
+                    className="btn btn-primary"
+                    onClick={() => openModal('login')}
+                  >
+                    <LogIn size={20} />
+                    Login
                   </button>
-                </form>
+                  <p className="login-prompt-hint">
+                    Don't have an account?{' '}
+                    <button 
+                      className="link-button"
+                      onClick={() => openModal('register')}
+                    >
+                      Create one here
+                    </button>
+                  </p>
+                </div>
               </div>
-            )}
-
+            ) : (
+              <>
             {/* Orders Tab */}
             {isAuthenticated && activeTab === 'orders' && (
               <div className="dashboard-section">
@@ -543,14 +421,18 @@ function Dashboard() {
                             <div className="order-header">
                               <div>
                                 <h3>Order {orderId.slice(-8).toUpperCase()}</h3>
-                                <p className="order-date">Placed on {new Date(order.createdAt || order.date).toLocaleDateString()}</p>
+                                <p className="order-date">Placed on {new Date(order.createdAt || order.date).toLocaleDateString('en-IN', { 
+                                  year: 'numeric', 
+                                  month: 'long', 
+                                  day: 'numeric' 
+                                })}</p>
                               </div>
                               <span className={`order-status ${(order.status || 'Processing').toLowerCase()}`}>
                                 {order.status || 'Processing'}
                               </span>
                             </div>
                             <div className="order-details">
-                              <p>{order.items?.length || 0} item(s) • Total: ₹{(order.total || 0).toFixed(2)}</p>
+                              <p>{order.items?.length || 0} item(s) • Total: ₹{(Number(order.total) || 0).toFixed(2)}</p>
                               {order.trackingNumber && (
                                 <p className="tracking">
                                   Tracking: <strong>{order.trackingNumber}</strong>
@@ -561,6 +443,21 @@ function Dashboard() {
                               <Link to={`/order/${orderId}`} className="btn btn-outline">
                                 View Details
                               </Link>
+                              <button 
+                                className="btn btn-outline"
+                                onClick={async () => {
+                                  try {
+                                    await ordersAPI.downloadInvoice(orderId)
+                                    showSuccessToast('Invoice downloaded successfully')
+                                  } catch (err) {
+                                    console.error('Failed to download invoice:', err)
+                                    showError('Failed to download invoice')
+                                  }
+                                }}
+                              >
+                                <Download size={16} />
+                                Invoice
+                              </button>
                               {order.status === 'Delivered' && (
                                 <button className="btn btn-outline">Reorder</button>
                               )}
@@ -582,42 +479,164 @@ function Dashboard() {
             {/* Profile Tab */}
             {isAuthenticated && activeTab === 'profile' && (
               <div className="dashboard-section">
-                <h2>Profile Information</h2>
+                <div className="profile-header">
+                  <h2>Personal Information</h2>
+                  <p className="profile-subtitle">Manage your account details and preferences</p>
+                </div>
+                
                 {error && <div className="alert alert-error">{error}</div>}
                 {successMessage && <div className="alert alert-success">{successMessage}</div>}
-                <form onSubmit={handleUpdateProfile} className="profile-form">
-                  <div className="form-group">
-                    <label>Full Name</label>
-                    <input
-                      type="text"
-                      value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                      required
-                    />
+                
+                <div className="profile-content">
+                  <div className="profile-card">
+                    <div className="profile-card-header">
+                      <h3>Account Details</h3>
+                    </div>
+                    <form onSubmit={handleUpdateProfile} className="profile-form">
+                      <div className="form-group">
+                        <label>Full Name</label>
+                        <input
+                          type="text"
+                          value={profileForm.name}
+                          onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                          required
+                          placeholder="Enter your full name"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Mobile Number</label>
+                        <input
+                          type="tel"
+                          value={profileForm.mobile}
+                          disabled
+                          className="disabled-input"
+                        />
+                        <small className="form-hint">Mobile number cannot be changed</small>
+                      </div>
+                      <div className="form-group">
+                        <label>Email Address <span className="optional">(Optional)</span></label>
+                        <input
+                          type="email"
+                          value={profileForm.email}
+                          onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                          placeholder="your@email.com"
+                        />
+                      </div>
+                      <div className="form-actions">
+                        <button type="submit" className="btn btn-primary">
+                          Save Changes
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                  <div className="form-group">
-                    <label>Mobile Number</label>
-                    <input
-                      type="tel"
-                      value={profileForm.mobile}
-                      disabled
-                      className="disabled-input"
-                    />
-                    <small>Mobile number cannot be changed</small>
+
+                  <div className="profile-card">
+                    <div className="profile-card-header">
+                      <h3>Security</h3>
+                      <p className="profile-card-description">Change your password to keep your account secure</p>
+                    </div>
+                    {!showChangePassword ? (
+                      <div className="password-section-closed">
+                        <div className="password-info">
+                          <Lock size={20} />
+                          <div>
+                            <p className="password-info-title">Password</p>
+                            <p className="password-info-desc">Last updated: Recently</p>
+                          </div>
+                        </div>
+                        <button 
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => setShowChangePassword(true)}
+                        >
+                          Change Password
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleChangePassword} className="password-form">
+                        <div className="form-group">
+                          <label>Current Password</label>
+                          <div className="password-input-wrapper">
+                            <input
+                              type={showCurrentPassword ? 'text' : 'password'}
+                              value={passwordForm.currentPassword}
+                              onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                              required
+                              placeholder="Enter current password"
+                            />
+                            <button
+                              type="button"
+                              className="password-toggle"
+                              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            >
+                              {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label>New Password</label>
+                          <div className="password-input-wrapper">
+                            <input
+                              type={showNewPassword ? 'text' : 'password'}
+                              value={passwordForm.newPassword}
+                              onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                              required
+                              placeholder="Enter new password (min. 8 characters)"
+                              minLength="8"
+                            />
+                            <button
+                              type="button"
+                              className="password-toggle"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                            >
+                              {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label>Confirm New Password</label>
+                          <div className="password-input-wrapper">
+                            <input
+                              type={showConfirmPassword ? 'text' : 'password'}
+                              value={passwordForm.confirmPassword}
+                              onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                              required
+                              placeholder="Confirm new password"
+                              minLength="8"
+                            />
+                            <button
+                              type="button"
+                              className="password-toggle"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="form-actions">
+                          <button type="submit" className="btn btn-primary">
+                            Update Password
+                          </button>
+                          <button 
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => {
+                              setShowChangePassword(false)
+                              setPasswordForm({
+                                currentPassword: '',
+                                newPassword: '',
+                                confirmPassword: ''
+                              })
+                              setError('')
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
-                  <div className="form-group">
-                    <label>Email Address <span className="optional">(Optional)</span></label>
-                    <input
-                      type="email"
-                      value={profileForm.email}
-                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                      placeholder="your@email.com"
-                    />
-                  </div>
-                  <button type="submit" className="btn btn-primary">
-                    Save Changes
-                  </button>
-                </form>
+                </div>
               </div>
             )}
 
@@ -626,66 +645,78 @@ function Dashboard() {
               <div className="dashboard-section">
                 <h2>Saved Addresses</h2>
                 <div className="addresses-list">
-                  {addresses.length > 0 ? (
-                    addresses.map(address => (
-                      <div key={address._id || address.id} className="address-card">
-                        <div className="address-header">
-                          <h3>{address.type || 'Home'}</h3>
-                          {address.isDefault && <span className="default-badge">Default</span>}
-                        </div>
-                        <p>{address.name}</p>
-                        <p>{address.address}</p>
-                        <p>{address.city}, {address.state} {address.zipCode || address.zip}</p>
-                        <div className="address-actions">
-                          <button 
-                            className="btn btn-outline"
-                            onClick={async () => {
-                              try {
-                                await addressesAPI.update(address._id || address.id, { ...address })
-                                loadAddresses()
-                                showSuccessToast('Address updated')
-                              } catch (err) {
-                                showError('Failed to update address')
-                              }
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="btn btn-outline"
-                            onClick={async () => {
-                              if (window.confirm('Delete this address?')) {
-                                try {
-                                  await addressesAPI.delete(address._id || address.id)
-                                  loadAddresses()
-                                  showSuccessToast('Address deleted')
-                                } catch (err) {
-                                  showError('Failed to delete address')
-                                }
-                              }
-                            }}
-                          >
-                            Delete
-                          </button>
-                          {!address.isDefault && (
+                  {addresses && addresses.length > 0 ? (
+                    addresses.map(address => {
+                      const addressId = address._id || address.id
+                      return (
+                        <div key={addressId} className="address-card">
+                          <div className="address-header">
+                            <h3>
+                              {address.type === 'Other' && address.otherDetail 
+                                ? address.otherDetail 
+                                : address.type || 'Home'}
+                            </h3>
+                            {address.isDefault && <span className="default-badge">Default</span>}
+                          </div>
+                          <p>{address.name}</p>
+                          <p>{address.address}</p>
+                          <p>{address.city}, {address.state} {address.zipCode || address.zip}</p>
+                          <div className="address-actions">
                             <button 
-                              className="btn btn-primary"
+                              className="btn btn-outline"
+                              onClick={() => {
+                                setEditingAddressId(address._id || address.id)
+                                setNewAddress({
+                                  type: address.type || 'Home',
+                                  name: address.name || '',
+                                  address: address.address || '',
+                                  city: address.city || '',
+                                  state: address.state || '',
+                                  zip: address.zip || address.zipCode || '',
+                                  isDefault: address.isDefault || false,
+                                  otherDetail: address.otherDetail || ''
+                                })
+                                setShowAddAddress(true)
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              className="btn btn-outline"
                               onClick={async () => {
-                                try {
-                                  await addressesAPI.update(address._id || address.id, { isDefault: true })
-                                  loadAddresses()
-                                  showSuccessToast('Default address updated')
-                                } catch (err) {
-                                  showError('Failed to update default address')
+                                if (window.confirm('Delete this address?')) {
+                                  try {
+                                    await addressesAPI.delete(address._id || address.id)
+                                    await loadAddresses()
+                                    showSuccessToast('Address deleted')
+                                  } catch (err) {
+                                    showError('Failed to delete address')
+                                  }
                                 }
                               }}
                             >
-                              Set as Default
+                              Delete
                             </button>
-                          )}
+                            {!address.isDefault && (
+                              <button 
+                                className="btn btn-primary"
+                                onClick={async () => {
+                                  try {
+                                    await addressesAPI.update(address._id || address.id, { isDefault: true })
+                                    await loadAddresses()
+                                    showSuccessToast('Default address updated')
+                                  } catch (err) {
+                                    showError('Failed to update default address')
+                                  }
+                                }}
+                              >
+                                Set as Default
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      )
+                    })
                   ) : (
                     <div className="empty-state">
                       <MapPin size={48} />
@@ -695,27 +726,9 @@ function Dashboard() {
                   )}
                 </div>
                 {!showAddAddress ? (
-                  <button className="btn btn-primary" onClick={() => setShowAddAddress(true)}>
-                    Add New Address
-                  </button>
-                ) : (
-                  <div className="add-address-form">
-                    <h3>Add New Address</h3>
-                    {error && <div className="alert alert-error">{error}</div>}
-                    {successMessage && <div className="alert alert-success">{successMessage}</div>}
-                    <form onSubmit={async (e) => {
-                      e.preventDefault()
-                      setError('')
-                      setSuccessMessage('')
-                      try {
-                        const addressData = {
-                          ...newAddress,
-                          isDefault: addresses.length === 0
-                        }
-                        await addressesAPI.add(addressData)
-                        loadAddresses()
-                        showSuccessToast('Address added successfully!')
-                        setShowAddAddress(false)
+                  <button className="btn btn-primary" onClick={() => {
+                    setEditingAddressId(null)
+                    setShowAddAddress(true)
                         setNewAddress({
                           type: 'Home',
                           name: user?.name || '',
@@ -723,24 +736,107 @@ function Dashboard() {
                           city: '',
                           state: '',
                           zip: '',
-                          isDefault: false
+                          isDefault: false,
+                          otherDetail: ''
                         })
+                  }}>
+                    <Plus size={18} />
+                    Add New Address
+                  </button>
+                ) : (
+                  <div className="add-address-form">
+                    <h3>{editingAddressId ? 'Edit Address' : 'Add New Address'}</h3>
+                    {error && <div className="alert alert-error">{error}</div>}
+                    {successMessage && <div className="alert alert-success">{successMessage}</div>}
+                    <form onSubmit={async (e) => {
+                      e.preventDefault()
+                      setError('')
+                      setSuccessMessage('')
+                      try {
+                        // Validate required fields
+                        if (!newAddress.name || !newAddress.address || !newAddress.city || !newAddress.state || !newAddress.zip) {
+                          const errorMsg = 'Please fill in all required fields'
+                          setError(errorMsg)
+                          showError(errorMsg)
+                          return
+                        }
+
+                        const addressData = {
+                          type: newAddress.type || 'Home',
+                          name: newAddress.name,
+                          address: newAddress.address,
+                          city: newAddress.city,
+                          state: newAddress.state,
+                          zip: newAddress.zip,
+                          isDefault: addresses.length === 0 || newAddress.isDefault,
+                          ...(newAddress.type === 'Other' && newAddress.otherDetail && { otherDetail: newAddress.otherDetail })
+                        }
+
+                        if (editingAddressId) {
+                          // Update existing address
+                          console.log('Updating address:', editingAddressId, addressData)
+                          const result = await addressesAPI.update(editingAddressId, addressData)
+                          console.log('Address API response:', result)
+                          await loadAddresses()
+                          showSuccessToast('Address updated successfully!')
+                        } else {
+                          // Add new address
+                          console.log('Submitting address:', addressData)
+                          const result = await addressesAPI.add(addressData)
+                          console.log('Address API response:', result)
+                          await loadAddresses()
+                          showSuccessToast('Address added successfully!')
+                        }
+                        
+                        // Close form and reset
+                        setShowAddAddress(false)
+                        setEditingAddressId(null)
+                        setNewAddress({
+                          type: 'Home',
+                          name: user?.name || '',
+                          address: '',
+                          city: '',
+                          state: '',
+                          zip: '',
+                          isDefault: false,
+                          otherDetail: ''
+                        })
+                        setError('')
+                        setSuccessMessage('')
                       } catch (err) {
-                        console.error('Failed to add address:', err)
-                        setError('Failed to add address')
+                        console.error('Failed to save address:', err)
+                        console.error('Error details:', err.response?.data || err.message)
+                        const errorMsg = err.response?.data?.message || err.message || (editingAddressId ? 'Failed to update address' : 'Failed to add address')
+                        setError(errorMsg)
+                        showError(errorMsg)
                       }
                     }}>
                       <div className="form-group">
                         <label>Address Type</label>
-                        <select
-                          value={newAddress.type}
-                          onChange={(e) => setNewAddress({ ...newAddress, type: e.target.value })}
-                          required
-                        >
-                          <option value="Home">Home</option>
-                          <option value="Work">Work</option>
-                          <option value="Other">Other</option>
-                        </select>
+                        <div className="address-type-select-wrapper">
+                          <select
+                            className="address-type-select"
+                            value={newAddress.type}
+                            onChange={(e) => setNewAddress({ ...newAddress, type: e.target.value, otherDetail: e.target.value !== 'Other' ? '' : newAddress.otherDetail })}
+                            required
+                          >
+                            <option value="Home">Home</option>
+                            <option value="Work">Work</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        {newAddress.type === 'Other' && (
+                          <div className="form-group" style={{ marginTop: '1rem' }}>
+                            <label>Specify Address Type</label>
+                            <input
+                              type="text"
+                              placeholder="e.g., Vacation Home, Office, Warehouse, etc."
+                              value={newAddress.otherDetail}
+                              onChange={(e) => setNewAddress({ ...newAddress, otherDetail: e.target.value })}
+                              className="other-detail-input"
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="form-group">
                         <label>Full Name</label>
@@ -789,22 +885,38 @@ function Dashboard() {
                           />
                         </div>
                       </div>
+                      <div className="form-group">
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={newAddress.isDefault}
+                            onChange={(e) => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
+                          />
+                          Set as default address
+                        </label>
+                      </div>
                       <div className="form-actions">
-                        <button type="submit" className="btn btn-primary">Save Address</button>
+                        <button type="submit" className="btn btn-primary">
+                          {editingAddressId ? 'Update Address' : 'Save Address'}
+                        </button>
                         <button
                           type="button"
                           className="btn btn-outline"
                           onClick={() => {
                             setShowAddAddress(false)
-                            setNewAddress({
-                              type: 'Home',
-                              name: user?.name || '',
-                              address: '',
-                              city: '',
-                              state: '',
-                              zip: '',
-                              isDefault: false
-                            })
+                            setEditingAddressId(null)
+                        setNewAddress({
+                          type: 'Home',
+                          name: user?.name || '',
+                          address: '',
+                          city: '',
+                          state: '',
+                          zip: '',
+                          isDefault: false,
+                          otherDetail: ''
+                        })
+                            setError('')
+                            setSuccessMessage('')
                           }}
                         >
                           Cancel
@@ -822,42 +934,81 @@ function Dashboard() {
                 <h2>Payment Methods</h2>
                 <div className="payment-methods">
                   {paymentMethods.length > 0 ? (
-                    paymentMethods.map(method => (
-                      <div key={method._id || method.id} className="payment-card">
-                        <CreditCard size={24} />
-                        <div>
-                          <p>•••• •••• •••• {method.last4}</p>
-                          <span>Expires {method.expMonth}/{method.expYear}</span>
-                        </div>
-                        <div className="payment-actions">
-                          <button 
-                            className="btn btn-outline"
-                            onClick={async () => {
-                              // Edit functionality - could open a modal
-                              showError('Edit functionality coming soon')
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="btn btn-outline"
-                            onClick={async () => {
-                              if (window.confirm('Delete this payment method?')) {
-                                try {
-                                  await paymentAPI.delete(method._id || method.id)
-                                  loadPaymentMethods()
-                                  showSuccessToast('Payment method deleted')
-                                } catch (err) {
-                                  showError('Failed to delete payment method')
+                    paymentMethods.map(method => {
+                      const methodType = method.method || method.type || 'card'
+                      const PaymentIcon = methodType === 'card' ? CreditCard : 
+                                         methodType === 'upi' ? Smartphone :
+                                         methodType === 'netbanking' ? Building2 : Wallet
+                      
+                      return (
+                        <div key={method._id || method.id} className="payment-card">
+                          <PaymentIcon size={24} />
+                          <div>
+                            {methodType === 'card' && (
+                              <>
+                                <p>•••• •••• •••• {method.last4 || '****'}</p>
+                                <span>{method.network || 'Card'} • Expires {method.expMonth || '**'}/{method.expYear || '**'}</span>
+                                {method.cardName && <span className="cardholder-name">{method.cardName}</span>}
+                              </>
+                            )}
+                            {methodType === 'upi' && (
+                              <>
+                                <p>UPI</p>
+                                <span>{method.upiId || 'UPI Payment Method'}</span>
+                              </>
+                            )}
+                            {methodType === 'netbanking' && (
+                              <>
+                                <p>Net Banking</p>
+                                <span>{method.bank || 'Bank Account'}</span>
+                              </>
+                            )}
+                            {methodType === 'wallet' && (
+                              <>
+                                <p>Digital Wallet</p>
+                                <span>{method.walletProvider || 'Wallet'}</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="payment-actions">
+                            <button 
+                              className="btn btn-outline"
+                              onClick={() => {
+                                const paymentId = method._id || method.id
+                                console.log('Edit clicked for payment method:', { paymentId, method })
+                                setEditingPaymentId(paymentId)
+                                setNewPayment({
+                                  methodType: methodType,
+                                  cardName: method.cardName || '',
+                                  upiId: method.upiId || '',
+                                  netBankingBank: method.bank || '',
+                                  walletProvider: method.walletProvider || ''
+                                })
+                                setShowAddPayment(true)
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              className="btn btn-outline"
+                              onClick={async () => {
+                                if (window.confirm('Delete this payment method?')) {
+                                  try {
+                                    await paymentAPI.delete(method._id || method.id)
+                                    loadPaymentMethods()
+                                    showSuccessToast('Payment method deleted')
+                                  } catch (err) {
+                                    showError('Failed to delete payment method')
+                                  }
                                 }
-                              }
-                            }}
-                          >
-                            Delete
-                          </button>
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      )
+                    })
                   ) : (
                     <div className="empty-state">
                       <CreditCard size={48} />
@@ -867,123 +1018,314 @@ function Dashboard() {
                   )}
                 </div>
                 {!showAddPayment ? (
-                  <button className="btn btn-primary" onClick={() => setShowAddPayment(true)}>
+                  <button className="btn btn-primary" onClick={() => {
+                    setEditingPaymentId(null)
+                    setShowAddPayment(true)
+                    setNewPayment({
+                      methodType: 'card',
+                      cardName: '',
+                      upiId: '',
+                      netBankingBank: '',
+                      walletProvider: ''
+                    })
+                  }}>
+                    <Plus size={18} />
                     Add New Payment Method
                   </button>
                 ) : (
-                  <div className="add-payment-form">
-                    <h3>Add New Payment Method</h3>
+                  <div className="add-payment-form" ref={paymentFormRef}>
+                    <h3>{editingPaymentId ? 'Edit Payment Method' : 'Add New Payment Method'}</h3>
+                    {error && <div className="alert alert-error">{error}</div>}
+                    {successMessage && <div className="alert alert-success">{successMessage}</div>}
+                    
                     <form onSubmit={async (e) => {
                       e.preventDefault()
                       setError('')
                       setSuccessMessage('')
+                      
                       try {
-                        const last4 = newPayment.cardNumber.slice(-4)
-                        const paymentData = {
-                          last4,
-                          expMonth: newPayment.expMonth,
-                          expYear: newPayment.expYear,
-                          cardName: newPayment.cardName,
-                          cardNumber: `****${last4}` // Don't store full card number
+                        let paymentData = {}
+
+                        if (newPayment.methodType === 'card') {
+                          if (!newPayment.cardName) {
+                            setError('Please enter cardholder name')
+                            return
+                          }
+
+                          // If editing a card, just update the card name without Razorpay
+                          if (editingPaymentId) {
+                            paymentData = {
+                              method: 'card',
+                              cardName: newPayment.cardName
+                            }
+                            
+                            await paymentAPI.update(editingPaymentId, paymentData)
+                            await loadPaymentMethods()
+                            showSuccessToast('Payment method updated successfully!')
+                            setShowAddPayment(false)
+                            setEditingPaymentId(null)
+                            setNewPayment({ methodType: 'card', cardName: '', upiId: '', netBankingBank: '', walletProvider: '' })
+                            setError('')
+                            setSuccessMessage('')
+                            return
+                          }
+
+                          // For new cards, use Razorpay
+                          if (!razorpayLoaded) {
+                            setError('Payment gateway is loading. Please wait...')
+                            return
+                          }
+
+                          // Create Razorpay payment method token for cards
+                          const options = {
+                            key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
+                            amount: 100,
+                            currency: 'INR',
+                            name: 'Arudhra Fashions',
+                            description: 'Save Payment Method',
+                            prefill: {
+                              name: newPayment.cardName,
+                              email: user?.email || '',
+                              contact: user?.mobile || ''
+                            },
+                            handler: async function(response) {
+                              try {
+                                paymentData = {
+                                  razorpayPaymentId: response.razorpay_payment_id,
+                                  razorpayOrderId: response.razorpay_order_id,
+                                  razorpaySignature: response.razorpay_signature,
+                                  cardName: newPayment.cardName,
+                                  method: 'card'
+                                }
+                                
+                                await paymentAPI.add(paymentData)
+                                await loadPaymentMethods()
+                                showSuccessToast('Payment method saved successfully!')
+                                setShowAddPayment(false)
+                                setEditingPaymentId(null)
+                                setNewPayment({ methodType: 'card', cardName: '', upiId: '', netBankingBank: '', walletProvider: '' })
+                                setError('')
+                                setSuccessMessage('')
+                              } catch (err) {
+                                console.error('Failed to save payment method:', err)
+                                const errorMsg = err.response?.data?.message || err.message || 'Failed to save payment method'
+                                setError(errorMsg)
+                                showError(errorMsg)
+                              }
+                            },
+                            modal: {
+                              ondismiss: function() {
+                                console.log('Payment method collection cancelled')
+                              }
+                            },
+                            theme: {
+                              color: '#7A5051'
+                            }
+                          }
+
+                          const orderResponse = await paymentAPI.createRazorpayOrder({
+                            amount: 100,
+                            currency: 'INR',
+                            receipt: `pm_${Date.now()}`
+                          })
+                          
+                          if (!orderResponse.orderId) {
+                            throw new Error('Failed to create payment order')
+                          }
+                          
+                          options.order_id = orderResponse.orderId
+                          
+                          const razorpay = new window.Razorpay(options)
+                          razorpay.on('payment.failed', function(response) {
+                            setError(response.error.description || 'Payment failed. Please try again.')
+                            showError(response.error.description || 'Payment failed. Please try again.')
+                          })
+                          razorpay.open()
+                        } else {
+                          // For UPI, Net Banking, and Wallets - save preferences directly
+                          if (newPayment.methodType === 'upi' && !newPayment.upiId) {
+                            setError('Please enter UPI ID')
+                            return
+                          }
+                          if (newPayment.methodType === 'netbanking' && !newPayment.netBankingBank) {
+                            setError('Please select a bank')
+                            return
+                          }
+                          if (newPayment.methodType === 'wallet' && !newPayment.walletProvider) {
+                            setError('Please select a wallet provider')
+                            return
+                          }
+
+                          paymentData = {
+                            method: newPayment.methodType,
+                            ...(newPayment.methodType === 'upi' && { upiId: newPayment.upiId }),
+                            ...(newPayment.methodType === 'netbanking' && { bank: newPayment.netBankingBank }),
+                            ...(newPayment.methodType === 'wallet' && { walletProvider: newPayment.walletProvider })
+                          }
+
+                          if (editingPaymentId) {
+                            // Update existing payment method
+                            await paymentAPI.update(editingPaymentId, paymentData)
+                            showSuccessToast('Payment method updated successfully!')
+                          } else {
+                            // Add new payment method
+                            await paymentAPI.add(paymentData)
+                            showSuccessToast('Payment method saved successfully!')
+                          }
+                          
+                          await loadPaymentMethods()
+                          setShowAddPayment(false)
+                          setEditingPaymentId(null)
+                          setNewPayment({ methodType: 'card', cardName: '', upiId: '', netBankingBank: '', walletProvider: '' })
+                          setError('')
+                          setSuccessMessage('')
                         }
-                        await paymentAPI.add(paymentData)
-                        loadPaymentMethods()
-                        showSuccessToast('Payment method added successfully!')
-                        setShowAddPayment(false)
-                        setNewPayment({
-                          cardNumber: '',
-                          cardName: '',
-                          expMonth: '',
-                          expYear: '',
-                          cvv: ''
-                        })
                       } catch (err) {
                         console.error('Failed to add payment method:', err)
-                        setError('Failed to add payment method')
+                        const errorMsg = err.response?.data?.message || err.message || 'Failed to add payment method'
+                        setError(errorMsg)
+                        showError(errorMsg)
                       }
                     }}>
                       <div className="form-group">
-                        <label>Cardholder Name</label>
-                        <input
-                          type="text"
-                          value={newPayment.cardName}
-                          onChange={(e) => setNewPayment({ ...newPayment, cardName: e.target.value })}
+                        <label>Payment Method Type</label>
+                        <select
+                          className="address-type-select"
+                          value={newPayment.methodType}
+                          onChange={(e) => setNewPayment({ ...newPayment, methodType: e.target.value })}
                           required
-                          placeholder="John Doe"
-                        />
+                        >
+                          <option value="card">Credit/Debit Card</option>
+                          <option value="upi">UPI</option>
+                          <option value="netbanking">Net Banking</option>
+                          <option value="wallet">Digital Wallet</option>
+                        </select>
                       </div>
-                      <div className="form-group">
-                        <label>Card Number</label>
-                        <input
-                          type="text"
-                          value={newPayment.cardNumber}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/\s/g, '').replace(/\D/g, '')
-                            const formatted = value.match(/.{1,4}/g)?.join(' ') || value
-                            setNewPayment({ ...newPayment, cardNumber: formatted })
-                          }}
-                          required
-                          placeholder="1234 5678 9012 3456"
-                          maxLength="19"
-                        />
-                      </div>
-                      <div className="form-row">
+
+                      {newPayment.methodType === 'card' && (
+                        <>
+                          <div className="razorpay-info">
+                            <Shield size={20} />
+                            <p>Your card details are securely processed by Razorpay. We never store your full card details.</p>
+                          </div>
+                          {!razorpayLoaded && (
+                            <div className="loading-payment">
+                              <p>Loading secure payment form...</p>
+                            </div>
+                          )}
+                          <div className="form-group">
+                            <label>Cardholder Name</label>
+                            <input
+                              type="text"
+                              value={newPayment.cardName}
+                              onChange={(e) => setNewPayment({ ...newPayment, cardName: e.target.value })}
+                              required
+                              placeholder="John Doe"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {newPayment.methodType === 'upi' && (
                         <div className="form-group">
-                          <label>Expiry Month</label>
-                          <select
-                            value={newPayment.expMonth}
-                            onChange={(e) => setNewPayment({ ...newPayment, expMonth: e.target.value })}
-                            required
-                          >
-                            <option value="">MM</option>
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                              <option key={month} value={String(month).padStart(2, '0')}>
-                                {String(month).padStart(2, '0')}
-                              </option>
-                            ))}
-                          </select>
+                          <label>UPI ID</label>
+                          <div className="input-with-icon">
+                            <Smartphone size={18} className="input-icon" />
+                            <input
+                              type="text"
+                              value={newPayment.upiId}
+                              onChange={(e) => setNewPayment({ ...newPayment, upiId: e.target.value })}
+                              required
+                              placeholder="yourname@upi"
+                              pattern="[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}"
+                            />
+                          </div>
+                          <small className="input-hint">Enter your UPI ID (e.g., yourname@paytm, yourname@ybl)</small>
                         </div>
+                      )}
+
+                      {newPayment.methodType === 'netbanking' && (
                         <div className="form-group">
-                          <label>Expiry Year</label>
-                          <select
-                            value={newPayment.expYear}
-                            onChange={(e) => setNewPayment({ ...newPayment, expYear: e.target.value })}
-                            required
-                          >
-                            <option value="">YY</option>
-                            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i).map(year => (
-                              <option key={year} value={String(year).slice(-2)}>
-                                {String(year).slice(-2)}
-                              </option>
-                            ))}
-                          </select>
+                          <label>Select Bank</label>
+                          <div className="input-with-icon">
+                            <Building2 size={18} className="input-icon" />
+                            <select
+                              className="address-type-select"
+                              value={newPayment.netBankingBank}
+                              onChange={(e) => setNewPayment({ ...newPayment, netBankingBank: e.target.value })}
+                              required
+                            >
+                              <option value="">Select your bank</option>
+                              <option value="HDFC">HDFC Bank</option>
+                              <option value="ICICI">ICICI Bank</option>
+                              <option value="SBI">State Bank of India</option>
+                              <option value="AXIS">Axis Bank</option>
+                              <option value="KOTAK">Kotak Mahindra Bank</option>
+                              <option value="PNB">Punjab National Bank</option>
+                              <option value="BOI">Bank of India</option>
+                              <option value="BOB">Bank of Baroda</option>
+                              <option value="CANARA">Canara Bank</option>
+                              <option value="UNION">Union Bank of India</option>
+                              <option value="IDBI">IDBI Bank</option>
+                              <option value="YES">Yes Bank</option>
+                              <option value="INDUS">IndusInd Bank</option>
+                              <option value="FEDERAL">Federal Bank</option>
+                              <option value="OTHER">Other Bank</option>
+                            </select>
+                          </div>
                         </div>
+                      )}
+
+                      {newPayment.methodType === 'wallet' && (
                         <div className="form-group">
-                          <label>CVV</label>
-                          <input
-                            type="text"
-                            value={newPayment.cvv}
-                            onChange={(e) => setNewPayment({ ...newPayment, cvv: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                            required
-                            placeholder="123"
-                            maxLength="3"
-                          />
+                          <label>Select Wallet Provider</label>
+                          <div className="input-with-icon">
+                            <Wallet size={18} className="input-icon" />
+                            <select
+                              className="address-type-select"
+                              value={newPayment.walletProvider}
+                              onChange={(e) => setNewPayment({ ...newPayment, walletProvider: e.target.value })}
+                              required
+                            >
+                              <option value="">Select wallet</option>
+                              <option value="Paytm">Paytm</option>
+                              <option value="PhonePe">PhonePe</option>
+                              <option value="Amazon Pay">Amazon Pay</option>
+                              <option value="FreeCharge">FreeCharge</option>
+                              <option value="MobiKwik">MobiKwik</option>
+                              <option value="Airtel Money">Airtel Money</option>
+                              <option value="JioMoney">JioMoney</option>
+                            </select>
+                          </div>
                         </div>
-                      </div>
+                      )}
+
                       <div className="form-actions">
-                        <button type="submit" className="btn btn-primary">Save Payment Method</button>
+                        <button 
+                          type="submit" 
+                          className="btn btn-primary" 
+                          disabled={newPayment.methodType === 'card' && !razorpayLoaded && !editingPaymentId}
+                        >
+                          {editingPaymentId ? (
+                            'Update Payment Method'
+                          ) : newPayment.methodType === 'card' ? (
+                            <>
+                              <Shield size={18} />
+                              Save Payment Method Securely
+                            </>
+                          ) : (
+                            'Save Payment Method'
+                          )}
+                        </button>
                         <button
                           type="button"
                           className="btn btn-outline"
                           onClick={() => {
                             setShowAddPayment(false)
-                            setNewPayment({
-                              cardNumber: '',
-                              cardName: '',
-                              expMonth: '',
-                              expYear: '',
-                              cvv: ''
-                            })
+                            setEditingPaymentId(null)
+                            setNewPayment({ methodType: 'card', cardName: '', upiId: '', netBankingBank: '', walletProvider: '' })
+                            setError('')
+                            setSuccessMessage('')
                           }}
                         >
                           Cancel
@@ -1032,7 +1374,45 @@ function Dashboard() {
                 {/* Orders List */}
                 <div className="track-orders-container">
                   {(() => {
-                    const filteredOrders = orders.filter(order => {
+                    // Helper function to check if order was delivered more than 3 days ago
+                    const isDeliveredMoreThan3DaysAgo = (order) => {
+                      if (order.status?.toLowerCase() !== 'delivered') return false
+                      
+                      // Check statusHistory for delivery date
+                      if (order.statusHistory && Array.isArray(order.statusHistory)) {
+                        const deliveredEntry = order.statusHistory.find(
+                          entry => entry.status?.toLowerCase() === 'delivered'
+                        )
+                        if (deliveredEntry && deliveredEntry.date) {
+                          const deliveredDate = new Date(deliveredEntry.date)
+                          const threeDaysAgo = new Date()
+                          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+                          return deliveredDate < threeDaysAgo
+                        }
+                      }
+                      
+                      // Fallback to updatedAt if statusHistory doesn't have delivery date
+                      if (order.updatedAt) {
+                        const updatedDate = new Date(order.updatedAt)
+                        const threeDaysAgo = new Date()
+                        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+                        return updatedDate < threeDaysAgo
+                      }
+                      
+                      return false
+                    }
+
+                    // Filter orders: exclude delivered orders older than 3 days
+                    const trackableOrders = orders.filter(order => {
+                      // Exclude delivered orders that are more than 3 days old
+                      if (isDeliveredMoreThan3DaysAgo(order)) {
+                        return false
+                      }
+                      return true
+                    })
+
+                    // Apply search filter
+                    const filteredOrders = trackableOrders.filter(order => {
                       if (!searchOrderQuery.trim()) return true
                       const query = searchOrderQuery.toLowerCase()
                       const orderId = (order._id || order.id || '').toString().toLowerCase()
@@ -1040,6 +1420,7 @@ function Dashboard() {
                       return (
                         orderId.includes(query) ||
                         order.trackingNumber?.toLowerCase().includes(query) ||
+                        order.tracking?.toLowerCase().includes(query) ||
                         (order.status || '').toLowerCase().includes(query) ||
                         orderDate.includes(query)
                       )
@@ -1049,8 +1430,8 @@ function Dashboard() {
                       return (
                         <div className="empty-state">
                           <Truck size={48} />
-                          <h3>{searchOrderQuery ? 'No orders found' : 'No orders yet'}</h3>
-                          <p>{searchOrderQuery ? 'Try a different search term' : 'Start shopping to see your orders here'}</p>
+                          <h3>{searchOrderQuery ? 'No orders found' : 'No orders to track'}</h3>
+                          <p>{searchOrderQuery ? 'Try a different search term' : 'All your orders have been delivered or there are no orders yet'}</p>
                           {!searchOrderQuery && (
                             <Link to="/products/women" className="btn btn-primary">
                               Start Shopping
@@ -1069,12 +1450,11 @@ function Dashboard() {
                               <div className="order-card-header">
                                 <div className="order-header-left">
                                   <h3>Order {orderId.slice(-8).toUpperCase()}</h3>
-                                  <p className="order-date">Placed on {new Date(order.createdAt || order.date).toLocaleDateString()}</p>
-                                  {order.trackingNumber && (
+                                  {order.trackingNumber || order.tracking ? (
                                     <p className="tracking-info">
-                                      <strong>Tracking:</strong> {order.trackingNumber}
+                                      <strong>Tracking:</strong> {order.trackingNumber || order.tracking}
                                     </p>
-                                  )}
+                                  ) : null}
                                 </div>
                                 <div className="order-status-badge">
                                   <span className={`status-text ${(order.status || 'Processing').toLowerCase()}`}>
@@ -1083,72 +1463,30 @@ function Dashboard() {
                                 </div>
                               </div>
 
-                            <div className="order-card-body">
-                              <div className="status-timeline-compact">
-                                <div className="timeline-compact">
-                                  {[
-                                    { label: 'Placed', status: 'completed' },
-                                    { label: 'Processing', status: (order.status?.toLowerCase() === 'processing' || order.status?.toLowerCase() === 'shipped' || order.status?.toLowerCase() === 'delivered') ? 'completed' : 'pending' },
-                                    { label: 'Shipped', status: (order.status?.toLowerCase() === 'shipped' || order.status?.toLowerCase() === 'delivered') ? 'completed' : 'pending' },
-                                    { label: 'Delivered', status: order.status?.toLowerCase() === 'delivered' ? 'completed' : 'pending' }
-                                  ].map((step, index) => (
-                                    <div key={index} className={`timeline-step-compact ${step.status}`}>
-                                      <div className="timeline-marker-compact">
-                                        {step.status === 'completed' ? (
-                                          <CheckCircle size={16} />
-                                        ) : (
-                                          <div className="timeline-dot-compact"></div>
-                                        )}
+                              <div className="order-card-body">
+                                <div className="status-timeline-compact">
+                                  <div className="timeline-compact">
+                                    {[
+                                      { label: 'Placed', status: 'completed' },
+                                      { label: 'Processing', status: (order.status?.toLowerCase() === 'processing' || order.status?.toLowerCase() === 'shipped' || order.status?.toLowerCase() === 'delivered') ? 'completed' : 'pending' },
+                                      { label: 'Shipped', status: (order.status?.toLowerCase() === 'shipped' || order.status?.toLowerCase() === 'delivered') ? 'completed' : 'pending' },
+                                      { label: 'Delivered', status: order.status?.toLowerCase() === 'delivered' ? 'completed' : 'pending' }
+                                    ].map((step, index) => (
+                                      <div key={index} className={`timeline-step-compact ${step.status}`}>
+                                        <div className="timeline-marker-compact">
+                                          {step.status === 'completed' ? (
+                                            <CheckCircle size={16} />
+                                          ) : (
+                                            <div className="timeline-dot-compact"></div>
+                                          )}
+                                        </div>
+                                        <span className="timeline-label">{step.label}</span>
                                       </div>
-                                      <span className="timeline-label">{step.label}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="order-items-preview">
-                                <div className="items-count">
-                                  {order.items?.length || 0} item(s)
-                                </div>
-                                <div className="items-images">
-                                  {order.items?.slice(0, 3).map((item, idx) => {
-                                    const product = item.product || item
-                                    const image = product?.images?.[0] || product?.image || item.image
-                                    return (
-                                      <img key={idx} src={image} alt={product?.name || item.name} className="item-preview-img" />
-                                    )
-                                  })}
-                                  {order.items?.length > 3 && (
-                                    <div className="more-items">+{order.items.length - 3}</div>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="order-summary-compact">
-                                <div className="summary-row-compact">
-                                  <span>Total:</span>
-                                  <span className="total-amount">₹{(order.total || 0).toFixed(2)}</span>
+                                    ))}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-
-                            <div className="order-card-actions">
-                              <Link to={`/order/${orderId}`} className="btn btn-primary btn-small">
-                                View Details
-                              </Link>
-                              {order.trackingNumber && (
-                                <Link to={`/track/${order.trackingNumber}`} className="btn btn-outline btn-small">
-                                  <Truck size={16} />
-                                  Track
-                                </Link>
-                              )}
-                              {order.status === 'Delivered' && (
-                                <button className="btn btn-outline btn-small">
-                                  Reorder
-                                </button>
-                              )}
-                            </div>
-                          </div>
                           )
                         })}
                       </div>
@@ -1161,48 +1499,100 @@ function Dashboard() {
             {/* Settings Tab */}
             {isAuthenticated && activeTab === 'settings' && (
               <div className="dashboard-section">
-                <h2>Account Settings</h2>
-                <div className="settings-list">
-                  <div className="setting-item">
-                    <div>
-                      <h3>Email Notifications</h3>
-                      <p>Receive emails about your orders and promotions</p>
-                    </div>
-                    <label className="toggle">
-                      <input type="checkbox" defaultChecked />
-                      <span></span>
-                    </label>
-                  </div>
-                  <div className="setting-item">
-                    <div>
-                      <h3>SMS Notifications</h3>
-                      <p>Receive text messages about order updates</p>
-                    </div>
-                    <label className="toggle">
-                      <input type="checkbox" />
-                      <span></span>
-                    </label>
-                  </div>
-                  <div className="setting-item">
-                    <div>
-                      <h3>Newsletter</h3>
-                      <p>Subscribe to our newsletter for updates and offers</p>
-                    </div>
-                    <label className="toggle">
-                      <input type="checkbox" defaultChecked />
-                      <span></span>
-                    </label>
-                  </div>
+                <div className="settings-header">
+                  <h2>Account Settings</h2>
+                  <p className="settings-subtitle">Manage your notification preferences and account settings</p>
                 </div>
-                <div className="danger-zone">
-                  <h3>Danger Zone</h3>
-                  <button 
-                    className="btn btn-secondary"
-                    onClick={() => setShowDeleteModal(true)}
-                  >
-                    Delete Account
-                  </button>
-                </div>
+                {loadingPreferences ? (
+                  <div className="empty-state">
+                    <Settings size={48} />
+                    <p>Loading preferences...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="settings-list">
+                      <div className="setting-item">
+                        <div className="setting-icon-wrapper">
+                          <Mail size={24} />
+                        </div>
+                        <div className="setting-content">
+                          <h3>Email Notifications</h3>
+                          <p>Receive emails about your orders and promotions</p>
+                        </div>
+                        <label className="toggle">
+                          <input 
+                            type="checkbox" 
+                            checked={preferences.emailNotifications || false}
+                            onChange={(e) => handlePreferenceChange('emailNotifications', e.target.checked)}
+                            disabled={loadingPreferences}
+                          />
+                          <span></span>
+                        </label>
+                      </div>
+                      <div className="setting-item">
+                        <div className="setting-icon-wrapper">
+                          <MessageSquare size={24} />
+                        </div>
+                        <div className="setting-content">
+                          <h3>SMS Notifications</h3>
+                          <p>Receive text messages about order updates</p>
+                        </div>
+                        <label className="toggle">
+                          <input 
+                            type="checkbox" 
+                            checked={preferences.smsNotifications || false}
+                            onChange={(e) => handlePreferenceChange('smsNotifications', e.target.checked)}
+                            disabled={loadingPreferences}
+                          />
+                          <span></span>
+                        </label>
+                      </div>
+                      <div className="setting-item">
+                        <div className="setting-icon-wrapper">
+                          <Mail size={24} />
+                        </div>
+                        <div className="setting-content">
+                          <h3>Newsletter</h3>
+                          <p>
+                            {newsletterStatus.email 
+                              ? `Subscribe to our newsletter for updates and offers (${newsletterStatus.email})`
+                              : 'Subscribe to our newsletter for updates and offers'
+                            }
+                            {!user?.email && (
+                              <span className="setting-hint">
+                                Add an email address to your profile to subscribe
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <label className="toggle">
+                          <input 
+                            type="checkbox" 
+                            checked={preferences.newsletter || false}
+                            onChange={(e) => handlePreferenceChange('newsletter', e.target.checked)}
+                            disabled={loadingPreferences || !user?.email}
+                          />
+                          <span></span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="danger-zone">
+                      <div className="danger-zone-header">
+                        <AlertTriangle size={24} />
+                        <h3>Danger Zone</h3>
+                      </div>
+                      <p className="danger-zone-description">
+                        Once you delete your account, there is no going back. Please be certain.
+                      </p>
+                      <button 
+                        className="btn btn-danger"
+                        onClick={() => setShowDeleteModal(true)}
+                      >
+                        Delete Account
+                      </button>
+                    </div>
+                  </>
+                )}
                 <ConfirmationModal
                   isOpen={showDeleteModal}
                   onClose={() => setShowDeleteModal(false)}
@@ -1217,6 +1607,8 @@ function Dashboard() {
                   type="danger"
                 />
               </div>
+            )}
+              </>
             )}
           </div>
         </div>

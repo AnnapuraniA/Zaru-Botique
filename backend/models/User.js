@@ -48,6 +48,18 @@ const User = sequelize.define('User', {
     type: DataTypes.ARRAY(DataTypes.UUID),
     defaultValue: []
   },
+  compare: {
+    type: DataTypes.ARRAY(DataTypes.UUID),
+    defaultValue: []
+  },
+  preferences: {
+    type: DataTypes.JSONB,
+    defaultValue: {
+      emailNotifications: true,
+      smsNotifications: false,
+      newsletter: false
+    }
+  },
   status: {
     type: DataTypes.ENUM('active', 'inactive'),
     defaultValue: 'active'

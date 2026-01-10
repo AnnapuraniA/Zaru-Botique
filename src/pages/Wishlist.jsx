@@ -75,7 +75,7 @@ function Wishlist() {
   const addAllToCart = async () => {
     if (!isAuthenticated) {
       showError('Please login to add items to cart')
-      navigate('/dashboard', { state: { tab: 'login' } })
+      navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
       return
     }
 
@@ -96,7 +96,7 @@ function Wishlist() {
   const addToCart = async (productId) => {
     if (!isAuthenticated) {
       showError('Please login to add items to cart')
-      navigate('/dashboard', { state: { tab: 'login' } })
+      navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
       return
     }
 

@@ -31,7 +31,7 @@ function ProductCard({ product, compact = false }) {
     
     if (!isAuthenticated) {
       showError('Please login to add items to wishlist')
-      navigate('/dashboard', { state: { tab: 'login' } })
+      navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
       return
     }
 
@@ -68,7 +68,7 @@ function ProductCard({ product, compact = false }) {
     
     if (!isAuthenticated) {
       showError('Please login to add items to cart')
-      navigate('/dashboard', { state: { tab: 'login' } })
+      navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
       return
     }
 

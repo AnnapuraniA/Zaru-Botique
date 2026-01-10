@@ -1,7 +1,9 @@
 import express from 'express'
 import { Op } from 'sequelize'
 import NewsletterSubscriber from '../models/NewsletterSubscriber.js'
+import User from '../models/User.js'
 import { adminProtect } from '../middleware/adminAuth.js'
+import { protect } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -158,6 +160,124 @@ router.delete('/subscribers/:id', adminProtect, async (req, res) => {
     res.json({ message: 'Subscriber removed' })
   } catch (error) {
     console.error('Remove subscriber error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/newsletter/status
+// @desc    Get newsletter subscription status for logged-in user
+// @access  Private
+router.get('/status', protect, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id)
+    if (!user || !user.email) {
+      return res.json({ subscribed: false, message: 'No email address on account' })
+    }
+
+    const subscriber = await NewsletterSubscriber.findOne({
+      where: { email: user.email.toLowerCase() }
+    })
+
+    res.json({
+      subscribed: subscriber?.status === 'active' || false,
+      email: user.email
+    })
+  } catch (error) {
+    console.error('Get newsletter status error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   POST /api/newsletter/subscribe-user
+// @desc    Subscribe logged-in user to newsletter
+// @access  Private
+router.post('/subscribe-user', protect, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id)
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    if (!user.email) {
+      return res.status(400).json({ message: 'Please add an email address to your account first' })
+    }
+
+    const [subscriber, created] = await NewsletterSubscriber.findOrCreate({
+      where: { email: user.email.toLowerCase() },
+      defaults: {
+        email: user.email.toLowerCase(),
+        name: user.name || null,
+        status: 'active'
+      }
+    })
+
+    if (!created && subscriber.status === 'active') {
+      return res.json({ 
+        message: 'Already subscribed to newsletter',
+        subscriber 
+      })
+    }
+
+    if (!created && subscriber.status === 'unsubscribed') {
+      subscriber.status = 'active'
+      subscriber.subscribedAt = new Date()
+      subscriber.unsubscribedAt = null
+      await subscriber.save()
+    }
+
+    // Update user preferences
+    const preferences = user.preferences || {
+      emailNotifications: true,
+      smsNotifications: false,
+      newsletter: false
+    }
+    preferences.newsletter = true
+    await user.update({ preferences }, { fields: ['preferences'] })
+
+    res.json({ 
+      message: 'Successfully subscribed to newsletter',
+      subscriber 
+    })
+  } catch (error) {
+    console.error('Subscribe user newsletter error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   POST /api/newsletter/unsubscribe-user
+// @desc    Unsubscribe logged-in user from newsletter
+// @access  Private
+router.post('/unsubscribe-user', protect, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id)
+    if (!user || !user.email) {
+      return res.status(400).json({ message: 'No email address on account' })
+    }
+
+    const subscriber = await NewsletterSubscriber.findOne({
+      where: { email: user.email.toLowerCase() }
+    })
+
+    if (!subscriber) {
+      return res.status(404).json({ message: 'Not subscribed to newsletter' })
+    }
+
+    subscriber.status = 'unsubscribed'
+    subscriber.unsubscribedAt = new Date()
+    await subscriber.save()
+
+    // Update user preferences
+    const preferences = user.preferences || {
+      emailNotifications: true,
+      smsNotifications: false,
+      newsletter: false
+    }
+    preferences.newsletter = false
+    await user.update({ preferences }, { fields: ['preferences'] })
+
+    res.json({ message: 'Successfully unsubscribed from newsletter' })
+  } catch (error) {
+    console.error('Unsubscribe user newsletter error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

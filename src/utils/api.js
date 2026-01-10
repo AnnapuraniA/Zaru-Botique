@@ -150,6 +150,20 @@ export const authAPI = {
     apiCall('/auth/profile', {
       method: 'PUT',
       body: updates
+    }),
+  
+  changePassword: (currentPassword, newPassword) =>
+    apiCall('/auth/change-password', {
+      method: 'PUT',
+      body: { currentPassword, newPassword }
+    }),
+  
+  getPreferences: () => apiCall('/auth/preferences'),
+  
+  updatePreferences: (preferences) =>
+    apiCall('/auth/preferences', {
+      method: 'PUT',
+      body: preferences
     })
 }
 
@@ -231,7 +245,40 @@ export const ordersAPI = {
   
   getAll: () => apiCall('/orders'),
   
-  getById: (id) => apiCall(`/orders/${id}`)
+  getById: (id) => apiCall(`/orders/${id}`),
+  
+  downloadInvoice: async (id) => {
+    const token = getToken()
+    if (!token) {
+      throw new Error('Authentication required')
+    }
+    
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/invoice`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to download invoice')
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `invoice-${id}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  },
+  
+  sendInvoice: (id) =>
+    apiCall(`/orders/${id}/send-invoice`, {
+      method: 'POST'
+    })
 }
 
 // Wishlist API
@@ -250,6 +297,26 @@ export const wishlistAPI = {
     }),
   
   check: (productId) => apiCall(`/wishlist/check/${productId}`)
+}
+
+// Compare API
+export const compareAPI = {
+  getAll: () => apiCall('/compare'),
+  
+  add: (productId) =>
+    apiCall('/compare', {
+      method: 'POST',
+      body: { productId }
+    }),
+  
+  remove: (productId) =>
+    apiCall(`/compare/${productId}`, {
+      method: 'DELETE'
+    }),
+  
+  check: (productId) => apiCall(`/compare/check/${productId}`),
+  
+  getCount: () => apiCall('/compare/count')
 }
 
 // Addresses API
@@ -284,9 +351,27 @@ export const paymentAPI = {
       body: paymentData
     }),
   
+  update: (id, paymentData) =>
+    apiCall(`/payment-methods/${id}`, {
+      method: 'PUT',
+      body: paymentData
+    }),
+  
   delete: (id) =>
     apiCall(`/payment-methods/${id}`, {
       method: 'DELETE'
+    }),
+
+  createRazorpayOrder: (orderData) =>
+    apiCall('/payment-methods/razorpay/order', {
+      method: 'POST',
+      body: orderData
+    }),
+
+  verifyRazorpayPayment: (paymentData) =>
+    apiCall('/payment-methods/razorpay/verify', {
+      method: 'POST',
+      body: paymentData
     })
 }
 
@@ -344,6 +429,9 @@ export const returnsAPI = {
 
 // Newsletter API
 export const newsletterAPI = {
+  getStatus: () => apiCall('/newsletter/status'),
+  subscribeUser: () => apiCall('/newsletter/subscribe-user', { method: 'POST' }),
+  unsubscribeUser: () => apiCall('/newsletter/unsubscribe-user', { method: 'POST' }),
   subscribe: (email, name) =>
     apiCall('/newsletter/subscribe', {
       method: 'POST',

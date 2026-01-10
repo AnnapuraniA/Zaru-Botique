@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Eye, Package, Truck, CheckCircle } from 'lucide-react'
+import { Search, Eye, Package, Truck, CheckCircle, Download, Mail } from 'lucide-react'
 import { adminOrdersAPI } from '../../utils/adminApi'
 import { useToast } from '../../components/Toast/ToastContainer'
 

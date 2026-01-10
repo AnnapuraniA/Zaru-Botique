@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { X, Star, ShoppingCart, GitCompare } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { cartAPI, productsAPI } from '../utils/api'
+import { cartAPI, productsAPI, compareAPI } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
 
 function Compare() {
@@ -13,13 +13,32 @@ function Compare() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadCompareItems()
-  }, [])
+    if (isAuthenticated) {
+      loadCompareItems()
+    } else {
+      // For guests, use localStorage as fallback
+      loadGuestCompareItems()
+    }
+  }, [isAuthenticated])
 
   const loadCompareItems = async () => {
     try {
       setLoading(true)
-      // Load compare items from localStorage
+      const products = await compareAPI.getAll()
+      setCompareItems(Array.isArray(products) ? products : [])
+    } catch (err) {
+      console.error('Failed to load compare items:', err)
+      showError('Failed to load compare items')
+      setCompareItems([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadGuestCompareItems = async () => {
+    try {
+      setLoading(true)
+      // Load compare items from localStorage for guests
       const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
       
       if (compareIds.length === 0) {
@@ -47,22 +66,44 @@ function Compare() {
     }
   }
 
-  const removeFromCompare = (id) => {
-    // Remove from localStorage
-    const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
-    const updatedIds = compareIds.filter(itemId => itemId !== id)
-    localStorage.setItem('compareItems', JSON.stringify(updatedIds))
-    
-    // Update state
-    setCompareItems(items => items.filter(item => {
-      const itemId = item._id || item.id
-      return itemId !== id
-    }))
-    
-    // Dispatch event to update header count
-    window.dispatchEvent(new Event('compareUpdated'))
-    
-    success('Removed from compare')
+  const removeFromCompare = async (id) => {
+    if (!isAuthenticated) {
+      // For guests, use localStorage
+      const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
+      const updatedIds = compareIds.filter(itemId => itemId !== id)
+      localStorage.setItem('compareItems', JSON.stringify(updatedIds))
+      
+      // Update state
+      setCompareItems(items => items.filter(item => {
+        const itemId = item._id || item.id
+        return itemId !== id
+      }))
+      
+      // Dispatch event to update header count
+      window.dispatchEvent(new Event('compareUpdated'))
+      
+      success('Removed from compare')
+      return
+    }
+
+    try {
+      // Remove from backend
+      await compareAPI.remove(id)
+      
+      // Update state
+      setCompareItems(items => items.filter(item => {
+        const itemId = item._id || item.id
+        return itemId !== id
+      }))
+      
+      // Dispatch event to update header count
+      window.dispatchEvent(new Event('compareUpdated'))
+      
+      success('Removed from compare')
+    } catch (err) {
+      console.error('Failed to remove from compare:', err)
+      showError('Failed to remove from compare')
+    }
   }
 
   const comparisonFields = [
@@ -251,7 +292,7 @@ function Compare() {
                           onClick={async () => {
                             if (!isAuthenticated) {
                               showError('Please login to add items to cart')
-                              navigate('/dashboard', { state: { tab: 'login' } })
+                              navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
                               return
                             }
                             try {
@@ -281,6 +322,17 @@ function Compare() {
                 <div className="loading-spinner-compare"></div>
                 <h2>Loading...</h2>
                 <p>Fetching products to compare</p>
+              </div>
+            ) : !isAuthenticated ? (
+              <div className="empty-compare-content">
+                <div className="empty-compare-icon">
+                  <GitCompare size={64} />
+                </div>
+                <h2>Please Login to View Compare List</h2>
+                <p>Login to save products to your compare list</p>
+                <Link to="/dashboard" className="btn btn-primary btn-large">
+                  Login
+                </Link>
               </div>
             ) : (
               <div className="empty-compare-content">

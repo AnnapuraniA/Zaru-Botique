@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { X, Mail, Lock, Smartphone, User, Eye, EyeOff, UserPlus, LogIn, AlertCircle, ArrowLeft, CheckCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useAdminAuth } from '../context/AdminAuthContext'
@@ -9,6 +9,7 @@ import { authAPI } from '../utils/api'
 
 function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login: customerLogin, register, isAuthenticated: isCustomerAuth } = useAuth()
   const { login: adminLogin, isAuthenticated: isAdminAuth } = useAdminAuth()
   const { success, error: showError } = useToast()
@@ -16,13 +17,28 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
   const [mode, setMode] = useState(initialMode) // 'login', 'register', or 'forgot-password'
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
+  const [redirectPath, setRedirectPath] = useState(null) // Store the path to redirect to after login
 
-  // Update mode when initialMode changes
+  // Update mode when initialMode changes and store redirect path
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode)
+      // Store current location for redirect after login (but not if already on dashboard)
+      // Also check if there's a redirect path in location state (from navigate with state)
+      const stateRedirect = location.state?.redirectPath
+      const currentPath = location.pathname
+      
+      if (stateRedirect) {
+        setRedirectPath(stateRedirect)
+      } else if (currentPath !== '/dashboard' && currentPath !== '/admin/dashboard') {
+        // Only store if not already on dashboard pages
+        setRedirectPath(currentPath)
+      } else {
+        // Default to home if on dashboard
+        setRedirectPath('/')
+      }
     }
-  }, [initialMode, isOpen])
+  }, [initialMode, isOpen, location])
   
   const [formData, setFormData] = useState({
     loginInput: '', // Single field for both email and mobile
@@ -65,6 +81,7 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
       setShowConfirmPassword(false)
       setShowForgotPassword(false)
       setForgotPasswordSent(false)
+      setRedirectPath(null) // Reset redirect path when modal closes
     } else {
       // Reset form data when modal opens (fresh start)
       setFormData({
@@ -129,7 +146,8 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
           try {
             await customerLogin(null, input, formData.password)
             success('Login successful! Welcome back!')
-            navigate('/dashboard')
+            // Redirect to stored path or default to home
+            navigate(redirectPath || '/')
             onClose()
             return
           } catch (customerError) {
@@ -140,7 +158,8 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
         // Customer login with mobile
         await customerLogin(input, null, formData.password)
         success('Login successful! Welcome back!')
-        navigate('/dashboard')
+        // Redirect to stored path or default to home
+        navigate(redirectPath || '/')
         onClose()
       } else {
         throw new Error('Please enter a valid email or 10-digit mobile number')
@@ -208,7 +227,8 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
         formData.email || null
       )
       success('Registration successful! Welcome to Arudhra Fashions!')
-      navigate('/dashboard')
+      // Redirect to stored path or default to home
+      navigate(redirectPath || '/')
       onClose()
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.')

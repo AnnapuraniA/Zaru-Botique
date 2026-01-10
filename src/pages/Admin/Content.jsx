@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, X, Check, Package, Plus, Edit2, Trash2, Image as ImageIcon } from 'lucide-react'
 import { useToast } from '../../components/Toast/ToastContainer'
@@ -53,9 +53,7 @@ function Content() {
     description: '',
     discount: '',
     startDate: '',
-    endDate: '',
-    backgroundColor: '#ff0000',
-    textColor: '#ffffff'
+    endDate: ''
   })
 
   useEffect(() => {
@@ -390,8 +388,6 @@ function Content() {
       discount: '',
       startDate: now.toISOString().slice(0, 16),
       endDate: tomorrow.toISOString().slice(0, 16),
-      backgroundColor: '#ff0000',
-      textColor: '#ffffff'
     })
     setShowSaleStripModal(true)
   }
@@ -403,9 +399,7 @@ function Content() {
       description: saleStrip.description || '',
       discount: saleStrip.discount || '',
       startDate: saleStrip.startDate ? new Date(saleStrip.startDate).toISOString().slice(0, 16) : '',
-      endDate: saleStrip.endDate ? new Date(saleStrip.endDate).toISOString().slice(0, 16) : '',
-      backgroundColor: saleStrip.backgroundColor || '#ff0000',
-      textColor: saleStrip.textColor || '#ffffff'
+      endDate: saleStrip.endDate ? new Date(saleStrip.endDate).toISOString().slice(0, 16) : ''
     })
     setShowSaleStripModal(true)
   }
@@ -438,9 +432,7 @@ function Content() {
         description: saleStripForm.description || '',
         discount: saleStripForm.discount || '',
         startDate: saleStripForm.startDate,
-        endDate: saleStripForm.endDate,
-        backgroundColor: saleStripForm.backgroundColor,
-        textColor: saleStripForm.textColor
+        endDate: saleStripForm.endDate
       }
 
       if (editingSaleStrip) {
@@ -454,15 +446,13 @@ function Content() {
       await loadSaleStrips()
       setShowSaleStripModal(false)
       setEditingSaleStrip(null)
-      setSaleStripForm({
-        title: '',
-        description: '',
-        discount: '',
-        startDate: '',
-        endDate: '',
-        backgroundColor: '#ff0000',
-        textColor: '#ffffff'
-      })
+    setSaleStripForm({
+      title: '',
+      description: '',
+      discount: '',
+      startDate: '',
+      endDate: ''
+    })
     } catch (err) {
       console.error('Error saving sale strip:', err)
       showError('Failed to save sale strip')
@@ -942,44 +932,6 @@ function Content() {
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Background Color</label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input
-                      type="color"
-                      value={saleStripForm.backgroundColor}
-                      onChange={(e) => setSaleStripForm(prev => ({ ...prev, backgroundColor: e.target.value }))}
-                      style={{ width: '60px', height: '40px' }}
-                    />
-                    <input
-                      type="text"
-                      value={saleStripForm.backgroundColor}
-                      onChange={(e) => setSaleStripForm(prev => ({ ...prev, backgroundColor: e.target.value }))}
-                      placeholder="#ff0000"
-                      style={{ flex: 1 }}
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Text Color</label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input
-                      type="color"
-                      value={saleStripForm.textColor}
-                      onChange={(e) => setSaleStripForm(prev => ({ ...prev, textColor: e.target.value }))}
-                      style={{ width: '60px', height: '40px' }}
-                    />
-                    <input
-                      type="text"
-                      value={saleStripForm.textColor}
-                      onChange={(e) => setSaleStripForm(prev => ({ ...prev, textColor: e.target.value }))}
-                      placeholder="#ffffff"
-                      style={{ flex: 1 }}
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
             <div className="modal-footer">
               <button 

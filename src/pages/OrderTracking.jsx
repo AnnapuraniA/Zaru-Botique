@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom'
-import { Package, Truck, CheckCircle, Clock } from 'lucide-react'
+import { Package, Truck, CheckCircle, Clock, ArrowLeft, MapPin, IndianRupee, Calendar, Hash, User, Phone, Mail } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useState, useEffect } from 'react'
 import { ordersAPI } from '../utils/api'
@@ -112,110 +112,156 @@ function OrderTracking() {
   return (
     <div className="order-tracking-page">
       <div className="container">
-        <div className="order-header">
-          <h1>Order Tracking</h1>
-          <Link to={isAuthenticated ? "/dashboard" : "/"} className="btn btn-outline">
-            {isAuthenticated ? "Back to Dashboard" : "Back to Home"}
+        <div className="order-header-enhanced">
+          <Link to={isAuthenticated ? "/dashboard" : "/"} className="back-link">
+            <ArrowLeft size={20} />
+            <span>{isAuthenticated ? "Back to Dashboard" : "Back to Home"}</span>
           </Link>
+          <div className="order-header-content">
+            <div className="order-header-icon-wrapper">
+              <Package size={32} />
+            </div>
+            <div>
+              <h1>Order Tracking</h1>
+              <p className="order-header-subtitle">Track your order status and delivery</p>
+            </div>
+          </div>
         </div>
 
         <div className="order-tracking-content">
-          <div className="order-info-card">
-            <div className="order-info-header">
-              <div>
-                <h2>Order {currentOrder.id}</h2>
-                <p className="order-date">Placed on {new Date(currentOrder.date).toLocaleDateString()}</p>
+          {/* Order Info Header - Clear and Visible */}
+          <div className="order-info-header-clear">
+            <div className="order-info-item">
+              <div className="info-item-label">
+                <Hash size={16} />
+                <span>Order ID</span>
               </div>
-              <div className="order-status-badge">
+              <div className="info-item-value">{currentOrder.orderId || currentOrder.id}</div>
+            </div>
+            <div className="order-info-item">
+              <div className="info-item-label">
+                <Calendar size={16} />
+                <span>Order Date</span>
+              </div>
+              <div className="info-item-value">
+                {new Date(currentOrder.createdAt || currentOrder.date).toLocaleDateString('en-IN', { 
+                  weekday: 'short', 
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </div>
+            </div>
+            {currentOrder.tracking && (
+              <div className="order-info-item">
+                <div className="info-item-label">
+                  <Truck size={16} />
+                  <span>Tracking Number</span>
+                </div>
+                <div className="info-item-value">{currentOrder.tracking}</div>
+              </div>
+            )}
+            <div className="order-info-item">
+              <div className="info-item-label">
+                <Package size={16} />
+                <span>Status</span>
+              </div>
+              <div className={`info-item-value status-value ${currentOrder.status.toLowerCase()}`}>
                 {getStatusIcon(currentOrder.status)}
-                <span className={`status-text ${currentOrder.status.toLowerCase()}`}>
-                  {currentOrder.status}
-                </span>
+                <span>{currentOrder.status}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Horizontal Cards Layout */}
+          <div className="order-cards-horizontal">
+            {/* Order Status Card */}
+            <div className="order-card-horizontal status-card">
+              <div className="card-header-horizontal">
+                <Clock size={20} />
+                <h3>Order Status</h3>
+              </div>
+              <div className="card-content-horizontal">
+                <div className="status-timeline-compact-horizontal">
+                  {statusSteps.map((step, index) => (
+                    <div key={index} className={`status-step-compact ${step.status}`}>
+                      {step.status === 'completed' ? (
+                        <CheckCircle size={18} className="status-step-icon completed" />
+                      ) : (
+                        <div className="status-step-icon pending"></div>
+                      )}
+                      <span className="status-step-label">{step.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {currentOrder.tracking && (
-              <div className="tracking-number">
-                <strong>Tracking Number:</strong> {currentOrder.tracking}
+            {/* Order Details Card */}
+            <div className="order-card-horizontal details-card">
+              <div className="card-header-horizontal">
+                <Package size={20} />
+                <h3>Order Details</h3>
+              </div>
+              <div className="card-content-horizontal">
+                <div className="order-items-compact">
+                  {currentOrder.items?.slice(0, 3).map((item, index) => (
+                    <div key={index} className="order-item-compact">
+                      <img src={item.image} alt={item.name} />
+                      <div className="item-info-compact">
+                        <p className="item-name-compact">{item.name}</p>
+                        <span className="item-qty-compact">Qty: {item.quantity}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {currentOrder.items?.length > 3 && (
+                    <div className="more-items-compact">
+                      +{currentOrder.items.length - 3} more items
+                    </div>
+                  )}
+                </div>
+                <div className="items-total-compact">
+                  <span>{currentOrder.items?.length || 0} {currentOrder.items?.length === 1 ? 'item' : 'items'}</span>
+                </div>
+                <div className="order-total-compact">
+                  <span className="total-label-compact">Total Amount</span>
+                  <span className="total-value-compact">₹{(Number(currentOrder.total) || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Shipping Address Card */}
+            {currentOrder.shippingAddress && (
+              <div className="order-card-horizontal address-card">
+                <div className="card-header-horizontal">
+                  <MapPin size={20} />
+                  <h3>Shipping Address</h3>
+                </div>
+                <div className="card-content-horizontal">
+                  <div className="address-compact">
+                    <p className="address-name-compact">{currentOrder.shippingAddress.name}</p>
+                    <p className="address-line-compact">{currentOrder.shippingAddress.address}</p>
+                    <p className="address-city-compact">
+                      {currentOrder.shippingAddress.city}, {currentOrder.shippingAddress.state} - {currentOrder.shippingAddress.zipCode}
+                    </p>
+                    <div className="address-contact-compact">
+                      <div className="contact-item-compact">
+                        <Phone size={14} />
+                        <span>{currentOrder.shippingAddress.mobile}</span>
+                      </div>
+                      {currentOrder.shippingAddress.email && (
+                        <div className="contact-item-compact">
+                          <Mail size={14} />
+                          <span>{currentOrder.shippingAddress.email}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          <div className="status-timeline">
-            <h3>Order Status</h3>
-            <div className="timeline">
-              {statusSteps.map((step, index) => (
-                <div key={index} className={`timeline-step ${step.status}`}>
-                  <div className="timeline-marker">
-                    {step.status === 'completed' ? (
-                      <CheckCircle size={20} />
-                    ) : (
-                      <div className="timeline-dot"></div>
-                    )}
-                  </div>
-                  <div className="timeline-content">
-                    <h4>{step.label}</h4>
-                    {step.status === 'completed' && index === statusSteps.length - 1 && (
-                      <p>Your order has been delivered</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="order-details-section">
-            <h3>Order Details</h3>
-            <div className="order-items-list">
-              {currentOrder.items.map((item, index) => (
-                <div key={index} className="order-item-row">
-                  <img src={item.image} alt={item.name} />
-                  <div className="order-item-info">
-                    <h4>{item.name}</h4>
-                    <p>Quantity: {item.quantity}</p>
-                    {item.size && <p>Size: {item.size}</p>}
-                    {item.color && <p>Color: {item.color}</p>}
-                  </div>
-                  <div className="order-item-price">
-                    ₹{(item.price * item.quantity).toFixed(2)}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="order-summary-details">
-              <div className="summary-row">
-                <span>Subtotal</span>
-                <span>₹{currentOrder.subtotal?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="summary-row">
-                <span>Shipping</span>
-                <span>₹{currentOrder.shippingCost?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="summary-row">
-                <span>Tax (GST 18%)</span>
-                <span>₹{currentOrder.tax?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="summary-divider"></div>
-              <div className="summary-row total">
-                <span>Total</span>
-                <span>₹{currentOrder.total?.toFixed(2) || '0.00'}</span>
-              </div>
-            </div>
-          </div>
-
-          {currentOrder.shippingAddress && (
-            <div className="shipping-info-card">
-              <h3>Shipping Address</h3>
-              <div className="shipping-address">
-                <p><strong>{currentOrder.shippingAddress.name}</strong></p>
-                <p>{currentOrder.shippingAddress.address}</p>
-                <p>{currentOrder.shippingAddress.city}, {currentOrder.shippingAddress.state} {currentOrder.shippingAddress.zipCode}</p>
-                <p>Mobile: {currentOrder.shippingAddress.mobile}</p>
-                {currentOrder.shippingAddress.email && <p>Email: {currentOrder.shippingAddress.email}</p>}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

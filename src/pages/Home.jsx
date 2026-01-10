@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Newsletter from '../components/Newsletter/Newsletter'
 import ProductCard from '../components/ProductCard/ProductCard'
-import { bannersAPI, productsAPI, contentAPI, newArrivalsAPI, testimonialsAPI, saleStripAPI, getImageUrl } from '../utils/api'
+import { bannersAPI, productsAPI, contentAPI, newArrivalsAPI, testimonialsAPI, getImageUrl } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
 import { useDevice } from '../hooks/useDevice'
 
@@ -33,10 +33,6 @@ function Home() {
   const testimonialScrollRef = useRef(null)
   const carouselSectionRef = useRef(null)
   const [parallaxOffset, setParallaxOffset] = useState(0)
-  const [saleStrips, setSaleStrips] = useState([])
-  const [currentSaleStripIndex, setCurrentSaleStripIndex] = useState(0)
-  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
-  const saleStripIntervalRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const { error: showError } = useToast()
 
@@ -290,20 +286,6 @@ function Home() {
         setTestimonials([])
       }
 
-      // Load active sale strips
-      try {
-        const saleStripData = await saleStripAPI.getActive()
-        // Backend now returns array of active strips
-        if (Array.isArray(saleStripData) && saleStripData.length > 0) {
-          setSaleStrips(saleStripData)
-          setCurrentSaleStripIndex(0)
-        } else {
-          setSaleStrips([])
-        }
-      } catch (err) {
-        console.error('Failed to load sale strips:', err)
-        setSaleStrips([])
-      }
     } catch (err) {
       console.error('Failed to load home data:', err)
       // Don't show error toast on initial load to avoid blocking UI
@@ -322,126 +304,9 @@ function Home() {
 
 
 
-  // Auto-rotate sale strips if multiple
-  useEffect(() => {
-    if (saleStrips.length <= 1) {
-      return
-    }
-
-    if (saleStripIntervalRef.current) {
-      clearInterval(saleStripIntervalRef.current)
-    }
-
-    saleStripIntervalRef.current = setInterval(() => {
-      setCurrentSaleStripIndex((prev) => (prev + 1) % saleStrips.length)
-    }, 5000) // Rotate every 5 seconds
-
-    return () => {
-      if (saleStripIntervalRef.current) {
-        clearInterval(saleStripIntervalRef.current)
-      }
-    }
-  }, [saleStrips.length])
-
-  // Countdown timer for current sale strip
-  useEffect(() => {
-    if (saleStrips.length === 0 || !saleStrips[currentSaleStripIndex]) {
-      return
-    }
-
-    const currentStrip = saleStrips[currentSaleStripIndex]
-
-    const updateCountdown = () => {
-      const now = new Date().getTime()
-      const endDate = new Date(currentStrip.endDate).getTime()
-      const difference = endDate - now
-
-      if (difference <= 0) {
-        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 })
-        // Remove expired sale strip
-        setSaleStrips(prev => prev.filter((_, index) => index !== currentSaleStripIndex))
-        if (currentSaleStripIndex >= saleStrips.length - 1) {
-          setCurrentSaleStripIndex(0)
-        }
-        return
-      }
-
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((difference % (1000 * 60)) / 1000)
-
-      setCountdown({ days, hours, minutes, seconds })
-    }
-
-    updateCountdown()
-    const interval = setInterval(updateCountdown, 1000)
-
-    return () => clearInterval(interval)
-  }, [saleStrips, currentSaleStripIndex])
 
   return (
     <div className="home-page">
-      {/* Sale Strip */}
-      {saleStrips.length > 0 && saleStrips[currentSaleStripIndex] && (
-        <div 
-          className="sale-strip"
-          style={{
-            backgroundColor: saleStrips[currentSaleStripIndex].backgroundColor || '#ff0000',
-            color: saleStrips[currentSaleStripIndex].textColor || '#ffffff'
-          }}
-        >
-          <div className="container">
-            <div className="sale-strip-content">
-              <div className="sale-strip-text">
-                <div className="sale-strip-title-row">
-                  <h3>{saleStrips[currentSaleStripIndex].title}</h3>
-                  {saleStrips[currentSaleStripIndex].description && (
-                    <p>{saleStrips[currentSaleStripIndex].description}</p>
-                  )}
-                </div>
-                {saleStrips[currentSaleStripIndex].discount && (
-                  <span className="sale-strip-discount">{saleStrips[currentSaleStripIndex].discount}</span>
-                )}
-              </div>
-              <div className="sale-strip-countdown">
-                <div className="countdown-item">
-                  <span className="countdown-value">{String(countdown.days).padStart(2, '0')}</span>
-                  <span className="countdown-label">Days</span>
-                </div>
-                <span className="countdown-separator">:</span>
-                <div className="countdown-item">
-                  <span className="countdown-value">{String(countdown.hours).padStart(2, '0')}</span>
-                  <span className="countdown-label">Hours</span>
-                </div>
-                <span className="countdown-separator">:</span>
-                <div className="countdown-item">
-                  <span className="countdown-value">{String(countdown.minutes).padStart(2, '0')}</span>
-                  <span className="countdown-label">Mins</span>
-                </div>
-                <span className="countdown-separator">:</span>
-                <div className="countdown-item">
-                  <span className="countdown-value">{String(countdown.seconds).padStart(2, '0')}</span>
-                  <span className="countdown-label">Secs</span>
-                </div>
-              </div>
-            </div>
-            {saleStrips.length > 1 && (
-              <div className="sale-strip-indicators">
-                {saleStrips.map((_, index) => (
-                  <button
-                    key={index}
-                    className={`sale-strip-indicator ${index === currentSaleStripIndex ? 'active' : ''}`}
-                    onClick={() => setCurrentSaleStripIndex(index)}
-                    aria-label={`Go to offer ${index + 1}`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Hero Section with Banners */}
       {banners.length > 0 ? (
         <section 

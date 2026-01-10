@@ -3,20 +3,22 @@ import { Op } from 'sequelize'
 import Coupon from '../models/Coupon.js'
 import CouponUsage from '../models/CouponUsage.js'
 import { adminProtect } from '../middleware/adminAuth.js'
-import { protect } from '../middleware/auth.js'
+import { protect, optionalAuth } from '../middleware/auth.js'
 
 const router = express.Router()
 
 // @route   GET /api/coupons/available
-// @desc    Get all available coupons (public)
+// @desc    Get all available coupons (public, but filters by user usage if authenticated)
 // @access  Public
-router.get('/available', async (req, res) => {
+router.get('/available', optionalAuth, async (req, res) => {
   try {
     const { orderTotal } = req.query
+    const userId = req.user?.id // Get user ID if authenticated (optional)
     const now = new Date()
     
     console.log('Fetching available coupons at:', now.toISOString())
     console.log('Order total:', orderTotal)
+    console.log('User ID:', userId || 'Not authenticated')
 
     // First get all active coupons
     const coupons = await Coupon.findAll({
@@ -28,7 +30,18 @@ router.get('/available', async (req, res) => {
 
     console.log(`Total active coupons in DB: ${coupons.length}`)
     
-    // Filter coupons based on date validity, order total and usage limit
+    // Get user's coupon usage if authenticated
+    let userCouponUsage = []
+    if (userId) {
+      const usageRecords = await CouponUsage.findAll({
+        where: { userId },
+        attributes: ['couponId']
+      })
+      userCouponUsage = usageRecords.map(u => u.couponId)
+      console.log(`User has used ${userCouponUsage.length} coupons`)
+    }
+    
+    // Filter coupons based on date validity, order total, usage limit, and per-user usage
     const availableCoupons = coupons
       .filter(coupon => {
         console.log(`Checking coupon: ${coupon.code}`)
@@ -62,10 +75,13 @@ router.get('/available', async (req, res) => {
           }
         }
         
-        // Check usage limit
-        if (coupon.usageLimit && coupon.used >= coupon.usageLimit) {
-          console.log(`  - Rejected: Usage limit reached`)
-          return false
+        // Check per-user usage limit if user is authenticated
+        if (userId && coupon.usageLimit) {
+          const userUsageCount = userCouponUsageCounts[coupon.id] || 0
+          if (userUsageCount >= coupon.usageLimit) {
+            console.log(`  - Rejected: User has reached usage limit (${userUsageCount}/${coupon.usageLimit})`)
+            return false
+          }
         }
         
         // Check minimum purchase if orderTotal is provided
@@ -97,12 +113,13 @@ router.get('/available', async (req, res) => {
 })
 
 // @route   GET /api/coupons/validate/:code
-// @desc    Validate coupon code (public)
+// @desc    Validate coupon code (public, but checks user usage if authenticated)
 // @access  Public (but can be protected if needed)
-router.get('/validate/:code', async (req, res) => {
+router.get('/validate/:code', optionalAuth, async (req, res) => {
   try {
     const { code } = req.params
     const { orderTotal } = req.query
+    const userId = req.user?.id // Get user ID if authenticated (optional)
 
     const coupon = await Coupon.findOne({
       where: {
@@ -120,8 +137,20 @@ router.get('/validate/:code', async (req, res) => {
       return res.status(400).json({ message: 'Coupon has expired' })
     }
 
-    if (coupon.usageLimit && coupon.used >= coupon.usageLimit) {
-      return res.status(400).json({ message: 'Coupon usage limit reached' })
+    // Check per-user usage limit if user is authenticated
+    if (userId && coupon.usageLimit) {
+      const userUsageCount = await CouponUsage.count({
+        where: {
+          couponId: coupon.id,
+          userId: userId
+        }
+      })
+
+      if (userUsageCount >= coupon.usageLimit) {
+        return res.status(400).json({ 
+          message: `You have reached the usage limit for this coupon. You can use it ${coupon.usageLimit} time${coupon.usageLimit > 1 ? 's' : ''} per account.` 
+        })
+      }
     }
 
     if (orderTotal && parseFloat(orderTotal) < parseFloat(coupon.minPurchase)) {

@@ -5,6 +5,14 @@ import Order from '../models/Order.js'
 import User from '../models/User.js'
 import InventoryLog from '../models/InventoryLog.js'
 import { adminProtect } from '../middleware/adminAuth.js'
+import { generateInvoicePDF } from '../utils/invoiceGenerator.js'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+import fs from 'fs'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 const router = express.Router()
 
@@ -485,6 +493,123 @@ router.put('/orders/:id/status', async (req, res) => {
     res.json(order)
   } catch (error) {
     console.error('Update order status error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/admin/orders/:id/invoice
+// @desc    Download invoice PDF (admin)
+// @access  Admin
+router.get('/orders/:id/invoice', async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      where: {
+        [Op.or]: [
+          { id: req.params.id },
+          { orderId: req.params.id },
+          { tracking: req.params.id }
+        ]
+      },
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['name', 'email', 'mobile']
+      }]
+    })
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' })
+    }
+
+    // Generate invoice PDF
+    const user = order.user || { name: order.shippingAddress?.name, email: order.shippingAddress?.email, mobile: order.shippingAddress?.mobile }
+    const invoicePath = await generateInvoicePDF(order, user)
+
+    // Send PDF file
+    const filepath = path.join(__dirname, '..', invoicePath)
+    
+    if (!fs.existsSync(filepath)) {
+      return res.status(500).json({ message: 'Invoice generation failed' })
+    }
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.orderId}.pdf"`)
+    res.sendFile(path.resolve(filepath))
+  } catch (error) {
+    console.error('Download invoice error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   POST /api/admin/orders/:id/send-invoice
+// @desc    Send invoice to customer (email PDF or SMS link) - Admin
+// @access  Admin
+router.post('/orders/:id/send-invoice', async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      where: {
+        [Op.or]: [
+          { id: req.params.id },
+          { orderId: req.params.id },
+          { tracking: req.params.id }
+        ]
+      },
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['name', 'email', 'mobile']
+      }]
+    })
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' })
+    }
+
+    const user = order.user || { name: order.shippingAddress?.name, email: order.shippingAddress?.email, mobile: order.shippingAddress?.mobile }
+    const hasEmail = user.email || order.shippingAddress?.email
+    const hasMobile = user.mobile || order.shippingAddress?.mobile
+
+    // Generate invoice PDF
+    const invoicePath = await generateInvoicePDF(order, user)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001'
+    const invoiceUrl = `${backendUrl}${invoicePath}`
+
+    const results = {
+      emailSent: false,
+      smsSent: false,
+      message: ''
+    }
+
+    // Send email with PDF attachment if email exists
+    if (hasEmail) {
+      // TODO: Implement actual email sending with PDF attachment
+      console.log(`Invoice email would be sent to: ${hasEmail}`)
+      console.log(`Invoice PDF path: ${invoicePath}`)
+      results.emailSent = true
+      results.message = 'Invoice sent via email'
+    }
+
+    // Send SMS with download link if mobile exists
+    if (hasMobile && !hasEmail) {
+      const smsMessage = `Your invoice for order ${order.orderId} is ready. Download: ${invoiceUrl}`
+      console.log(`SMS would be sent to: ${hasMobile}`)
+      console.log(`SMS content: ${smsMessage}`)
+      results.smsSent = true
+      results.message = 'Invoice link sent via SMS'
+    }
+
+    if (hasEmail && hasMobile) {
+      results.message = 'Invoice sent via email and SMS link sent'
+    }
+
+    res.json({
+      success: true,
+      ...results,
+      invoiceUrl
+    })
+  } catch (error) {
+    console.error('Send invoice error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

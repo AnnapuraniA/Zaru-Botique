@@ -46,6 +46,11 @@ const Coupon = sequelize.define('Coupon', {
     type: DataTypes.INTEGER,
     allowNull: true
   },
+  userUsageLimit: {
+    type: DataTypes.ENUM('once', 'multiple'),
+    defaultValue: 'multiple',
+    allowNull: false
+  },
   used: {
     type: DataTypes.INTEGER,
     defaultValue: 0,

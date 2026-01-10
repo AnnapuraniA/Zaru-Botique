@@ -96,8 +96,8 @@ function Coupons() {
         maxDiscount: '',
         validFrom: '',
         validUntil: '',
-        usageLimit: '',
-        status: 'active'
+    usageLimit: '',
+    status: 'active'
       })
       await loadCoupons()
       success('Coupon code added successfully')
@@ -128,8 +128,8 @@ function Coupons() {
         maxDiscount: '',
         validFrom: '',
         validUntil: '',
-        usageLimit: '',
-        status: 'active'
+    usageLimit: '',
+    status: 'active'
       })
       await loadCoupons()
       success('Coupon updated successfully')
@@ -200,8 +200,8 @@ function Coupons() {
             maxDiscount: '',
             validFrom: '',
             validUntil: '',
-            usageLimit: '',
-            status: 'active'
+    usageLimit: '',
+    status: 'active'
           })
           setShowAddModal(true)
         }}>
@@ -336,8 +336,8 @@ function Coupons() {
                   maxDiscount: '',
                   validFrom: '',
                   validUntil: '',
-                  usageLimit: '',
-                  status: 'active'
+    usageLimit: '',
+    status: 'active'
                 })
               }}>
                 <X size={20} />
@@ -417,7 +417,7 @@ function Coupons() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Usage Limit</label>
+                  <label>Usage Limit (Per User)</label>
                   <input
                     type="number"
                     value={formData.usageLimit}
@@ -425,6 +425,7 @@ function Coupons() {
                     placeholder="Leave empty for unlimited"
                     min="1"
                   />
+                  <small>Number of times each user can use this coupon</small>
                 </div>
                 <div className="form-group">
                   <label>Status</label>

@@ -12,6 +12,7 @@ import productRoutes from './routes/productRoutes.js'
 import cartRoutes from './routes/cartRoutes.js'
 import orderRoutes from './routes/orderRoutes.js'
 import wishlistRoutes from './routes/wishlistRoutes.js'
+import compareRoutes from './routes/compareRoutes.js'
 import addressRoutes from './routes/addressRoutes.js'
 import paymentRoutes from './routes/paymentRoutes.js'
 import reviewRoutes from './routes/reviewRoutes.js'
@@ -62,6 +63,7 @@ app.use('/api/products', reviewRoutes) // Product reviews
 app.use('/api/cart', cartRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/wishlist', wishlistRoutes)
+app.use('/api/compare', compareRoutes)
 app.use('/api/addresses', addressRoutes)
 app.use('/api/payment-methods', paymentRoutes)
 app.use('/api/banners', bannerRoutes)

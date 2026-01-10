@@ -22,15 +22,26 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { type, name, address, city, state, zip, isDefault } = req.body
+    const { type, name, address, city, state, zip, zipCode, isDefault, otherDetail } = req.body
 
-    if (!name || !address || !city || !state || !zip) {
-      return res.status(400).json({ message: 'Please provide all required fields' })
+    // Support both zip and zipCode field names
+    const zipValue = zip || zipCode
+
+    if (!name || !address || !city || !state || !zipValue) {
+      return res.status(400).json({ 
+        message: 'Please provide all required fields',
+        received: { name: !!name, address: !!address, city: !!city, state: !!state, zip: !!zipValue }
+      })
     }
 
     const user = await User.findByPk(req.user.id)
     
-    const addresses = user.addresses || []
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+    
+    // Create a new array instead of mutating the existing one
+    const existingAddresses = Array.isArray(user.addresses) ? [...user.addresses] : []
     const newAddress = {
       id: `addr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: type || 'Home',
@@ -38,25 +49,39 @@ router.post('/', protect, async (req, res) => {
       address,
       city,
       state,
-      zip,
-      isDefault: isDefault || (addresses.length === 0)
+      zip: zipValue,
+      isDefault: isDefault !== undefined ? isDefault : (existingAddresses.length === 0),
+      ...(type === 'Other' && otherDetail && { otherDetail })
     }
 
     // If this is set as default, unset other defaults
-    if (newAddress.isDefault) {
-      addresses.forEach(addr => {
-        addr.isDefault = false
-      })
-    }
+    const updatedAddresses = existingAddresses.map(addr => ({
+      ...addr,
+      isDefault: newAddress.isDefault ? false : addr.isDefault
+    }))
+    
+    // Add the new address
+    updatedAddresses.push(newAddress)
+    
+    console.log('Updating addresses. Current count:', existingAddresses.length, 'New count:', updatedAddresses.length)
+    
+    // Use update method for JSONB fields to ensure Sequelize properly handles the change
+    await user.update(
+      { addresses: updatedAddresses },
+      { fields: ['addresses'] }
+    )
 
-    addresses.push(newAddress)
-    user.addresses = addresses
-    await user.save()
+    // Reload user to get fresh data from database
+    await user.reload()
 
-    res.status(201).json(user.addresses)
+    console.log('Address added successfully. User addresses count:', user.addresses?.length || 0)
+    console.log('Addresses data:', JSON.stringify(user.addresses, null, 2))
+
+    res.status(201).json(user.addresses || [])
   } catch (error) {
     console.error('Add address error:', error)
-    res.status(500).json({ message: 'Server error' })
+    console.error('Error details:', error.message, error.stack)
+    res.status(500).json({ message: 'Server error', error: error.message })
   }
 })
 
@@ -65,11 +90,12 @@ router.post('/', protect, async (req, res) => {
 // @access  Private
 router.put('/:id', protect, async (req, res) => {
   try {
-    const { type, name, address, city, state, zip, isDefault } = req.body
+    const { type, name, address, city, state, zip, isDefault, otherDetail } = req.body
     const user = await User.findByPk(req.user.id)
 
-    const addresses = user.addresses || []
-    const addressIndex = addresses.findIndex(
+    // Create a new array instead of mutating
+    const existingAddresses = Array.isArray(user.addresses) ? [...user.addresses] : []
+    const addressIndex = existingAddresses.findIndex(
       addr => addr.id === req.params.id
     )
 
@@ -77,28 +103,46 @@ router.put('/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'Address not found' })
     }
 
-    // Update address fields
-    if (type) addresses[addressIndex].type = type
-    if (name) addresses[addressIndex].name = name
-    if (address) addresses[addressIndex].address = address
-    if (city) addresses[addressIndex].city = city
-    if (state) addresses[addressIndex].state = state
-    if (zip) addresses[addressIndex].zip = zip
-
-    // Handle default address
-    if (isDefault !== undefined) {
-      if (isDefault) {
-        // Unset other defaults
-        addresses.forEach((addr, idx) => {
-          if (idx !== addressIndex) addr.isDefault = false
-        })
-      }
-      addresses[addressIndex].isDefault = isDefault
+    // Create updated address object
+    const updatedAddress = {
+      ...existingAddresses[addressIndex],
+      ...(type && { type }),
+      ...(name && { name }),
+      ...(address && { address }),
+      ...(city && { city }),
+      ...(state && { state }),
+      ...(zip && { zip }),
+      ...(isDefault !== undefined && { isDefault }),
+      ...(type === 'Other' && otherDetail !== undefined ? { otherDetail } : type !== 'Other' ? { otherDetail: undefined } : {})
+    }
+    
+    // Remove otherDetail if type is not Other
+    if (updatedAddress.type !== 'Other' && updatedAddress.otherDetail) {
+      delete updatedAddress.otherDetail
     }
 
-    user.addresses = addresses
-    await user.save()
-    res.json(user.addresses)
+    // Create new array with updated address
+    const updatedAddresses = existingAddresses.map((addr, idx) => {
+      if (idx === addressIndex) {
+        return updatedAddress
+      }
+      // If setting as default, unset others
+      if (isDefault && addr.isDefault) {
+        return { ...addr, isDefault: false }
+      }
+      return addr
+    })
+
+    // Use update method for JSONB fields
+    await user.update(
+      { addresses: updatedAddresses },
+      { fields: ['addresses'] }
+    )
+    
+    // Reload user to get fresh data
+    await user.reload()
+    
+    res.json(user.addresses || [])
   } catch (error) {
     console.error('Update address error:', error)
     res.status(500).json({ message: 'Server error' })
@@ -112,14 +156,24 @@ router.delete('/:id', protect, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id)
     
-    const addresses = (user.addresses || []).filter(
+    // Create a new array instead of mutating
+    const existingAddresses = Array.isArray(user.addresses) ? [...user.addresses] : []
+    const updatedAddresses = existingAddresses.filter(
       addr => addr.id !== req.params.id
     )
     
-    user.addresses = addresses
-    await user.save()
+    console.log('Deleting address. Current count:', existingAddresses.length, 'New count:', updatedAddresses.length)
     
-    res.json({ message: 'Address deleted', addresses: user.addresses })
+    // Use update method for JSONB fields
+    await user.update(
+      { addresses: updatedAddresses },
+      { fields: ['addresses'] }
+    )
+    
+    // Reload user to get fresh data
+    await user.reload()
+    
+    res.json({ message: 'Address deleted', addresses: user.addresses || [] })
   } catch (error) {
     console.error('Delete address error:', error)
     res.status(500).json({ message: 'Server error' })

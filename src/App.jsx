@@ -4,7 +4,7 @@ import { AuthProvider } from './context/AuthContext'
 import { AdminAuthProvider } from './context/AdminAuthContext'
 import { ToastProvider } from './components/Toast/ToastContainer'
 import { LoginModalProvider, useLoginModal } from './context/LoginModalContext'
-import { Header, Footer } from './components/Layout'
+import { Header, Footer, SaleStrip } from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoginModal from './components/LoginModal'
 import Home from './pages/Home'
@@ -44,6 +44,7 @@ function PublicLayout({ children }) {
   
   return (
     <div className="App">
+      <SaleStrip />
       <Header />
       <main>{children}</main>
       <Footer />

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Heart, ShoppingCart, Star, Share2, Minus, Plus, ChevronLeft, ChevronRight, Check, Package, Truck, RotateCcw, Shield, Instagram, MessageCircle, GitCompare, Edit2, Trash2, X } from 'lucide-react'
 import ProductCard from '../components/ProductCard/ProductCard'
 import { useToast } from '../components/Toast/ToastContainer'
-import { productsAPI, cartAPI, wishlistAPI, authAPI } from '../utils/api'
+import { productsAPI, cartAPI, wishlistAPI, compareAPI, authAPI } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 
 function ProductDetail() {
@@ -174,7 +174,7 @@ function ProductDetail() {
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
       showError('Please login to add items to cart')
-      navigate('/dashboard', { state: { tab: 'login' } })
+      navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
       return
     }
     
@@ -203,7 +203,7 @@ function ProductDetail() {
   const handleToggleWishlist = async () => {
     if (!isAuthenticated) {
       showError('Please login to add items to wishlist')
-      navigate('/dashboard', { state: { tab: 'login' } })
+      navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
       return
     }
     
@@ -238,11 +238,23 @@ function ProductDetail() {
 
   // Check if product is in compare list
   useEffect(() => {
-    if (id) {
-      const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
-      setIsInCompare(compareIds.includes(id))
+    const checkCompareStatus = async () => {
+      if (id && isAuthenticated) {
+        try {
+          const response = await compareAPI.check(id)
+          setIsInCompare(response.isInCompare || false)
+        } catch (err) {
+          console.error('Failed to check compare status:', err)
+          setIsInCompare(false)
+        }
+      } else if (id && !isAuthenticated) {
+        // For guests, use localStorage as fallback
+        const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
+        setIsInCompare(compareIds.includes(id))
+      }
     }
-  }, [id])
+    checkCompareStatus()
+  }, [id, isAuthenticated])
 
   const handleSubmitReview = async () => {
     if (!isAuthenticated) {
@@ -384,29 +396,37 @@ function ProductDetail() {
     }
   }
 
-  const handleToggleCompare = () => {
-    const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
-    
-    if (isInCompare) {
-      // Remove from compare
-      const updatedIds = compareIds.filter(itemId => itemId !== id)
-      localStorage.setItem('compareItems', JSON.stringify(updatedIds))
-      setIsInCompare(false)
-      // Dispatch event to update header count
-      window.dispatchEvent(new Event('compareUpdated'))
-      success('Removed from compare')
-    } else {
-      // Add to compare (max 4 items)
-      if (compareIds.length >= 4) {
-        showError('You can compare up to 4 products at a time')
-        return
+  const handleToggleCompare = async () => {
+    if (!isAuthenticated) {
+      showError('Please login to add items to compare')
+      navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
+      return
+    }
+
+    try {
+      if (isInCompare) {
+        // Remove from compare
+        await compareAPI.remove(id)
+        setIsInCompare(false)
+        // Dispatch event to update header count
+        window.dispatchEvent(new Event('compareUpdated'))
+        success('Removed from compare')
+      } else {
+        // Add to compare (max 4 items handled by backend)
+        await compareAPI.add(id)
+        setIsInCompare(true)
+        // Dispatch event to update header count
+        window.dispatchEvent(new Event('compareUpdated'))
+        success('Added to compare')
       }
-      const updatedIds = [...compareIds, id]
-      localStorage.setItem('compareItems', JSON.stringify(updatedIds))
-      setIsInCompare(true)
-      // Dispatch event to update header count
-      window.dispatchEvent(new Event('compareUpdated'))
-      success('Added to compare')
+    } catch (err) {
+      console.error('Failed to update compare:', err)
+      const errorMessage = err.message || 'Failed to update compare'
+      showError(errorMessage)
+      // If unauthorized, might need to re-login
+      if (errorMessage.includes('authorized') || errorMessage.includes('401')) {
+        showError('Session expired. Please login again.')
+      }
     }
   }
 

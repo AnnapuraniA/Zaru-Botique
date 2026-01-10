@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { cartAPI } from '../utils/api'
+import { cartAPI, compareAPI } from '../utils/api'
 
 /**
  * Shared hook for header data (cart count, compare count, etc.)
@@ -69,9 +69,20 @@ export function useHeaderData() {
 
   // Load compare count
   useEffect(() => {
-    const loadCompareCount = () => {
-      const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
-      setCompareCount(compareIds.length)
+    const loadCompareCount = async () => {
+      if (isAuthenticated) {
+        try {
+          const response = await compareAPI.getCount()
+          setCompareCount(response.count || 0)
+        } catch (err) {
+          console.error('Failed to load compare count:', err)
+          setCompareCount(0)
+        }
+      } else {
+        // For guests, use localStorage as fallback
+        const compareIds = JSON.parse(localStorage.getItem('compareItems') || '[]')
+        setCompareCount(compareIds.length)
+      }
     }
     
     loadCompareCount()
@@ -84,15 +95,11 @@ export function useHeaderData() {
     window.addEventListener('storage', handleCompareUpdate)
     window.addEventListener('compareUpdated', handleCompareUpdate)
     
-    // Also check periodically for changes (since localStorage events don't fire in same tab)
-    const interval = setInterval(loadCompareCount, 1000)
-    
     return () => {
       window.removeEventListener('storage', handleCompareUpdate)
       window.removeEventListener('compareUpdated', handleCompareUpdate)
-      clearInterval(interval)
     }
-  }, [])
+  }, [isAuthenticated])
 
   // Sticky header on scroll
   useEffect(() => {

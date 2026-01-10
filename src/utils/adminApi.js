@@ -193,6 +193,39 @@ export const adminOrdersAPI = {
     apiCall(`/admin/orders/${id}/status`, {
       method: 'PUT',
       body: { status }
+    }),
+  
+  downloadInvoice: async (id) => {
+    const token = getAdminToken()
+    if (!token) {
+      throw new Error('Admin authentication required')
+    }
+    
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
+    const response = await fetch(`${API_BASE_URL}/admin/orders/${id}/invoice`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to download invoice')
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `invoice-${id}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  },
+  
+  sendInvoice: (id) =>
+    apiCall(`/admin/orders/${id}/send-invoice`, {
+      method: 'POST'
     })
 }
 
