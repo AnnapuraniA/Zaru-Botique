@@ -6,6 +6,8 @@ import User from '../models/User.js'
 import InventoryLog from '../models/InventoryLog.js'
 import { adminProtect } from '../middleware/adminAuth.js'
 import { generateInvoicePDF } from '../utils/invoiceGenerator.js'
+import { sendEmailWithPDF } from '../services/emailService.js'
+import { sendInvoiceSMS } from '../services/smsService.js'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
@@ -583,24 +585,52 @@ router.post('/orders/:id/send-invoice', async (req, res) => {
 
     // Send email with PDF attachment if email exists
     if (hasEmail) {
-      // TODO: Implement actual email sending with PDF attachment
-      console.log(`Invoice email would be sent to: ${hasEmail}`)
-      console.log(`Invoice PDF path: ${invoicePath}`)
-      results.emailSent = true
-      results.message = 'Invoice sent via email'
+      const emailResult = await sendEmailWithPDF({
+        to: hasEmail,
+        subject: `Invoice for Order ${order.orderId} - Arudhra Fashions`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">Invoice for Order ${order.orderId}</h2>
+            <p>Dear ${user.name || 'Customer'},</p>
+            <p>Please find attached your invoice for order <strong>${order.orderId}</strong>.</p>
+            <p><strong>Order Total:</strong> ₹${parseFloat(order.total || 0).toFixed(2)}</p>
+            <p>Thank you for shopping with Arudhra Fashions!</p>
+          </div>
+        `,
+        pdfPath: invoicePath,
+        pdfName: `invoice-${order.orderId}.pdf`
+      })
+      
+      results.emailSent = emailResult.success
+      if (emailResult.success) {
+        results.message = 'Invoice sent via email'
+      } else {
+        results.message = emailResult.message || 'Failed to send email'
+      }
     }
 
     // Send SMS with download link if mobile exists
     if (hasMobile && !hasEmail) {
-      const smsMessage = `Your invoice for order ${order.orderId} is ready. Download: ${invoiceUrl}`
-      console.log(`SMS would be sent to: ${hasMobile}`)
-      console.log(`SMS content: ${smsMessage}`)
-      results.smsSent = true
-      results.message = 'Invoice link sent via SMS'
+      const smsResult = await sendInvoiceSMS(hasMobile, order.orderId, invoiceUrl)
+      results.smsSent = smsResult.success
+      if (smsResult.success) {
+        results.message = 'Invoice link sent via SMS'
+      } else {
+        results.message = smsResult.message || 'Failed to send SMS'
+      }
     }
 
+    // Send both email and SMS if both are available
     if (hasEmail && hasMobile) {
-      results.message = 'Invoice sent via email and SMS link sent'
+      const smsResult = await sendInvoiceSMS(hasMobile, order.orderId, invoiceUrl)
+      results.smsSent = smsResult.success
+      if (results.emailSent && smsResult.success) {
+        results.message = 'Invoice sent via email and SMS link sent'
+      } else if (results.emailSent) {
+        results.message = 'Invoice sent via email (SMS failed)'
+      } else if (smsResult.success) {
+        results.message = 'Invoice link sent via SMS (Email failed)'
+      }
     }
 
     res.json({

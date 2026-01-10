@@ -5,6 +5,8 @@ import User from '../models/User.js'
 import Product from '../models/Product.js'
 import { generateToken } from '../utils/generateToken.js'
 import { protect } from '../middleware/auth.js'
+import { sendPasswordResetEmail } from '../services/emailService.js'
+import { sendPasswordResetSMS } from '../services/smsService.js'
 
 const router = express.Router()
 
@@ -164,24 +166,43 @@ router.post('/forgot-password', async (req, res) => {
     const resetToken = crypto.randomBytes(32).toString('hex')
     
     // TODO: In production, store resetToken in database with expiry time
-    // TODO: Send email/SMS with reset link
-    // For now, we'll just log it and return success
-    console.log(`Password reset requested for ${isEmail ? 'email' : 'mobile'}: ${emailOrMobile}`)
-    console.log(`Reset token (for development): ${resetToken}`)
-    console.log(`Reset link would be: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`)
+    // For now, we'll send the reset instructions via email or SMS
+    
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`
+    
+    // Send reset instructions via email or SMS
+    let sendResult = null
+    if (isEmail && user.email) {
+      // Send email with reset link
+      sendResult = await sendPasswordResetEmail(user.email, resetToken, user.name)
+    } else if (isMobile && user.mobile) {
+      // Generate OTP for SMS (6 digits)
+      const otp = Math.floor(100000 + Math.random() * 900000).toString()
+      // For SMS, we'll use OTP instead of token link (more mobile-friendly)
+      sendResult = await sendPasswordResetSMS(user.mobile, otp)
+      
+      // In development, also log the reset link
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Password reset OTP sent to mobile: ${user.mobile}`)
+        console.log(`Reset OTP (for development): ${otp}`)
+        console.log(`Reset link would be: ${resetLink}`)
+      }
+    }
 
-    // In production, implement actual email/SMS sending here
-    // Example email content:
-    // Subject: Reset Your Password - Arudhra Fashions
-    // Body: Click this link to reset your password: [reset link]
-    // Or SMS: Your password reset code is: [code]
+    // Log for development/debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Password reset requested for ${isEmail ? 'email' : 'mobile'}: ${emailOrMobile}`)
+      console.log(`Reset token (for development): ${resetToken}`)
+      console.log(`Reset link: ${resetLink}`)
+    }
 
     res.json({ 
       message: 'Password reset instructions have been sent to your email/mobile',
       // In development, include token for testing (remove in production)
       ...(process.env.NODE_ENV === 'development' && { 
         resetToken,
-        resetLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`
+        resetLink
       })
     })
   } catch (error) {

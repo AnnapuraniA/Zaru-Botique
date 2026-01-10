@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp, GitCompare } from 'lucide-react'
+import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp, GitCompare, Menu, X, ChevronRight, Sparkles } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useHeaderData } from '../../hooks/useHeaderData'
@@ -33,7 +33,11 @@ function HeaderMobile() {
   }, [])
 
   const toggleCategory = (categorySlug) => {
-    setExpandedCategory(expandedCategory === categorySlug ? null : categorySlug)
+    if (expandedCategory === categorySlug) {
+      setExpandedCategory(null)
+    } else {
+      setExpandedCategory(categorySlug)
+    }
   }
 
   const handleCategoryClick = (categorySlug) => {
@@ -76,18 +80,16 @@ function HeaderMobile() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isSearchExpanded])
 
-  // Close categories when clicking outside (for both home and other pages)
+  // Prevent body scroll when bottom sheet is open
   useEffect(() => {
-    if (!isHomeCategoriesOpen) return
-
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('.main-nav') && !e.target.closest('.categories-arrow-btn') && !e.target.closest('.categories-arrow-container')) {
-        setIsHomeCategoriesOpen(false)
-      }
+    if (isHomeCategoriesOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
     }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.body.style.overflow = ''
+    }
   }, [isHomeCategoriesOpen])
 
   const handleSearch = (e) => {
@@ -106,57 +108,32 @@ function HeaderMobile() {
 
   return (
     <>
+      {/* Backdrop overlay when bottom sheet is open */}
+      {isHomeCategoriesOpen && (
+        <div 
+          className="categories-bottom-sheet-backdrop"
+          onClick={() => setIsHomeCategoriesOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      
       <div className={`header-wrapper ${!isHomePage ? 'header-footer-style' : ''}`}>
         <header className={`header header-mobile ${!isHomePage ? 'header-footer-style' : ''} ${isSticky ? 'sticky' : ''} ${isHomePage ? 'home-header' : ''}`}>
           <div className="container">
             <div className={`header-content ${isHomePage ? 'home-header-content' : 'other-page-header-content'}`}>
+              {/* Menu button for categories */}
+              <button 
+                className="mobile-menu-btn"
+                onClick={() => setIsHomeCategoriesOpen(!isHomeCategoriesOpen)}
+                aria-label="Open categories menu"
+                title="Categories"
+              >
+                {isHomeCategoriesOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+
               <Link to="/" className="brand-name">
                 Arudhra Fashions
               </Link>
-              
-              {/* Categories - Hidden by default on mobile, shown when arrow clicked */}
-              <nav className={`main-nav ${isHomePage ? 'home-nav' : 'other-page-nav'} ${isHomePage && isHomeCategoriesOpen ? 'home-categories-open' : ''} ${!isHomePage && isHomeCategoriesOpen ? 'other-page-categories-open' : ''}`}>
-                {categories.map((category) => (
-                  <div 
-                    key={category.id} 
-                    className={`nav-category ${expandedCategory === category.slug ? 'expanded' : ''}`}
-                  >
-                    <div className="nav-category-header">
-                      <button
-                        className="nav-category-btn"
-                        onClick={() => toggleCategory(category.slug)}
-                      >
-                        {category.name}
-                        {expandedCategory === category.slug ? (
-                          <ChevronUp size={18} />
-                        ) : (
-                          <ChevronDown size={18} />
-                        )}
-                      </button>
-                    </div>
-                    
-                    {expandedCategory === category.slug && (
-                      <div className="nav-subcategories">
-                        <button
-                          className="nav-subcategory-item main-category-link"
-                          onClick={() => handleCategoryClick(category.slug)}
-                        >
-                          View All {category.name}
-                        </button>
-                        {(category.subcategories || []).map((subcategory) => (
-                          <button
-                            key={subcategory.id}
-                            className="nav-subcategory-item"
-                            onClick={() => handleSubcategoryClick(category.slug, subcategory.slug)}
-                          >
-                            {subcategory.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </nav>
 
               <div className="header-actions">
                 <div className="search-wrapper">
@@ -198,7 +175,7 @@ function HeaderMobile() {
                     <Link to="/cart" className="icon-btn" title="Shopping Cart">
                       <ShoppingCart size={20} />
                       {cartCount > 0 && (
-                        <span className="badge show">{cartCount > 99 ? '99+' : cartCount}</span>
+                        <span className="badge show"></span>
                       )}
                     </Link>
                   </>
@@ -206,7 +183,7 @@ function HeaderMobile() {
                 <Link to="/compare" className="icon-btn" title="Compare Products">
                   <GitCompare size={20} />
                   {compareCount > 0 && (
-                    <span className="badge show">{compareCount > 4 ? '4+' : compareCount}</span>
+                    <span className="badge show"></span>
                   )}
                 </Link>
                 {isAuthenticated ? (
@@ -226,15 +203,84 @@ function HeaderMobile() {
             </div>
           </div>
         </header>
-        {/* Arrow button for categories - on mobile for both home and other pages */}
-        <div className="categories-arrow-container">
+      </div>
+
+      {/* Bottom Sheet for Categories */}
+      <div className={`categories-bottom-sheet ${isHomeCategoriesOpen ? 'open' : ''}`}>
+        <div className="categories-bottom-sheet-header">
+          <h2>Categories</h2>
           <button 
-            className="categories-arrow-btn"
-            onClick={() => setIsHomeCategoriesOpen(!isHomeCategoriesOpen)}
-            aria-label="Toggle categories"
+            className="categories-bottom-sheet-close"
+            onClick={() => setIsHomeCategoriesOpen(false)}
+            aria-label="Close categories"
           >
-            {isHomeCategoriesOpen ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+            <X size={24} />
           </button>
+        </div>
+        
+        <div className="categories-bottom-sheet-content">
+          {categories.map((category) => {
+            const isExpanded = expandedCategory === category.slug
+            return (
+              <div 
+                key={category.id} 
+                className={`category-item ${isExpanded ? 'expanded' : ''}`}
+              >
+                <button
+                  className="category-item-header"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    toggleCategory(category.slug)
+                  }}
+                  type="button"
+                >
+                  <span className="category-name">{category.name}</span>
+                  <ChevronDown className={`category-chevron ${isExpanded ? 'expanded' : ''}`} size={20} />
+                </button>
+                
+                {/* Always render subcategories container for smooth animations */}
+                <div className={`category-subcategories ${isExpanded ? 'expanded' : ''}`}>
+                  <div className="subcategory-header-section">
+                    <button
+                      className="subcategory-item view-all-btn"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleCategoryClick(category.slug)
+                      }}
+                      type="button"
+                    >
+                      <div className="view-all-content">
+                        <Sparkles size={18} className="view-all-icon" />
+                        <span>View All {category.name}</span>
+                      </div>
+                      <ChevronRight size={18} className="view-all-arrow" />
+                    </button>
+                  </div>
+                  
+                  <div className="subcategory-list">
+                    {(category.subcategories || []).map((subcategory, index) => (
+                      <button
+                        key={subcategory.id}
+                        className="subcategory-item"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleSubcategoryClick(category.slug, subcategory.slug)
+                        }}
+                        type="button"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        <span className="subcategory-name">{subcategory.name}</span>
+                        <ChevronRight size={18} className="subcategory-arrow" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </>

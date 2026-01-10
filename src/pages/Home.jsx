@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Newsletter from '../components/Newsletter/Newsletter'
 import ProductCard from '../components/ProductCard/ProductCard'
+import { HeroBanner } from '../components/HeroBanner'
+import { NewArrivalsCarousel } from '../components/NewArrivalsCarousel'
 import { bannersAPI, productsAPI, contentAPI, newArrivalsAPI, testimonialsAPI, getImageUrl } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
 import { useDevice } from '../hooks/useDevice'
@@ -50,15 +51,7 @@ function Home() {
     }
   }, [])
 
-  // Auto-rotate banners
-  useEffect(() => {
-    if (banners.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentBannerIndex((prev) => (prev + 1) % banners.length)
-      }, 5000)
-      return () => clearInterval(interval)
-    }
-  }, [banners.length])
+  // Note: Auto-rotate banners is now handled in HeroBanner components
 
   // Auto-rotate new arrivals (3 seconds)
   useEffect(() => {
@@ -294,6 +287,7 @@ function Home() {
     }
   }
 
+  // Banner navigation handlers (for web view)
   const nextBanner = () => {
     setCurrentBannerIndex((prev) => (prev + 1) % banners.length)
   }
@@ -309,76 +303,13 @@ function Home() {
     <div className="home-page">
       {/* Hero Section with Banners */}
       {banners.length > 0 ? (
-        <section 
-          className={`hero-banner ${isMobile ? 'hero-mobile' : 'hero-web'}`}
-          style={!isMobile && bannerHeights[banners[currentBannerIndex]?.id] ? {
-            height: `${bannerHeights[banners[currentBannerIndex].id]}px`
-          } : {}}
-        >
-          <div className="banner-slider">
-            {banners.map((banner, index) => {
-              const imageUrl = getImageUrl(banner.image)
-              const ariaLabel = banner.title + (banner.subtitle ? ` - ${banner.subtitle}` : '')
-              return (
-                <div
-                  key={banner.id}
-                  className={`banner-slide ${index === currentBannerIndex ? 'active' : ''}`}
-                  role="img"
-                  aria-label={ariaLabel}
-                >
-                  <img 
-                    src={imageUrl} 
-                    alt={ariaLabel}
-                    loading={index === 0 ? "eager" : "lazy"}
-                    onLoad={(e) => {
-                      if (!isMobile && !bannerHeights[banner.id]) {
-                        const img = e.target
-                        const aspectRatio = img.naturalWidth / img.naturalHeight
-                        const containerWidth = window.innerWidth
-                        const calculatedHeight = containerWidth / aspectRatio
-                        // Allow up to 95vh for tall images, minimum 500px
-                        const maxHeight = window.innerHeight * 0.95
-                        const minHeight = 500
-                        const finalHeight = Math.max(minHeight, Math.min(calculatedHeight, maxHeight))
-                        setBannerHeights(prev => ({ ...prev, [banner.id]: finalHeight }))
-                      }
-                    }}
-                  />
-                  {banner.link ? (
-                    <Link 
-                      to={banner.link} 
-                      className="banner-link-overlay"
-                      aria-label={`${ariaLabel} - Click to view`}
-                    >
-                      <span className="sr-only">{ariaLabel}</span>
-                    </Link>
-                  ) : (
-                    <span className="sr-only">{ariaLabel}</span>
-                  )}
-                </div>
-              )
-            })}
-            {banners.length > 1 && (
-              <>
-                <button className="banner-nav banner-nav-prev" onClick={prevBanner}>
-                  <ChevronLeft size={24} />
-                </button>
-                <button className="banner-nav banner-nav-next" onClick={nextBanner}>
-                  <ChevronRight size={24} />
-                </button>
-                <div className="banner-indicators">
-                  {banners.map((_, index) => (
-                    <button
-                      key={index}
-                      className={`banner-indicator ${index === currentBannerIndex ? 'active' : ''}`}
-                      onClick={() => setCurrentBannerIndex(index)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </section>
+        <HeroBanner 
+          banners={banners}
+          bannerHeights={bannerHeights}
+          currentBannerIndex={currentBannerIndex}
+          setCurrentBannerIndex={setCurrentBannerIndex}
+          setBannerHeights={setBannerHeights}
+        />
       ) : (
         <section className={`hero ${isMobile ? 'hero-mobile' : 'hero-web'}`}>
           <div className="hero-content">
@@ -415,72 +346,18 @@ function Home() {
 
       {/* New Arrivals Carousel */}
       {newArrivals.length >= 5 && (
-        <section 
+        <div 
           ref={carouselSectionRef}
-          className="new-arrivals-carousel-section"
           style={{
             transform: `translateY(${parallaxOffset}px)`
           }}
         >
-          <div className="container">
-            <h2>New Arrivals</h2>
-            <p className="new-arrivals-subtitle">Curated Collection Just For You</p>
-            <div className="new-arrivals-carousel">
-              {newArrivals.map((arrival, index) => {
-                // Calculate relative position from current index
-                const total = newArrivals.length
-                let relativeIndex = index - currentArrivalIndex
-                
-                // Handle wrapping for infinite rotation
-                if (relativeIndex > total / 2) {
-                  relativeIndex -= total
-                } else if (relativeIndex < -total / 2) {
-                  relativeIndex += total
-                }
-                
-                // Determine position class
-                let positionClass = 'hidden'
-                if (relativeIndex === 0) {
-                  positionClass = 'center'
-                } else if (relativeIndex === -2 || relativeIndex === total - 2) {
-                  positionClass = 'left-2'
-                } else if (relativeIndex === -1 || relativeIndex === total - 1) {
-                  positionClass = 'left-1'
-                } else if (relativeIndex === 1 || relativeIndex === -(total - 1)) {
-                  positionClass = 'right-1'
-                } else if (relativeIndex === 2 || relativeIndex === -(total - 2)) {
-                  positionClass = 'right-2'
-                }
-                
-                return (
-                  <div
-                    key={arrival.id}
-                    className={`arrival-slide ${positionClass}`}
-                  >
-                    <div className="arrival-slide-content">
-                      <img 
-                        src={getImageUrl(arrival.image)} 
-                        alt={arrival.title}
-                      />
-                      <div className="arrival-slide-info">
-                        <h3>{arrival.title}</h3>
-                        {arrival.description && (
-                          <p>{arrival.description}</p>
-                        )}
-                        <div className="arrival-slide-price">
-                          <span className="current-price">₹{parseFloat(arrival.price).toLocaleString()}</span>
-                          {arrival.originalPrice && parseFloat(arrival.originalPrice) > parseFloat(arrival.price) && (
-                            <span className="original-price">₹{parseFloat(arrival.originalPrice).toLocaleString()}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </section>
+          <NewArrivalsCarousel 
+            newArrivals={newArrivals}
+            currentArrivalIndex={currentArrivalIndex}
+            setCurrentArrivalIndex={setCurrentArrivalIndex}
+          />
+        </div>
       )}
 
       {/* New Arrivals */}

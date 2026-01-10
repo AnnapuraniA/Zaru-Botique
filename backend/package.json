@@ -32,10 +32,12 @@
     "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "nodemailer": "^6.10.1",
     "pdfkit": "^0.17.2",
     "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^6.35.2"
+    "sequelize": "^6.35.2",
+    "twilio": "^4.23.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

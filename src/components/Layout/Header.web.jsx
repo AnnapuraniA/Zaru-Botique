@@ -181,7 +181,7 @@ function HeaderWeb() {
                     <Link to="/cart" className="icon-btn" title="Shopping Cart">
                       <ShoppingCart size={20} />
                       {cartCount > 0 && (
-                        <span className="badge show">{cartCount > 99 ? '99+' : cartCount}</span>
+                        <span className="badge show"></span>
                       )}
                     </Link>
                   </>
@@ -189,7 +189,7 @@ function HeaderWeb() {
                 <Link to="/compare" className="icon-btn" title="Compare Products">
                   <GitCompare size={20} />
                   {compareCount > 0 && (
-                    <span className="badge show">{compareCount > 4 ? '4+' : compareCount}</span>
+                    <span className="badge show"></span>
                   )}
                 </Link>
                 {isAuthenticated ? (
