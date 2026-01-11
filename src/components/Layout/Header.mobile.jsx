@@ -1,9 +1,10 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp, GitCompare, Menu, X, ChevronRight, Sparkles } from 'lucide-react'
+import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp, GitCompare, Menu, X, ChevronRight, Sparkles, Coins } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useHeaderData } from '../../hooks/useHeaderData'
 import { useLoginModal } from '../../context/LoginModalContext'
+import { coinsAPI } from '../../utils/api'
 
 function HeaderMobile() {
   const { isAuthenticated, user } = useAuth()
@@ -14,9 +15,38 @@ function HeaderMobile() {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false)
   const [isHomeCategoriesOpen, setIsHomeCategoriesOpen] = useState(false)
   const [categories, setCategories] = useState([])
+  const [coinBalance, setCoinBalance] = useState(0)
   const navigate = useNavigate()
   const location = useLocation()
   const isHomePage = location.pathname === '/'
+
+  // Load coin balance
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadCoinBalance()
+      // Refresh coin balance periodically
+      const interval = setInterval(() => {
+        if (isAuthenticated) {
+          loadCoinBalance()
+        }
+      }, 30000) // Refresh every 30 seconds
+      return () => clearInterval(interval)
+    } else {
+      setCoinBalance(0)
+    }
+  }, [isAuthenticated, user])
+
+  const loadCoinBalance = async () => {
+    if (!isAuthenticated) return
+    try {
+      const data = await coinsAPI.getBalance()
+      setCoinBalance(data.balance || 0)
+    } catch (err) {
+      console.error('Failed to load coin balance:', err)
+      // Set to 0 on error so icon still shows
+      setCoinBalance(0)
+    }
+  }
 
   // Fetch categories from API
   useEffect(() => {
@@ -136,37 +166,6 @@ function HeaderMobile() {
               </Link>
 
               <div className="header-actions">
-                <div className="search-wrapper">
-                  <button 
-                    className="search-icon-btn" 
-                    onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-                    title="Search"
-                  >
-                    <Search size={20} />
-                  </button>
-                  {isSearchExpanded && (
-                    <div className="search-dropdown">
-                      <form className="search-box search-expanded" onSubmit={(e) => { handleSearch(e); setIsSearchExpanded(false); }}>
-                        <Search size={20} />
-                        <input 
-                          type="text" 
-                          placeholder="Search products..." 
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          onKeyPress={handleSearchKeyPress}
-                          autoFocus
-                        />
-                        <button 
-                          type="button" 
-                          className="search-close-btn"
-                          onClick={() => setIsSearchExpanded(false)}
-                        >
-                          ×
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </div>
                 {!isHomePage && (
                   <>
                     <Link to="/wishlist" className="icon-btn" title="Wishlist">
@@ -187,9 +186,23 @@ function HeaderMobile() {
                   )}
                 </Link>
                 {isAuthenticated ? (
-                  <Link to="/dashboard" className="icon-btn" title={user?.name || 'Profile'}>
-                    <User size={20} />
-                  </Link>
+                  <>
+                    <Link 
+                      to="/dashboard" 
+                      state={{ tab: 'coins' }} 
+                      className="icon-btn coins-icon-btn" 
+                      title={`${coinBalance} Coins`}
+                      style={{ display: 'flex', visibility: 'visible', opacity: 1 }}
+                    >
+                      <Coins size={20} />
+                      {coinBalance > 0 && (
+                        <span className="coin-badge">{coinBalance}</span>
+                      )}
+                    </Link>
+                    <Link to="/dashboard" className="icon-btn" title={user?.name || 'Profile'}>
+                      <User size={20} />
+                    </Link>
+                  </>
                 ) : (
                   <button
                     className="icon-btn"
@@ -203,6 +216,30 @@ function HeaderMobile() {
             </div>
           </div>
         </header>
+      </div>
+
+      {/* Mobile Search Bar - Below Header */}
+      <div className="mobile-search-bar-container">
+        <form className="mobile-search-bar" onSubmit={handleSearch}>
+          <Search size={20} className="mobile-search-icon" />
+          <input 
+            type="text" 
+            placeholder="Search products..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={handleSearchKeyPress}
+            className="mobile-search-input"
+          />
+          {searchQuery && (
+            <button 
+              type="button" 
+              className="mobile-search-clear"
+              onClick={() => setSearchQuery('')}
+            >
+              ×
+            </button>
+          )}
+        </form>
       </div>
 
       {/* Bottom Sheet for Categories */}

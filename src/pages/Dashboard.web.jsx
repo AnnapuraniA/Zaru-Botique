@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { returnsAPI } from '../utils/api'
-import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle, RotateCcw } from 'lucide-react'
+import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle, RotateCcw, Coins } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLoginModal } from '../context/LoginModalContext'
 import ConfirmationModal from '../components/Modal/ConfirmationModal'
 import { useToast } from '../components/Toast/ToastContainer'
-import { ordersAPI, addressesAPI, paymentAPI, cartAPI, authAPI, newsletterAPI } from '../utils/api'
+import { ordersAPI, addressesAPI, paymentAPI, cartAPI, authAPI, newsletterAPI, coinsAPI } from '../utils/api'
+import CoinsTab from '../components/CoinsTab'
 
 function DashboardWeb({ 
   orders, addresses, paymentMethods, loading, 
@@ -86,6 +87,13 @@ function DashboardWeb({
                 >
                   <RotateCcw size={20} />
                   <span>Returns & Exchanges</span>
+                </button>
+                <button
+                  className={`nav-item ${activeTab === 'coins' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('coins')}
+                >
+                  <Coins size={20} />
+                  <span>Coins & Rewards</span>
                 </button>
                 <button
                   className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
@@ -1391,6 +1399,11 @@ function DashboardWeb({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Coins Tab */}
+            {isAuthenticated && activeTab === 'coins' && (
+              <CoinsTab user={user} showSuccessToast={showSuccessToast} showError={showError} />
             )}
 
             {/* Settings Tab */}

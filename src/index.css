@@ -1004,10 +1004,11 @@ main {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
+  margin-right: 0.5rem;
 }
 
 /* Mobile Categories Dropdown - Improved Design */
@@ -1937,11 +1938,13 @@ main {
 .header-mobile .header-content.home-header-content .header-actions {
   position: static;
   margin: 0;
+  margin-left: auto;
   gap: 0.375rem;
   flex-shrink: 0;
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
+  min-width: fit-content;
 }
 
 /* Ensure icons are visible on mobile home page */
@@ -1959,23 +1962,24 @@ main {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.25rem;
   flex-wrap: nowrap;
   overflow: visible !important;
   width: 100% !important;
   max-width: 100% !important;
-  padding: 0.5rem 0.375rem;
+  padding: 0.5rem 0.5rem;
   min-height: 50px;
 }
 
 .header-mobile .header-content.other-page-header-content .mobile-menu-btn {
   order: 0;
-  margin-right: 0;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
 }
 
 .header-mobile .header-content.other-page-header-content > .brand-name {
   flex: 0 1 auto;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
@@ -1985,6 +1989,9 @@ main {
   color: white !important;
   max-width: none;
   min-width: 0;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+  padding-right: 0.5rem;
 }
 
 .header-mobile .header-content.other-page-header-content > .header-actions {
@@ -1993,11 +2000,14 @@ main {
   visibility: visible !important;
   opacity: 1 !important;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.1rem;
   margin: 0;
+  margin-left: 0.5rem;
   position: relative !important;
   z-index: 10 !important;
   flex-shrink: 0;
+  min-width: fit-content;
+  padding-left: 0.25rem;
 }
 
 /* Ensure all child elements of header-actions are visible */
@@ -14105,7 +14115,7 @@ main {
   }
 
   main {
-    padding-top: 50px; /* Account for increased mobile header height */
+    padding-top: calc(50px + 60px); /* Account for header height + search bar height */
   }
 
   /* Remove extra margin since sale strip is now above header */
@@ -14116,11 +14126,11 @@ main {
 
   /* Adjust main padding when sale strip is above header (mobile) */
   .App:has(.sale-strip-web) main {
-    padding-top: calc(2rem + 50px); /* Web sale strip height (2rem = 32px) + mobile header height (50px) */
+    padding-top: calc(2rem + 50px + 60px); /* Web sale strip (32px) + header (50px) + search bar (60px) */
   }
 
   .App:has(.sale-strip-mobile) main {
-    padding-top: calc(1.75rem + 50px) !important; /* Mobile sale strip height (1.75rem = 28px) + mobile header height (50px) */
+    padding-top: calc(1.75rem + 50px + 60px) !important; /* Mobile sale strip (28px) + header (50px) + search bar (60px) */
   }
 
   /* Position header below sale strip on mobile */
@@ -14158,8 +14168,9 @@ main {
   /* Override for mobile header - keep layout inline */
   .header-mobile .header-content.other-page-header-content {
     flex-wrap: nowrap !important;
-    gap: 0.3rem !important;
-    padding: 0.5rem 0.375rem !important;
+    gap: 0.25rem !important;
+    padding: 0.5rem 0.5rem !important;
+    overflow: visible !important;
   }
 
   /* Mobile Brand Name - Improved sizing */
@@ -14172,22 +14183,24 @@ main {
     font-size: 1rem; /* Slightly larger for better readability */
     font-weight: 700;
     letter-spacing: 0.3px;
-    max-width: 140px; /* Prevent overflow on small screens */
-    overflow: hidden;
-    text-overflow: ellipsis;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
   }
 
   .header-mobile .header-content.other-page-header-content > .brand-name {
-    font-size: 0.85rem; /* Smaller for other pages to fit more icons */
+    font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 0.2px;
-    max-width: none; /* Allow full brand name to be visible */
+    max-width: none;
     overflow: visible;
     text-overflow: clip;
     white-space: nowrap;
     min-width: 0;
     flex: 0 1 auto;
+    margin-right: 0.75rem;
+    padding-right: 0.5rem;
   }
 
   /* Home header - brand name on left */
@@ -14257,8 +14270,11 @@ main {
     opacity: 1 !important;
     flex-direction: row !important;
     align-items: center !important;
-    gap: 0.2rem !important; /* Tighter spacing for other pages */
+    gap: 0.1rem !important; /* Reduced spacing between icons */
     flex-shrink: 0 !important;
+    margin-left: 0.5rem !important;
+    min-width: fit-content !important;
+    padding-left: 0.25rem !important;
   }
 
   /* Mobile Icon Buttons - Simple like web header */
@@ -14297,13 +14313,13 @@ main {
     color: white !important;
     width: auto !important;
     height: auto !important;
-    min-width: 38px !important;
-    min-height: 38px !important;
-    padding: 0.45rem !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0.3rem !important;
     margin: 0 !important;
     position: relative !important;
     z-index: 10 !important;
-    border-radius: 8px !important;
+    border-radius: 6px !important;
     background: transparent !important;
     border: none !important;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -20889,6 +20905,195 @@ main {
   }
 }
 
+/* Coin Badge Styles */
+.icon-btn .coin-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border-radius: 12px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  transform: scale(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4), 0 0 0 2px white;
+  border: none;
+  z-index: 10;
+  line-height: 1;
+}
+
+.icon-btn .coin-badge.show,
+.icon-btn:has(.coin-badge) .coin-badge {
+  animation: badgePopIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  transform: scale(1);
+}
+
+.icon-btn:hover .coin-badge {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(245, 158, 11, 0.5), 0 0 0 2px white;
+}
+
+/* Mobile Coin Badge */
+.header-mobile .icon-btn .coin-badge {
+  top: -4px !important;
+  right: -4px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  font-size: 0.65rem !important;
+  padding: 0 5px !important;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4), 0 0 0 1.5px rgba(255, 255, 255, 0.95) !important;
+}
+
+.header-mobile .icon-btn .coin-badge.show,
+.header-mobile .icon-btn:has(.coin-badge) .coin-badge {
+  animation: badgePopInMobilePremium 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) !important;
+  transform: scale(1) !important;
+}
+
+/* Ensure coin icon button is always visible on mobile */
+.header-mobile .icon-btn:has(svg[data-lucide="coins"]),
+.header-mobile .icon-btn:has(.lucide-coins),
+.header-mobile a.icon-btn[title*="Coins"],
+.header-mobile a.icon-btn[href*="dashboard"][state*="coins"] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Ensure Coins icon SVG is visible - target by parent link title */
+.header-mobile .icon-btn[title*="Coins"] svg,
+.header-mobile a[title*="Coins"] svg {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: inherit !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Mobile other pages - ensure coin icon is visible */
+.header-mobile .header-content.other-page-header-content .icon-btn[title*="Coins"] svg,
+.header-mobile .header-content.other-page-header-content a[title*="Coins"] svg {
+  width: 17px !important;
+  height: 17px !important;
+}
+
+/* Specific class for coin icon button */
+.header-mobile .coins-icon-btn,
+.header-mobile a.coins-icon-btn {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+}
+
+.header-mobile .coins-icon-btn svg {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: inherit !important;
+}
+
+/* Mobile Search Bar - Below Header */
+.mobile-search-bar-container {
+  width: 100% !important;
+  background: rgba(122, 80, 81, 0.95) !important;
+  backdrop-filter: blur(10px);
+  padding: 0.5rem 0.75rem !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: fixed !important;
+  top: 50px !important; /* Below header */
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 999 !important;
+  box-sizing: border-box !important;
+}
+
+/* Adjust top position based on sale strip */
+.App:has(.sale-strip-mobile) .mobile-search-bar-container {
+  top: calc(28px + 50px) !important; /* sale strip (28px) + header height (50px) */
+}
+
+.App:has(.sale-strip-web) .mobile-search-bar-container {
+  top: calc(32px + 50px) !important; /* sale strip (32px) + header height (50px) */
+}
+
+.mobile-search-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  gap: 0.5rem;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-search-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.mobile-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.mobile-search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.mobile-search-clear {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.mobile-search-clear:hover {
+  color: var(--text-primary);
+}
+
+/* Mobile search bar - always visible below header */
+.header-wrapper:has(.header-mobile) + .mobile-search-bar-container,
+.header-mobile + .mobile-search-bar-container {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Ensure search bar appears after header wrapper */
+.header-wrapper:has(.header-mobile) ~ .mobile-search-bar-container {
+  display: block !important;
+}
+
 /* Old product card hover CSS removed - using product-card-new classes now */
 
 /* 5. Form Validation Feedback */
@@ -23575,24 +23780,28 @@ main {
   gap: 0.5rem;
 }
 
-/* Login Modal Styles */
-.login-modal-overlay {
+/* ============================================
+   AUTH MODAL STYLES - CLEAN NEW VERSION
+   ============================================ */
+
+/* Modal Overlay */
+.auth-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
   padding: 1rem;
-  animation: fadeIn 0.3s ease;
+  animation: authFadeIn 0.2s ease-out;
 }
 
-@keyframes fadeIn {
+@keyframes authFadeIn {
   from {
     opacity: 0;
   }
@@ -23601,59 +23810,30 @@ main {
   }
 }
 
-.login-modal-card {
+/* Modal Card */
+.auth-modal-card {
   background: white;
-  border-radius: 20px;
-  padding: 1.5rem 2rem;
-  max-width: 520px;
+  border-radius: 24px;
+  padding: 2rem;
+  max-width: 480px;
   width: 100%;
-  box-shadow: 0 24px 64px rgba(122, 80, 81, 0.4), 0 8px 24px rgba(0, 0, 0, 0.2);
+  max-height: 95vh;
+  box-shadow: 0 20px 60px rgba(122, 80, 81, 0.3), 0 8px 24px rgba(0, 0, 0, 0.15);
   position: relative;
-  animation: slideUp 0.3s ease;
+  animation: authSlideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid rgba(122, 80, 81, 0.1);
   display: flex;
   flex-direction: column;
-}
-
-/* Full screen mode for register */
-.login-modal-card-fullscreen {
-  height: 95vh;
-  max-height: 95vh;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
-/* Fit content mode for login and forgot password */
-.login-modal-card-fit-content {
-  height: auto;
-  max-height: 90vh;
-  overflow: visible;
+.auth-modal-card.register-mode {
+  max-height: 95vh;
 }
 
-/* Scrollbar removed - modal is full screen, no scrolling needed */
-
-/* Logo Watermark Background - Bigger */
-.login-modal-card::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 500px;
-  height: 500px;
-  background-image: url('/Logo.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.1;
-  z-index: 0;
-  pointer-events: none;
-}
-
-@keyframes slideUp {
+@keyframes authSlideUp {
   from {
-    transform: translateY(20px);
+    transform: translateY(30px);
     opacity: 0;
   }
   to {
@@ -23662,238 +23842,203 @@ main {
   }
 }
 
-.login-modal-close {
+/* Close Button */
+.auth-modal-close {
   position: absolute;
-  top: 1.25rem;
-  right: 1.25rem;
-  background: rgba(122, 80, 81, 0.1);
-  border: 2px solid rgba(122, 80, 81, 0.2);
-  border-radius: 50%;
+  top: 1rem;
+  right: 1rem;
   width: 36px;
   height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(122, 80, 81, 0.1);
+  color: var(--text-primary);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  color: var(--text-primary);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   z-index: 10;
 }
 
-.login-modal-close:hover {
+.auth-modal-close:hover {
   background: var(--primary);
   color: white;
-  border-color: var(--primary);
   transform: rotate(90deg) scale(1.1);
-  box-shadow: 0 4px 12px rgba(122, 80, 81, 0.3);
 }
 
-.login-modal-header {
+/* Header */
+.auth-modal-header {
   text-align: center;
-  margin-bottom: 1rem;
-  padding-right: 2rem;
-  position: relative;
-  z-index: 1;
-  flex-shrink: 0;
+  margin-bottom: 1.5rem;
+  padding-right: 2.5rem;
 }
 
-.login-modal-header h2 {
-  font-size: 1.75rem;
-  font-family: 'Dancing Script', 'Brush Script MT', 'Lucida Handwriting', cursive;
+.auth-modal-header h2 {
+  font-size: 1.875rem;
+  font-family: 'Dancing Script', cursive;
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0 0 0.5rem 0;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  text-shadow: 0 2px 8px rgba(122, 80, 81, 0.2);
-  position: relative;
-  z-index: 1;
 }
 
-.login-modal-header p {
+.auth-modal-header p {
   color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 500;
-  letter-spacing: 0.3px;
-  position: relative;
-  z-index: 1;
+  font-size: 0.95rem;
   margin: 0;
+  font-weight: 500;
 }
 
-.login-modal-tabs {
+/* Tabs */
+.auth-modal-tabs {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, rgba(122, 80, 81, 0.05) 0%, rgba(202, 177, 155, 0.05) 100%);
-  padding: 0.375rem;
+  margin-bottom: 1.5rem;
+  background: rgba(122, 80, 81, 0.05);
+  padding: 0.5rem;
   border-radius: 12px;
-  position: relative;
-  z-index: 1;
-  border: 1px solid rgba(122, 80, 81, 0.1);
-  flex-shrink: 0;
 }
 
-.login-tab {
+.auth-tab {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.875rem 1.25rem;
+  padding: 0.75rem 1rem;
   border: none;
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.95rem;
   font-weight: 600;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  z-index: 1;
+  transition: all 0.2s ease;
 }
 
-.login-tab::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(122, 80, 81, 0.08);
-  border-radius: 10px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.login-tab:hover {
-  color: var(--primary);
-  transform: translateY(-1px);
-}
-
-.login-tab:hover::before {
-  opacity: 1;
-}
-
-.login-tab.active {
-  background: white;
-  color: var(--primary);
-  box-shadow: 0 4px 12px rgba(122, 80, 81, 0.15), 0 2px 6px rgba(0, 0, 0, 0.1);
-  font-weight: 700;
-  transform: translateY(-1px);
-}
-
-.login-tab.active::before {
-  opacity: 0;
-}
-
-.login-modal-error {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #fee 0%, #fdd 100%);
-  border: 2px solid #fcc;
-  border-radius: 12px;
-  color: #c33;
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-bottom: 1rem;
-  position: relative;
-  z-index: 1;
-  box-shadow: 0 2px 8px rgba(204, 51, 51, 0.1);
+.auth-tab svg {
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
-.login-modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  position: relative;
-  z-index: 1;
-  padding-bottom: 0;
-  justify-content: flex-start;
+.auth-tab:hover {
+  color: var(--primary);
+  background: rgba(122, 80, 81, 0.08);
 }
 
-/* Full screen form (register) */
-.login-modal-card-fullscreen .login-modal-form {
+.auth-tab.active {
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(122, 80, 81, 0.15);
+}
+
+/* Error Message */
+.auth-modal-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 10px;
+  color: #c33;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.auth-modal-error svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Form */
+.auth-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  min-height: 0;
+  padding-right: 0.25rem;
 }
 
-/* Fit content form (login/forgot password) */
-.login-modal-card-fit-content .login-modal-form {
-  flex: none;
-  overflow: visible;
+.auth-modal-form::-webkit-scrollbar {
+  width: 4px;
 }
 
-.login-modal-form .form-group {
+.auth-modal-form::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 2px;
+}
+
+/* Form Group */
+.auth-form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  flex-shrink: 0;
+  gap: 0.5rem;
 }
 
-.login-modal-form label {
+.auth-form-label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
   color: var(--text-primary);
   font-size: 0.9rem;
-  margin-bottom: 0;
-  letter-spacing: 0.2px;
 }
 
-.login-modal-form .input-wrapper {
+.auth-form-label svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+/* Input Wrapper */
+.auth-input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
-  transition: all 0.3s ease;
 }
 
-.login-modal-form .input-wrapper:focus-within {
-  transform: translateY(-1px);
-}
-
-.login-modal-form .input-icon {
+.auth-input-icon {
   position: absolute;
   left: 1rem;
   color: var(--primary);
-  z-index: 1;
-  transition: all 0.3s ease;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
 }
 
-.login-modal-form .input-wrapper:focus-within .input-icon {
-  color: var(--primary);
-  transform: scale(1.1);
-}
-
-.login-modal-form input {
+.auth-form-input {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  padding: 0.875rem 1rem 0.875rem 2.75rem;
   border: 2px solid var(--border);
   border-radius: 10px;
-  font-size: 0.9rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  background: white;
   color: var(--text-primary);
 }
 
-.login-modal-form input::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.7;
-}
-
-.login-modal-form input:focus {
+.auth-form-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(122, 80, 81, 0.15), 0 4px 12px rgba(122, 80, 81, 0.1);
-  background: white;
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(122, 80, 81, 0.1);
 }
 
-.login-modal-form .password-toggle {
+.auth-form-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* Password Toggle */
+.auth-password-toggle {
   position: absolute;
   right: 1rem;
   background: none;
@@ -23903,162 +24048,146 @@ main {
   padding: 0.25rem;
   display: flex;
   align-items: center;
-  z-index: 1;
 }
 
-.login-modal-form .password-toggle:hover {
+.auth-password-toggle:hover {
   color: var(--primary);
 }
 
-.login-modal-form .form-hint {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-  font-style: italic;
-  position: relative;
-  z-index: 1;
+.auth-password-toggle svg {
+  width: 18px;
+  height: 18px;
 }
 
-.login-modal-form .form-options {
+/* Form Options */
+.auth-form-options {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: relative;
-  z-index: 1;
-  margin-top: -0.5rem;
-  margin-bottom: 0.5rem;
   flex-wrap: wrap;
   gap: 0.5rem;
+  margin-top: -0.25rem;
 }
 
-.forgot-password-link {
+.auth-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.auth-checkbox-label input[type="checkbox"] {
+  width: auto;
+  cursor: pointer;
+}
+
+.auth-forgot-link {
   background: none;
   border: none;
   color: var(--primary);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  padding: 0.25rem 0;
-  position: relative;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.forgot-password-link::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 0;
-  height: 1px;
-  background: var(--primary);
-  transition: width 0.3s ease;
-}
-
-.forgot-password-link:hover {
+.auth-forgot-link:hover {
   color: var(--accent);
-  text-decoration: none;
 }
 
-.forgot-password-link:hover::after {
-  width: 100%;
-}
-
-/* When form-options exists (login mode), reduce overall form spacing */
-.login-modal-form:has(.form-options) {
-  gap: 1.25rem;
-  justify-content: center;
-}
-
-.login-modal-form .checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
+/* Form Hint */
+.auth-form-hint {
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  cursor: pointer;
-  font-weight: 500;
-  transition: color 0.3s ease;
+  font-style: italic;
+  margin-top: 0.25rem;
 }
 
-.login-modal-form .checkbox-label:hover {
-  color: var(--primary);
-}
-
-.login-modal-form .checkbox-label input[type="checkbox"] {
-  width: auto;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-}
-
-/* Forgot Password Styles */
-.forgot-password-header {
-  margin-bottom: 1rem;
-  position: relative;
-  z-index: 1;
-  padding: 0;
-}
-
-.back-to-login-btn {
+/* Back Button */
+.auth-back-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(122, 80, 81, 0.05);
+  border: 1px solid rgba(122, 80, 81, 0.15);
   border-radius: 10px;
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0.75rem 1.25rem;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  justify-content: center;
-  margin-bottom: 0.5rem;
+  transition: all 0.2s ease;
 }
 
-.back-to-login-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+.auth-back-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.auth-back-btn:hover {
+  background: rgba(122, 80, 81, 0.1);
   color: var(--primary);
-  transform: translateX(-4px);
-  border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.back-to-login-btn:active {
-  transform: translateX(-2px);
+/* Submit Button */
+.auth-submit-btn {
+  width: 100%;
+  padding: 1rem 2rem;
+  margin-top: 0.5rem;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-.forgot-password-subtitle {
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-style: italic;
-  margin: 1rem 0 0 0;
-  padding: 0;
-  position: relative;
-  z-index: 1;
-  line-height: 1.5;
-  opacity: 0.85;
+.auth-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(122, 80, 81, 0.3);
 }
 
-.forgot-password-success {
+.auth-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.auth-submit-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Success Message */
+.auth-success-message {
   text-align: center;
   padding: 2rem 1rem;
-  position: relative;
-  z-index: 1;
 }
 
-.forgot-password-success .success-icon {
+.auth-success-icon {
+  width: 64px;
+  height: 64px;
   color: #27ae60;
-  margin-bottom: 1rem;
-  animation: scaleIn 0.5s ease;
+  margin: 0 auto 1rem;
+  animation: authScaleIn 0.4s ease-out;
 }
 
-@keyframes scaleIn {
+@keyframes authScaleIn {
   from {
     transform: scale(0);
     opacity: 0;
@@ -24069,214 +24198,58 @@ main {
   }
 }
 
-.forgot-password-success h3 {
+.auth-success-message h3 {
   font-size: 1.5rem;
   color: var(--text-primary);
   margin: 0 0 1rem 0;
   font-weight: 700;
 }
 
-.forgot-password-success p {
+.auth-success-message p {
   color: var(--text-secondary);
   font-size: 0.95rem;
   line-height: 1.6;
   margin: 0.5rem 0;
 }
 
-.forgot-password-success p strong {
+.auth-success-message p strong {
   color: var(--primary);
-  font-weight: 600;
 }
 
-.forgot-password-success .success-hint {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  font-style: italic;
-  margin-top: 1rem;
-}
-
-.forgot-password-success .btn {
-  margin-top: 1.5rem;
-  width: auto;
-  padding: 0.875rem 2rem;
-}
-
-.login-modal-submit {
-  width: 100%;
-  margin-top: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  font-weight: 600;
-  border-radius: 56px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  border: 0;
-  color: white;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-  flex-shrink: 0;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
-  outline: 0;
-}
-
-.login-modal-submit::before {
-  background-color: initial;
-  background-image: linear-gradient(#fff 0, rgba(255, 255, 255, 0) 100%);
-  border-radius: 125px;
-  content: "";
-  height: 50%;
-  left: 4%;
-  opacity: 0.5;
-  position: absolute;
-  top: 0;
-  transition: all 0.3s;
-  width: 92%;
-}
-
-.login-modal-submit:hover:not(:disabled) {
-  box-shadow: rgba(255, 255, 255, 0.2) 0 3px 15px inset, rgba(122, 80, 81, 0.2) 0 3px 5px, rgba(122, 80, 81, 0.3) 0 10px 13px;
-  transform: scale(1.05);
-}
-
-.login-modal-submit:active:not(:disabled) {
-  transform: scale(1.02);
-}
-
-.login-modal-submit:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: scale(1);
-}
-
-@media (min-width: 768px) {
-  .login-modal-submit {
-    padding: 1rem 3rem;
-  }
-}
-
+/* Mobile Styles */
 @media (max-width: 768px) {
-  .unified-login-container {
-    padding: 2rem 1.5rem;
-  }
-
-  .login-modal-overlay {
+  .auth-modal-overlay {
     padding: 0.5rem;
     align-items: flex-start;
-    overflow-y: auto;
   }
 
-  .login-modal-card {
-    padding: 1.25rem 1rem;
-    margin: auto;
+  .auth-modal-card {
+    padding: 1.5rem 1.25rem;
     max-width: 100%;
-    width: 100%;
     max-height: calc(100vh - 1rem);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .login-modal-card-fullscreen {
-    max-height: calc(100vh - 1rem);
-    height: auto;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    border-radius: 20px;
   }
 
-  .login-modal-card-fullscreen .login-modal-form {
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  .login-modal-card-fit-content {
-    max-height: calc(100vh - 1rem);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+  .auth-modal-header h2 {
+    font-size: 1.625rem;
   }
 
-  .login-modal-card::before {
-    width: 300px;
-    height: 300px;
-    opacity: 0.08;
+  .auth-modal-header p {
+    font-size: 0.875rem;
   }
 
-  .login-modal-header {
-    padding-right: 2rem;
-    flex-shrink: 0;
+  .auth-modal-form {
+    gap: 0.875rem;
   }
 
-  .unified-login-header h1 {
-    font-size: 1.75rem;
-  }
-
-  .unified-login-header h2 {
-    font-size: 1.25rem;
-  }
-
-  .login-modal-header h2 {
-    font-size: 1.5rem;
-  }
-
-  .login-modal-header p {
-    font-size: 0.85rem;
-  }
-
-  .login-modal-tabs {
-    flex-shrink: 0;
-    margin-bottom: 0.75rem;
-  }
-
-  .login-modal-form {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    min-height: 0;
-    padding-right: 0.25rem;
-  }
-
-  .login-modal-form::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .login-modal-form::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .login-modal-form::-webkit-scrollbar-thumb {
-    background: var(--primary);
-    border-radius: 2px;
-  }
-
-  .login-modal-form .form-group {
-    margin-bottom: 1rem;
-  }
-
-  .login-modal-form input {
-    padding: 0.75rem 0.875rem 0.75rem 2.25rem;
+  .auth-form-input {
+    padding: 0.75rem 0.875rem 0.75rem 2.5rem;
     font-size: 0.9rem;
   }
 
-  .login-modal-submit {
-    margin-top: 0.5rem;
+  .auth-submit-btn {
     padding: 0.875rem 1.5rem;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-  }
-
-  .login-modal-close {
-    top: 0.75rem;
-    right: 0.75rem;
-    width: 32px;
-    height: 32px;
+    font-size: 0.95rem;
   }
 }
 
@@ -28249,5 +28222,975 @@ main {
     font-weight: 600;
     white-space: nowrap;
     letter-spacing: 0.2px;
+  }
+}
+
+/* ========================================
+   COIN EARNING PREVIEW - CHECKOUT PAGE
+   ======================================== */
+
+/* Coin Earning Preview Section */
+.coin-earning-preview-section {
+  width: 100%;
+}
+
+.coin-earning-preview-card {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
+  border: 2px solid rgba(34, 197, 94, 0.2);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
+}
+
+.coin-earning-preview-card:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+  transform: translateY(-2px);
+}
+
+.coin-earning-preview-card.coin-earning-preview-card-info {
+  background: linear-gradient(135deg, rgba(122, 80, 81, 0.08) 0%, rgba(202, 177, 155, 0.05) 100%);
+  border-color: rgba(122, 80, 81, 0.2);
+}
+
+.coin-earning-preview-card.coin-earning-preview-card-info:hover {
+  border-color: rgba(122, 80, 81, 0.3);
+  box-shadow: 0 4px 12px rgba(122, 80, 81, 0.1);
+}
+
+.coin-earning-preview-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.1) 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coin-earning-preview-card.coin-earning-preview-card-info .coin-earning-preview-icon {
+  background: linear-gradient(135deg, rgba(122, 80, 81, 0.15) 0%, rgba(202, 177, 155, 0.1) 100%);
+}
+
+.coin-earning-preview-icon svg {
+  color: #22c55e;
+}
+
+.coin-earning-preview-card.coin-earning-preview-card-info .coin-earning-preview-icon svg {
+  color: var(--primary-dark);
+}
+
+.coin-earning-preview-content {
+  flex: 1;
+}
+
+.coin-earning-preview-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.coin-earning-preview-amount {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.coin-earning-preview-amount svg {
+  color: #22c55e;
+  flex-shrink: 0;
+}
+
+.coin-earning-preview-amount span {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #22c55e;
+}
+
+.coin-earning-preview-info {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.coin-earning-preview-card.coin-earning-preview-card-info .coin-earning-preview-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+  margin-bottom: 0.25rem;
+}
+
+.coin-earning-preview-card.coin-earning-preview-card-info .coin-earning-preview-info {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Coin Earning Row in Order Summary */
+.summary-row-enhanced.coin-earning-row {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(34, 197, 94, 0.02) 100%);
+  border-left: 3px solid #22c55e;
+  padding-left: 0.75rem;
+}
+
+.summary-row-enhanced.coin-earning-row .summary-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.summary-row-enhanced.coin-earning-row .summary-label svg {
+  color: #22c55e;
+}
+
+.summary-value.coin-earning-value {
+  color: #22c55e;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.summary-value.coin-earning-value svg {
+  flex-shrink: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .coin-earning-preview-card {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .coin-earning-preview-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .coin-earning-preview-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .coin-earning-preview-amount span {
+    font-size: 1.25rem;
+  }
+
+  .coin-earning-preview-label,
+  .coin-earning-preview-info {
+    font-size: 0.8rem;
+  }
+}
+
+/* ========================================
+   ADMIN COINS CONFIGURATION PAGE
+   ======================================== */
+
+.coins-config-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.coins-config-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 2px solid rgba(122, 80, 81, 0.1);
+  transition: all 0.3s ease;
+}
+
+.coins-config-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: rgba(122, 80, 81, 0.2);
+}
+
+.coins-config-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid rgba(122, 80, 81, 0.1);
+}
+
+.coins-config-icon {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coins-config-icon.earning-icon {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.08) 100%);
+}
+
+.coins-config-icon.earning-icon svg {
+  color: #22c55e;
+}
+
+.coins-config-icon.redemption-icon {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.15) 0%, rgba(251, 146, 60, 0.08) 100%);
+}
+
+.coins-config-icon.redemption-icon svg {
+  color: #fb923c;
+}
+
+.coins-config-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin: 0 0 0.5rem 0;
+}
+
+.coins-config-header p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.coins-config-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.coins-config-preview {
+  background: linear-gradient(135deg, rgba(122, 80, 81, 0.05) 0%, rgba(202, 177, 155, 0.05) 100%);
+  border: 2px solid rgba(122, 80, 81, 0.1);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.coins-config-preview svg {
+  flex-shrink: 0;
+  color: var(--primary-dark);
+  margin-top: 0.1rem;
+}
+
+.coins-config-preview div {
+  flex: 1;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.coins-config-preview strong {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.coins-config-info {
+  background: linear-gradient(135deg, rgba(122, 80, 81, 0.05) 0%, rgba(202, 177, 155, 0.05) 100%);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 2px solid rgba(122, 80, 81, 0.1);
+}
+
+.coins-config-info-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(122, 80, 81, 0.1);
+}
+
+.coins-config-info-header svg {
+  color: var(--primary-dark);
+  flex-shrink: 0;
+}
+
+.coins-config-info-header h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin: 0;
+}
+
+.coins-config-info-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.coins-config-info-list li {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.7;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.coins-config-info-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.coins-config-info-list li strong {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.form-group label .required {
+  color: #dc2626;
+}
+
+.form-group input {
+  padding: 0.75rem 1rem;
+  border: 2px solid rgba(122, 80, 81, 0.2);
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 3px rgba(122, 80, 81, 0.1);
+}
+
+.form-group small {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: -0.25rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .coins-config-card {
+    padding: 1.5rem;
+  }
+
+  .coins-config-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .coins-config-icon {
+    width: 56px;
+    height: 56px;
+  }
+
+  .coins-config-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .coins-config-info {
+    padding: 1.5rem;
+  }
+
+  .coins-config-info-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .coins-config-info-list li {
+    font-size: 0.9rem;
+  }
+}
+
+/* ========================================
+   COINS & REWARDS SECTION - IMPROVED UI
+   ======================================== */
+
+/* Coins Header */
+.coins-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid rgba(122, 80, 81, 0.1);
+}
+
+.coins-header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.coins-subtitle {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Coin Balance Card */
+.coin-balance-card {
+  background: linear-gradient(135deg, #7A5051 0%, #8B5F60 100%);
+  border-radius: 20px;
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  box-shadow: 0 8px 24px rgba(122, 80, 81, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.coin-balance-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+.coin-balance-icon {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.coin-balance-icon svg {
+  color: white;
+}
+
+.coin-balance-content {
+  flex: 1;
+  color: white;
+}
+
+.coin-balance-label {
+  font-size: 0.95rem;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.coin-balance-amount {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.coin-balance-info {
+  font-size: 0.95rem;
+  opacity: 0.95;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  display: inline-block;
+  backdrop-filter: blur(10px);
+}
+
+/* Coin Rules Section */
+.coin-rules-section {
+  margin-bottom: 2.5rem;
+}
+
+.coin-rules-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(122, 80, 81, 0.1);
+}
+
+.coin-rules-header-icon {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, rgba(122, 80, 81, 0.1) 0%, rgba(202, 177, 155, 0.1) 100%);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.coin-rules-header-icon svg {
+  color: var(--primary-dark);
+}
+
+.coin-rules-header h3 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin: 0 0 0.25rem 0;
+}
+
+.coin-rules-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Step-by-Step Instructions */
+.coin-steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.coin-step-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 2px solid rgba(122, 80, 81, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.coin-step-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(122, 80, 81, 0.15);
+  border-color: rgba(122, 80, 81, 0.2);
+}
+
+.coin-step-number {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(122, 80, 81, 0.3);
+}
+
+.coin-step-content {
+  flex: 1;
+}
+
+.coin-step-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.coin-step-icon {
+  color: var(--primary-dark);
+  flex-shrink: 0;
+}
+
+.coin-step-header h4 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+  margin: 0;
+}
+
+.coin-step-description {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.coin-step-description strong {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.coin-step-reward {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(122, 80, 81, 0.08) 0%, rgba(202, 177, 155, 0.08) 100%);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.coin-step-reward svg {
+  color: var(--primary-dark);
+  flex-shrink: 0;
+}
+
+.coin-step-reward strong {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.coin-step-arrow {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: rgba(122, 80, 81, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-dark);
+  margin-top: 0.5rem;
+}
+
+/* Quick Info Cards */
+.coin-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.coin-info-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 2px solid transparent;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.coin-info-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.coin-info-card.earn-card {
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.coin-info-card.earn-card:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 8px 24px rgba(34, 197, 94, 0.15);
+}
+
+.coin-info-card.redeem-card {
+  border-color: rgba(251, 146, 60, 0.2);
+}
+
+.coin-info-card.redeem-card:hover {
+  border-color: rgba(251, 146, 60, 0.4);
+  box-shadow: 0 8px 24px rgba(251, 146, 60, 0.15);
+}
+
+.coin-info-icon-wrapper {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coin-info-card.earn-card .coin-info-icon-wrapper {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
+}
+
+.coin-info-card.earn-card .coin-info-icon-wrapper svg {
+  color: #22c55e;
+}
+
+.coin-info-card.redeem-card .coin-info-icon-wrapper {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.1) 0%, rgba(251, 146, 60, 0.05) 100%);
+}
+
+.coin-info-card.redeem-card .coin-info-icon-wrapper svg {
+  color: #fb923c;
+}
+
+.coin-info-content {
+  flex: 1;
+}
+
+.coin-info-content h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem 0;
+}
+
+.coin-info-main {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+.coin-info-highlight {
+  color: var(--primary-dark);
+}
+
+.coin-info-detail {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Tips Section */
+.coin-tips-section {
+  background: linear-gradient(135deg, rgba(122, 80, 81, 0.05) 0%, rgba(202, 177, 155, 0.05) 100%);
+  border-radius: 16px;
+  padding: 1.75rem;
+  border: 2px solid rgba(122, 80, 81, 0.1);
+}
+
+.coin-tips-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.coin-tips-header svg {
+  color: var(--primary-dark);
+  flex-shrink: 0;
+}
+
+.coin-tips-header h4 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+  margin: 0;
+}
+
+.coin-tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.coin-tips-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.coin-tips-list li svg {
+  flex-shrink: 0;
+  color: #22c55e;
+  margin-top: 0.2rem;
+}
+
+.coin-tips-list li span {
+  flex: 1;
+}
+
+/* Transaction History Section */
+.coin-transactions-section {
+  margin-top: 2.5rem;
+}
+
+.coin-transactions-section h3 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid rgba(122, 80, 81, 0.1);
+}
+
+.coin-transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.coin-transaction-item {
+  background: white;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(122, 80, 81, 0.1);
+  transition: all 0.2s ease;
+}
+
+.coin-transaction-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.transaction-icon-wrapper {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(122, 80, 81, 0.08);
+}
+
+.transaction-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.transaction-description {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.transaction-date {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.transaction-amount {
+  font-size: 1.1rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.transaction-balance {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  text-align: right;
+}
+
+/* Responsive Design for Coins Section */
+@media (max-width: 768px) {
+  .coins-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .coins-subtitle {
+    font-size: 1rem;
+  }
+
+  .coin-balance-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 1.5rem;
+  }
+
+  .coin-balance-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .coin-balance-icon svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .coin-balance-amount {
+    font-size: 2.5rem;
+  }
+
+  .coin-rules-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .coin-rules-header-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .coin-rules-header h3 {
+    font-size: 1.5rem;
+  }
+
+  .coin-step-card {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+  }
+
+  .coin-step-arrow {
+    display: none;
+  }
+
+  .coin-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coin-transaction-item {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .transaction-balance {
+    width: 100%;
+    text-align: left;
+    margin-top: 0.5rem;
   }
 }

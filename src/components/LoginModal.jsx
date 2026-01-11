@@ -14,58 +14,50 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
   const { login: adminLogin, isAuthenticated: isAdminAuth } = useAdminAuth()
   const { success, error: showError } = useToast()
   
-  const [mode, setMode] = useState(initialMode) // 'login', 'register', or 'forgot-password'
+  const [mode, setMode] = useState(initialMode)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
-  const [redirectPath, setRedirectPath] = useState(null) // Store the path to redirect to after login
+  const [redirectPath, setRedirectPath] = useState(null)
 
-  // Update mode when initialMode changes and store redirect path
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode)
-      // Store current location for redirect after login (but not if already on dashboard)
-      // Also check if there's a redirect path in location state (from navigate with state)
       const stateRedirect = location.state?.redirectPath
       const currentPath = location.pathname
       
       if (stateRedirect) {
         setRedirectPath(stateRedirect)
       } else if (currentPath !== '/dashboard' && currentPath !== '/admin/dashboard') {
-        // Only store if not already on dashboard pages
         setRedirectPath(currentPath)
       } else {
-        // Default to home if on dashboard
         setRedirectPath('/')
       }
     }
   }, [initialMode, isOpen, location])
   
   const [formData, setFormData] = useState({
-    loginInput: '', // Single field for both email and mobile
+    loginInput: '',
     password: '',
     confirmPassword: '',
     name: '',
-    email: '', // For registration
-    mobile: '', // For registration
+    email: '',
+    mobile: '',
     rememberMe: false,
-    forgotPasswordInput: '' // For forgot password
+    forgotPasswordInput: ''
   })
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  // Close modal if user is authenticated
   useEffect(() => {
     if (isCustomerAuth || isAdminAuth) {
       onClose()
     }
   }, [isCustomerAuth, isAdminAuth, onClose])
 
-  // Reset form data when modal opens or closes
   useEffect(() => {
     if (!isOpen) {
-      // Reset all form data when modal closes
       setFormData({
         loginInput: '',
         password: '',
@@ -81,9 +73,8 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
       setShowConfirmPassword(false)
       setShowForgotPassword(false)
       setForgotPasswordSent(false)
-      setRedirectPath(null) // Reset redirect path when modal closes
+      setRedirectPath(null)
     } else {
-      // Reset form data when modal opens (fresh start)
       setFormData({
         loginInput: '',
         password: '',
@@ -101,7 +92,6 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
       setForgotPasswordSent(false)
     }
   }, [isOpen])
-
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -128,25 +118,20 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
         throw new Error('Please enter your password')
       }
 
-      // Determine if it's admin or customer login
       const isEmail = input.includes('@')
       const isMobile = /^[0-9]{10}$/.test(input)
 
       if (isEmail) {
-        // Could be admin or customer with email
         try {
-          // Try admin login first
           await adminLogin(input, formData.password)
           success('Admin login successful!')
           navigate('/admin/dashboard')
           onClose()
           return
         } catch (adminError) {
-          // If admin login fails, try customer login with email
           try {
             await customerLogin(null, input, formData.password)
             success('Login successful! Welcome back!')
-            // Redirect to stored path or default to home
             navigate(redirectPath || '/')
             onClose()
             return
@@ -155,10 +140,8 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
           }
         }
       } else if (isMobile) {
-        // Customer login with mobile
         await customerLogin(input, null, formData.password)
         success('Login successful! Welcome back!')
-        // Redirect to stored path or default to home
         navigate(redirectPath || '/')
         onClose()
       } else {
@@ -177,7 +160,6 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
     setError('')
     setIsLoading(true)
 
-    // Validate that at least mobile or email is provided
     const hasMobile = formData.mobile && formData.mobile.trim().length > 0
     const hasEmail = formData.email && formData.email.trim().length > 0
 
@@ -187,14 +169,12 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
       return
     }
 
-    // Validate mobile if provided
     if (hasMobile && (formData.mobile.length !== 10 || !/^[0-9]+$/.test(formData.mobile))) {
       setError('Please enter a valid 10-digit mobile number')
       setIsLoading(false)
       return
     }
 
-    // Validate email if provided
     if (hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       setError('Please enter a valid email address')
       setIsLoading(false)
@@ -227,7 +207,6 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
         formData.email || null
       )
       success('Registration successful! Welcome to Arudhra Fashions!')
-      // Redirect to stored path or default to home
       navigate(redirectPath || '/')
       onClose()
     } catch (err) {
@@ -250,7 +229,6 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
         throw new Error('Please enter your email or mobile number')
       }
 
-      // Determine if it's email or mobile
       const isEmail = input.includes('@')
       const isMobile = /^[0-9]{10}$/.test(input)
 
@@ -258,7 +236,6 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
         throw new Error('Please enter a valid email or 10-digit mobile number')
       }
 
-      // Call forgot password API
       await authAPI.forgotPassword(input)
       setForgotPasswordSent(true)
       success('Password reset instructions have been sent to your email/mobile')
@@ -283,16 +260,16 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
   if (!isOpen) return null
 
   const modalContent = (
-    <div className="login-modal-overlay" onClick={onClose}>
+    <div className="auth-modal-overlay" onClick={onClose}>
       <div 
-        className={`login-modal-card ${mode === 'register' ? 'login-modal-card-fullscreen' : 'login-modal-card-fit-content'}`}
+        className={`auth-modal-card ${mode === 'register' ? 'register-mode' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="login-modal-close" onClick={onClose} aria-label="Close">
+        <button className="auth-modal-close" onClick={onClose} aria-label="Close">
           <X size={20} />
         </button>
 
-        <div className="login-modal-header">
+        <div className="auth-modal-header">
           <h2>Arudhra Fashions</h2>
           <p>
             {showForgotPassword 
@@ -304,27 +281,25 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
         </div>
 
         {showForgotPassword && (
-          <div className="forgot-password-header">
-            <button
-              type="button"
-              className="back-to-login-btn"
-              onClick={() => {
-                setShowForgotPassword(false)
-                setForgotPasswordSent(false)
-                setError('')
-                setFormData(prev => ({ ...prev, forgotPasswordInput: '' }))
-              }}
-            >
-              <ArrowLeft size={18} />
-              Back to Sign In
-            </button>
-          </div>
+          <button
+            type="button"
+            className="auth-back-btn"
+            onClick={() => {
+              setShowForgotPassword(false)
+              setForgotPasswordSent(false)
+              setError('')
+              setFormData(prev => ({ ...prev, forgotPasswordInput: '' }))
+            }}
+          >
+            <ArrowLeft size={18} />
+            Back to Sign In
+          </button>
         )}
 
         {!showForgotPassword && (
-          <div className="login-modal-tabs">
+          <div className="auth-modal-tabs">
             <button
-              className={`login-tab ${mode === 'login' ? 'active' : ''}`}
+              className={`auth-tab ${mode === 'login' ? 'active' : ''}`}
               onClick={() => {
                 setMode('login')
                 setError('')
@@ -335,7 +310,7 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
               Sign In
             </button>
             <button
-              className={`login-tab ${mode === 'register' ? 'active' : ''}`}
+              className={`auth-tab ${mode === 'register' ? 'active' : ''}`}
               onClick={() => {
                 setMode('register')
                 setError('')
@@ -349,50 +324,49 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
         )}
 
         {error && (
-          <div className="login-modal-error">
+          <div className="auth-modal-error">
             <AlertCircle size={18} />
-            {error}
+            <span>{error}</span>
           </div>
         )}
 
-        <form className="login-modal-form" onSubmit={handleSubmit}>
+        <form className="auth-modal-form" onSubmit={handleSubmit}>
           {showForgotPassword ? (
             <>
               {!forgotPasswordSent ? (
-                <>
-                  <div className="form-group">
-                    <label htmlFor="forgot-password-input">
-                      <Smartphone size={18} />
-                      Email or Mobile Number
-                    </label>
-                    <div className="input-wrapper">
-                      <Smartphone className="input-icon" size={18} />
-                      <input
-                        type="text"
-                        id="forgot-password-input"
-                        name="forgotPasswordInput"
-                        value={formData.forgotPasswordInput}
-                        onChange={handleChange}
-                        placeholder="Enter your email or mobile number"
-                        autoFocus
-                        required
-                      />
-                    </div>
+                <div className="auth-form-group">
+                  <label htmlFor="forgot-password-input" className="auth-form-label">
+                    <Smartphone size={18} />
+                    Email or Mobile Number
+                  </label>
+                  <div className="auth-input-wrapper">
+                    <Smartphone className="auth-input-icon" size={18} />
+                    <input
+                      type="text"
+                      id="forgot-password-input"
+                      name="forgotPasswordInput"
+                      className="auth-form-input"
+                      value={formData.forgotPasswordInput}
+                      onChange={handleChange}
+                      placeholder="Enter your email or mobile number"
+                      autoFocus
+                      required
+                    />
                   </div>
-                </>
+                </div>
               ) : (
-                <div className="forgot-password-success">
-                  <CheckCircle size={48} className="success-icon" />
+                <div className="auth-success-message">
+                  <CheckCircle className="auth-success-icon" size={64} />
                   <h3>Check Your Email/Mobile</h3>
                   <p>
                     We've sent password reset instructions to <strong>{formData.forgotPasswordInput}</strong>
                   </p>
-                  <p className="success-hint">
+                  <p style={{ fontSize: '0.85rem', fontStyle: 'italic', marginTop: '1rem' }}>
                     Please check your email inbox or SMS messages and follow the instructions to reset your password.
                   </p>
                   <button
                     type="button"
-                    className="btn btn-primary"
+                    className="auth-submit-btn"
                     onClick={() => {
                       setShowForgotPassword(false)
                       setForgotPasswordSent(false)
@@ -406,17 +380,18 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
             </>
           ) : mode === 'login' ? (
             <>
-              <div className="form-group">
-                <label htmlFor="login-input">
+              <div className="auth-form-group">
+                <label htmlFor="login-input" className="auth-form-label">
                   <Smartphone size={18} />
                   Mobile Number/Email
                 </label>
-                <div className="input-wrapper">
-                  <Smartphone className="input-icon" size={18} />
+                <div className="auth-input-wrapper">
+                  <Smartphone className="auth-input-icon" size={18} />
                   <input
                     type="text"
                     id="login-input"
                     name="loginInput"
+                    className="auth-form-input"
                     value={formData.loginInput}
                     onChange={handleChange}
                     placeholder="Enter mobile number or email"
@@ -425,17 +400,18 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="login-password">
+              <div className="auth-form-group">
+                <label htmlFor="login-password" className="auth-form-label">
                   <Lock size={18} />
                   Password
                 </label>
-                <div className="input-wrapper">
-                  <Lock className="input-icon" size={18} />
+                <div className="auth-input-wrapper">
+                  <Lock className="auth-input-icon" size={18} />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="login-password"
                     name="password"
+                    className="auth-form-input"
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Enter your password"
@@ -443,7 +419,7 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                   />
                   <button
                     type="button"
-                    className="password-toggle"
+                    className="auth-password-toggle"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -451,8 +427,8 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                 </div>
               </div>
 
-              <div className="form-options">
-                <label className="checkbox-label">
+              <div className="auth-form-options">
+                <label className="auth-checkbox-label">
                   <input
                     type="checkbox"
                     name="rememberMe"
@@ -463,7 +439,7 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                 </label>
                 <button
                   type="button"
-                  className="forgot-password-link"
+                  className="auth-forgot-link"
                   onClick={() => {
                     setShowForgotPassword(true)
                     setError('')
@@ -475,17 +451,18 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
             </>
           ) : (
             <>
-              <div className="form-group">
-                <label htmlFor="register-name">
+              <div className="auth-form-group">
+                <label htmlFor="register-name" className="auth-form-label">
                   <User size={18} />
                   Full Name
                 </label>
-                <div className="input-wrapper">
-                  <User className="input-icon" size={18} />
+                <div className="auth-input-wrapper">
+                  <User className="auth-input-icon" size={18} />
                   <input
                     type="text"
                     id="register-name"
                     name="name"
+                    className="auth-form-input"
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="Enter your full name"
@@ -494,17 +471,18 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="register-mobile">
+              <div className="auth-form-group">
+                <label htmlFor="register-mobile" className="auth-form-label">
                   <Smartphone size={18} />
                   Mobile Number (Optional)
                 </label>
-                <div className="input-wrapper">
-                  <Smartphone className="input-icon" size={18} />
+                <div className="auth-input-wrapper">
+                  <Smartphone className="auth-input-icon" size={18} />
                   <input
                     type="tel"
                     id="register-mobile"
                     name="mobile"
+                    className="auth-form-input"
                     value={formData.mobile}
                     onChange={handleChange}
                     placeholder="Enter 10-digit mobile number"
@@ -514,38 +492,40 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="register-email">
+              <div className="auth-form-group">
+                <label htmlFor="register-email" className="auth-form-label">
                   <Mail size={18} />
                   Email (Optional)
                 </label>
-                <div className="input-wrapper">
-                  <Mail className="input-icon" size={18} />
+                <div className="auth-input-wrapper">
+                  <Mail className="auth-input-icon" size={18} />
                   <input
                     type="email"
                     id="register-email"
                     name="email"
+                    className="auth-form-input"
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="Enter your email"
                   />
                 </div>
-                <p className="form-hint">
+                <p className="auth-form-hint">
                   Please provide at least mobile number or email address
                 </p>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="register-password">
+              <div className="auth-form-group">
+                <label htmlFor="register-password" className="auth-form-label">
                   <Lock size={18} />
                   Password
                 </label>
-                <div className="input-wrapper">
-                  <Lock className="input-icon" size={18} />
+                <div className="auth-input-wrapper">
+                  <Lock className="auth-input-icon" size={18} />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="register-password"
                     name="password"
+                    className="auth-form-input"
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Enter password (min 8 characters)"
@@ -554,7 +534,7 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                   />
                   <button
                     type="button"
-                    className="password-toggle"
+                    className="auth-password-toggle"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -562,17 +542,18 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="register-confirm-password">
+              <div className="auth-form-group">
+                <label htmlFor="register-confirm-password" className="auth-form-label">
                   <Lock size={18} />
                   Confirm Password
                 </label>
-                <div className="input-wrapper">
-                  <Lock className="input-icon" size={18} />
+                <div className="auth-input-wrapper">
+                  <Lock className="auth-input-icon" size={18} />
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     id="register-confirm-password"
                     name="confirmPassword"
+                    className="auth-form-input"
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     placeholder="Confirm your password"
@@ -580,7 +561,7 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
                   />
                   <button
                     type="button"
-                    className="password-toggle"
+                    className="auth-password-toggle"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -591,51 +572,43 @@ function LoginModal({ isOpen, onClose, initialMode = 'login' }) {
           )}
 
           {!forgotPasswordSent && (
-            <>
-              <button
-                type="submit"
-                className="btn btn-primary btn-large login-modal-submit"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <span className="btn-spinner"></span>
-                    {showForgotPassword ? 'Sending...' : mode === 'login' ? 'Signing In...' : 'Registering...'}
-                  </>
-                ) : (
-                  <>
-                    {showForgotPassword ? (
-                      <>
-                        <Mail size={18} />
-                        Send Reset Link
-                      </>
-                    ) : mode === 'login' ? (
-                      <>
-                        <LogIn size={18} />
-                        Sign In
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus size={18} />
-                        Create Account
-                      </>
-                    )}
-                  </>
-                )}
-              </button>
-              {showForgotPassword && (
-                <p className="forgot-password-subtitle">
-                  Check your mobile or email for the password reset link
-                </p>
+            <button
+              type="submit"
+              className="auth-submit-btn"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  <span>{showForgotPassword ? 'Sending...' : mode === 'login' ? 'Signing In...' : 'Registering...'}</span>
+                </>
+              ) : (
+                <>
+                  {showForgotPassword ? (
+                    <>
+                      <Mail size={18} />
+                      <span>Send Reset Link</span>
+                    </>
+                  ) : mode === 'login' ? (
+                    <>
+                      <LogIn size={18} />
+                      <span>Sign In</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={18} />
+                      <span>Create Account</span>
+                    </>
+                  )}
+                </>
               )}
-            </>
+            </button>
           )}
         </form>
       </div>
     </div>
   )
 
-  // Use portal to render modal at body level to avoid z-index issues
   return createPortal(modalContent, document.body)
 }
 

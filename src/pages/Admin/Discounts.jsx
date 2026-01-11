@@ -42,6 +42,7 @@ function Discounts() {
   const [formData, setFormData] = useState({
     code: '',
     name: '',
+    instruction: '',
     type: 'percentage',
     value: '',
     minOrder: '',
@@ -66,12 +67,14 @@ function Discounts() {
         maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
         usageLimit: formData.usageLimit ? parseFloat(formData.usageLimit) : null,
         startDate: formData.startDate || null,
-        endDate: formData.endDate || null
+        endDate: formData.endDate || null,
+        instruction: formData.instruction || null
       })
       setShowAddModal(false)
       setFormData({
         code: '',
         name: '',
+        instruction: '',
         type: 'percentage',
         value: '',
         minOrder: '',
@@ -99,13 +102,15 @@ function Discounts() {
         maxDiscount: formData.maxDiscount ? parseFloat(formData.maxDiscount) : null,
         usageLimit: formData.usageLimit ? parseFloat(formData.usageLimit) : null,
         startDate: formData.startDate || null,
-        endDate: formData.endDate || null
+        endDate: formData.endDate || null,
+        instruction: formData.instruction || null
       })
       setEditingDiscount(null)
       setShowAddModal(false)
       setFormData({
         code: '',
         name: '',
+        instruction: '',
         type: 'percentage',
         value: '',
         minOrder: '',
@@ -150,6 +155,7 @@ function Discounts() {
     setFormData({
       code: discount.code || '',
       name: discount.name || '',
+      instruction: discount.instruction || '',
       type: discount.type || 'percentage',
       value: discount.value || discount.discount || '',
       minOrder: discount.minOrder || discount.minPurchase || '',
@@ -174,6 +180,7 @@ function Discounts() {
           setFormData({
             code: '',
             name: '',
+            instruction: '',
             type: 'percentage',
             value: '',
             minOrder: '',
@@ -217,6 +224,7 @@ function Discounts() {
             <tr>
               <th>Code</th>
               <th>Name</th>
+              <th>Instruction</th>
               <th>Type</th>
               <th>Discount</th>
               <th>Min Order</th>
@@ -229,19 +237,26 @@ function Discounts() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="8" className="text-center">Loading...</td>
+                <td colSpan="10" className="text-center">Loading...</td>
               </tr>
             ) : discounts.length === 0 ? (
               <tr>
-                <td colSpan="8" className="text-center">No discounts found</td>
+                <td colSpan="10" className="text-center">No discounts found</td>
               </tr>
             ) : (
               discounts.map(discount => (
               <tr key={discount.id}>
                 <td><strong className="discount-code">{discount.code}</strong></td>
                 <td>{discount.name}</td>
+                <td className="discount-instruction-cell">
+                  {discount.instruction ? (
+                    <span title={discount.instruction}>{discount.instruction.length > 50 ? discount.instruction.substring(0, 50) + '...' : discount.instruction}</span>
+                  ) : (
+                    <span className="text-muted">-</span>
+                  )}
+                </td>
                 <td>
-                  <span className="badge-type">{discount.type === 'percentage' ? 'Percentage' : 'Fixed'}</span>
+                  <span className="badge-type">{discount.type === 'percentage' ? 'Percentage' : discount.type === 'fixed' ? 'Fixed' : 'Custom'}</span>
                 </td>
                 <td>
                   {discount.type === 'percentage' ? (
@@ -298,6 +313,7 @@ function Discounts() {
                 setFormData({
                   code: '',
                   name: '',
+                  instruction: '',
                   type: 'percentage',
                   value: '',
                   minOrder: '',
@@ -331,6 +347,16 @@ function Discounts() {
                   placeholder="Summer Sale 20%"
                   required
                 />
+              </div>
+              <div className="form-group">
+                <label>Discount Instruction/Description</label>
+                <textarea
+                  rows="3"
+                  value={formData.instruction}
+                  onChange={(e) => setFormData({ ...formData, instruction: e.target.value })}
+                  placeholder="e.g., 'Buy 2 Get 1 Free - Minimum 3 products required, lowest priced item free' or '10% discount on total order'"
+                />
+                <small>Describe how this discount should be applied. For complex discounts like 'Buy 2 Get 1 Free', specify the rules clearly.</small>
               </div>
               <div className="form-row">
                 <div className="form-group">

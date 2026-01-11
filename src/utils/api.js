@@ -467,6 +467,36 @@ export const saleStripAPI = {
   getActive: () => apiCall('/sale-strips', { includeAuth: false }) // Returns array of active strips
 }
 
+// Coins API
+export const coinsAPI = {
+  getBalance: () => apiCall('/coins/balance'),
+  getTransactions: (page = 1, limit = 20) => apiCall(`/coins/transactions?page=${page}&limit=${limit}`),
+  calculateDiscount: (coinsToRedeem, subtotal) => apiCall('/coins/calculate-discount', {
+    method: 'POST',
+    body: { coinsToRedeem, subtotal }
+  }),
+  redeem: (coinsToRedeem, orderId = null) => apiCall('/coins/redeem', {
+    method: 'POST',
+    body: { coinsToRedeem, orderId }
+  })
+}
+
+// Discounts API (public)
+export const discountsAPI = {
+  getAvailable: (orderTotal, cartItems = []) => {
+    const params = new URLSearchParams()
+    if (orderTotal) params.append('orderTotal', orderTotal)
+    if (cartItems.length > 0) params.append('cartItems', JSON.stringify(cartItems))
+    return apiCall(`/discounts/available?${params.toString()}`, { includeAuth: false })
+  },
+  validate: (code, orderTotal, cartItems = []) => {
+    const params = new URLSearchParams()
+    if (orderTotal) params.append('orderTotal', orderTotal)
+    if (cartItems.length > 0) params.append('cartItems', JSON.stringify(cartItems))
+    return apiCall(`/discounts/validate/${code}?${params.toString()}`, { includeAuth: false })
+  }
+}
+
 export default {
   authAPI,
   productsAPI,
@@ -477,6 +507,7 @@ export default {
   paymentAPI,
   bannersAPI,
   couponsAPI,
+  discountsAPI,
   settingsAPI,
   contactAPI,
   returnsAPI,
@@ -484,6 +515,7 @@ export default {
   contentAPI,
   newArrivalsAPI,
   testimonialsAPI,
-  saleStripAPI
+  saleStripAPI,
+  coinsAPI
 }
 

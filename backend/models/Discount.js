@@ -16,8 +16,13 @@ const Discount = sequelize.define('Discount', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  instruction: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'Instructions for applying discount (e.g., "Buy 2 Get 1 Free", "10% off on total", etc.)'
+  },
   type: {
-    type: DataTypes.ENUM('percentage', 'fixed'),
+    type: DataTypes.ENUM('percentage', 'fixed', 'custom'),
     allowNull: false,
     defaultValue: 'percentage'
   },

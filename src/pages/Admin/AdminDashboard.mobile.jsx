@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, FolderTree, ShoppingBag, Users, FileText, 
   MessageSquare, Boxes, Settings, LogOut, Menu, X, ChevronRight,
   Tag, Mail, RotateCcw, Ticket, Image as ImageIcon, FileText as FileTextIcon,
-  Search, Home
+  Search, Home, Coins as CoinsIcon
 } from 'lucide-react'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import DashboardOverview from './DashboardOverview'
@@ -22,6 +22,7 @@ import Returns from './Returns'
 import Coupons from './Coupons'
 import Banners from './Banners'
 import EmailTemplates from './EmailTemplates'
+import Coins from './Coins'
 
 function AdminDashboardMobile() {
   const { admin, logout } = useAdminAuth()
@@ -133,6 +134,12 @@ function AdminDashboardMobile() {
           label: 'Coupon Codes',
           icon: Ticket,
           path: '/admin/coupons'
+        },
+        {
+          id: 'coins',
+          label: 'Coins & Rewards',
+          icon: CoinsIcon,
+          path: '/admin/coins'
         },
         {
           id: 'banners',
@@ -540,6 +547,7 @@ function AdminDashboardMobile() {
             <Route path="inventory" element={<Inventory />} />
             <Route path="discounts" element={<Discounts />} />
             <Route path="coupons" element={<Coupons />} />
+            <Route path="coins" element={<Coins />} />
             <Route path="banners" element={<Banners />} />
             <Route path="newsletter" element={<Newsletter />} />
             <Route path="returns" element={<Returns />} />

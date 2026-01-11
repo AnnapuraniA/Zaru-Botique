@@ -33,6 +33,7 @@ import uploadRoutes from './routes/uploadRoutes.js'
 import newArrivalRoutes from './routes/newArrivalRoutes.js'
 import testimonialRoutes from './routes/testimonialRoutes.js'
 import saleStripRoutes from './routes/saleStripRoutes.js'
+import coinRoutes from './routes/coinRoutes.js'
 
 // Load environment variables
 dotenv.config()
@@ -68,6 +69,7 @@ app.use('/api/addresses', addressRoutes)
 app.use('/api/payment-methods', paymentRoutes)
 app.use('/api/banners', bannerRoutes)
 app.use('/api/coupons', couponRoutes)
+app.use('/api/discounts', discountRoutes)
 app.use('/api/settings', settingRoutes)
 app.use('/api/contact', contactRoutes)
 app.use('/api/returns', returnRoutes)
@@ -77,6 +79,7 @@ app.use('/api/categories', categoryRoutes)
 app.use('/api/new-arrivals', newArrivalRoutes)
 app.use('/api/testimonials', testimonialRoutes)
 app.use('/api/sale-strips', saleStripRoutes)
+app.use('/api/coins', coinRoutes)
 
 // Admin Routes
 app.use('/api/admin/auth', adminAuthRoutes)

@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle, ChevronRight, Edit2, Trash2, X, RotateCcw } from 'lucide-react'
+import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle, ChevronRight, Edit2, Trash2, X, RotateCcw, Coins } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLoginModal } from '../context/LoginModalContext'
 import ConfirmationModal from '../components/Modal/ConfirmationModal'
 import { useToast } from '../components/Toast/ToastContainer'
-import { ordersAPI, addressesAPI, paymentAPI, cartAPI, authAPI, newsletterAPI, returnsAPI } from '../utils/api'
+import { ordersAPI, addressesAPI, paymentAPI, cartAPI, authAPI, newsletterAPI, returnsAPI, coinsAPI } from '../utils/api'
+import CoinsTab from '../components/CoinsTab'
 
 function DashboardMobile({
   orders = [],
@@ -589,6 +590,7 @@ function DashboardMobile({
     { id: 'payment', label: 'Payment', icon: CreditCard },
     { id: 'track', label: 'Track', icon: Truck },
     { id: 'returns', label: 'Returns', icon: RotateCcw },
+    { id: 'coins', label: 'Coins', icon: Coins },
     { id: 'settings', label: 'Settings', icon: Settings }
   ]
 
@@ -2021,6 +2023,11 @@ function DashboardMobile({
               </div>
             )}
           </div>
+        )}
+
+        {/* Coins Tab */}
+        {activeTab === 'coins' && (
+          <CoinsTab user={user} showSuccessToast={showSuccessToast} showError={showError} />
         )}
 
         {/* Settings Tab */}

@@ -56,8 +56,12 @@ router.get('/', async (req, res) => {
 router.get('/:category', async (req, res) => {
   try {
     const { category } = req.params
+    
+    // If category is 'all', return all settings without filtering
+    const where = category === 'all' ? {} : { category }
+    
     const settings = await Setting.findAll({
-      where: { category }
+      where
     })
 
     const settingsObj = {}
@@ -86,7 +90,7 @@ router.get('/:category', async (req, res) => {
   }
 })
 
-// @route   GET /api/admin/settings
+// @route   GET /api/admin/settings/all
 // @desc    Get all settings (admin)
 // @access  Admin
 router.get('/all', adminProtect, async (req, res) => {
@@ -94,7 +98,8 @@ router.get('/all', adminProtect, async (req, res) => {
     const { category } = req.query
     const where = {}
 
-    if (category) {
+    // Only filter by category if it's provided and not 'all'
+    if (category && category !== 'all') {
       where.category = category
     }
 

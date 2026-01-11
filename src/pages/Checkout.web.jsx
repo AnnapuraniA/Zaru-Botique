@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CreditCard, Lock, ChevronDown, X, Smartphone, Building2, Wallet, Shield, CheckCircle2, User, Phone, Mail, MapPin, Tag, CheckCircle, IndianRupee, Package, ShoppingBag, FileText, Plus, Check } from 'lucide-react'
+import { CreditCard, Lock, ChevronDown, X, Smartphone, Building2, Wallet, Shield, CheckCircle2, User, Phone, Mail, MapPin, Tag, CheckCircle, IndianRupee, Package, ShoppingBag, FileText, Plus, Check, Coins, TrendingUp } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { cartAPI, ordersAPI, couponsAPI, settingsAPI, addressesAPI, paymentAPI } from '../utils/api'
+import { cartAPI, ordersAPI, couponsAPI, discountsAPI, settingsAPI, addressesAPI, paymentAPI, coinsAPI } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
 
 function CheckoutWeb() {
@@ -17,11 +17,24 @@ function CheckoutWeb() {
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [couponError, setCouponError] = useState('')
   const [validatingCoupon, setValidatingCoupon] = useState(false)
+  const [coinBalance, setCoinBalance] = useState(0)
+  const [coinRules, setCoinRules] = useState({ earning: { threshold: 5000, coins: 10 }, redemption: { coins: 50, discountPercent: 5 } })
+  const [coinsToRedeem, setCoinsToRedeem] = useState(0)
+  const [coinDiscount, setCoinDiscount] = useState(0)
+  const [loadingCoins, setLoadingCoins] = useState(false)
   const [availableCoupons, setAvailableCoupons] = useState([])
+  const [availableDiscounts, setAvailableDiscounts] = useState([])
   const [showCouponDropdown, setShowCouponDropdown] = useState(false)
+  const [showDiscountDropdown, setShowDiscountDropdown] = useState(false)
   const [loadingCoupons, setLoadingCoupons] = useState(false)
+  const [loadingDiscounts, setLoadingDiscounts] = useState(false)
+  const [appliedDiscount, setAppliedDiscount] = useState(null)
+  const [discountCode, setDiscountCode] = useState('')
+  const [discountError, setDiscountError] = useState('')
+  const [validatingDiscount, setValidatingDiscount] = useState(false)
   const couponInputRef = useRef(null)
   const couponDropdownRef = useRef(null)
+  const discountDropdownRef = useRef(null)
   const [shippingCosts, setShippingCosts] = useState({
     free: 0,
     standard: 100,
@@ -85,6 +98,7 @@ function CheckoutWeb() {
     if (isAuthenticated && user) {
       loadSavedAddresses()
       loadSavedPaymentMethods()
+      loadCoinBalance()
       // Pre-fill user info
       setFormData(prev => ({
         ...prev,
@@ -94,6 +108,142 @@ function CheckoutWeb() {
       }))
     }
   }, [user, isAuthenticated])
+
+  // Load available discounts when cart items or subtotal changes
+  useEffect(() => {
+    if (cartItems.length > 0 && subtotal > 0) {
+      loadAvailableDiscounts()
+    }
+  }, [cartItems, subtotal])
+
+  // Calculate subtotal using useMemo to ensure it's available before useEffect
+  const subtotal = useMemo(() => {
+    return cartItems.reduce((sum, item) => {
+      const price = item.product?.price || item.price || 0
+      return sum + (price * item.quantity)
+    }, 0)
+  }, [cartItems])
+
+  // Load coin balance
+  const loadCoinBalance = async () => {
+    if (!isAuthenticated) return
+    try {
+      setLoadingCoins(true)
+      const data = await coinsAPI.getBalance()
+      setCoinBalance(data.balance || 0)
+      if (data.rules) {
+        setCoinRules(data.rules)
+      }
+    } catch (err) {
+      console.error('Failed to load coin balance:', err)
+    } finally {
+      setLoadingCoins(false)
+    }
+  }
+
+  // Calculate coin discount when coinsToRedeem changes
+  useEffect(() => {
+    if (coinsToRedeem > 0 && subtotal > 0 && isAuthenticated) {
+      calculateCoinDiscount()
+    } else {
+      setCoinDiscount(0)
+    }
+  }, [coinsToRedeem, subtotal, isAuthenticated])
+
+  const calculateCoinDiscount = async () => {
+    if (coinsToRedeem <= 0 || coinsToRedeem > coinBalance) {
+      setCoinDiscount(0)
+      return
+    }
+    try {
+      const result = await coinsAPI.calculateDiscount(coinsToRedeem, subtotal)
+      setCoinDiscount(result.discountAmount || 0)
+    } catch (err) {
+      console.error('Failed to calculate coin discount:', err)
+      setCoinDiscount(0)
+    }
+  }
+
+  const handleCoinRedeemChange = (value) => {
+    const numValue = parseInt(value) || 0
+    if (numValue <= coinBalance && numValue >= 0) {
+      setCoinsToRedeem(numValue)
+    }
+  }
+
+  const handleMaxCoinsRedeem = () => {
+    if (coinBalance > 0) {
+      setCoinsToRedeem(coinBalance)
+    }
+  }
+
+  const handleRemoveCoins = () => {
+    setCoinsToRedeem(0)
+    setCoinDiscount(0)
+  }
+
+  // Helper function to parse discount instructions (same as backend)
+  const parseDiscountInstruction = (instruction, cartItems, orderTotal) => {
+    if (!instruction || !cartItems || cartItems.length === 0) {
+      return 0
+    }
+    
+    const instructionLower = instruction.toLowerCase()
+    
+    // Buy X Get Y Free pattern
+    const buyXGetYMatch = instructionLower.match(/buy\s+(\d+)\s+get\s+(\d+)\s+free/i)
+    if (buyXGetYMatch) {
+      const buyCount = parseInt(buyXGetYMatch[1])
+      const freeCount = parseInt(buyXGetYMatch[2])
+      const minItems = buyCount + freeCount
+      
+      // Check if cart has minimum items
+      const totalQuantity = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0)
+      if (totalQuantity < minItems) {
+        return 0
+      }
+      
+      // Sort items by price (lowest first) and mark free items
+      const sortedItems = [...cartItems].sort((a, b) => {
+        const priceA = parseFloat(a.product?.price || a.price || 0)
+        const priceB = parseFloat(b.product?.price || b.price || 0)
+        return priceA - priceB
+      })
+      
+      // Calculate total discount (free items' prices)
+      let discount = 0
+      let itemsToMakeFree = freeCount
+      
+      for (const item of sortedItems) {
+        if (itemsToMakeFree <= 0) break
+        
+        const itemPrice = parseFloat(item.product?.price || item.price || 0)
+        const itemQuantity = item.quantity || 1
+        const freeFromThisItem = Math.min(itemsToMakeFree, itemQuantity)
+        
+        discount += itemPrice * freeFromThisItem
+        itemsToMakeFree -= freeFromThisItem
+      }
+      
+      return discount
+    }
+    
+    // Percentage off pattern
+    const percentMatch = instructionLower.match(/(\d+(?:\.\d+)?)\s*%\s*(?:off|discount)/i)
+    if (percentMatch) {
+      const percent = parseFloat(percentMatch[1])
+      return (orderTotal * percent) / 100
+    }
+    
+    // Fixed amount off pattern
+    const fixedMatch = instructionLower.match(/₹?\s*(\d+(?:\.\d+)?)\s*(?:off|discount)/i)
+    if (fixedMatch) {
+      const amount = parseFloat(fixedMatch[1])
+      return Math.min(amount, orderTotal)
+    }
+    
+    return 0
+  }
 
   const loadSavedPaymentMethods = async () => {
     try {
@@ -248,6 +398,22 @@ function CheckoutWeb() {
     }
   }
 
+  // Load available discounts
+  const loadAvailableDiscounts = async () => {
+    setLoadingDiscounts(true)
+    try {
+      console.log('Loading available discounts, subtotal:', subtotal)
+      const response = await discountsAPI.getAvailable(subtotal, cartItems)
+      console.log('Discounts response:', response)
+      setAvailableDiscounts(response.discounts || [])
+    } catch (err) {
+      console.error('Failed to load discounts:', err)
+      showError('Failed to load available discounts')
+    } finally {
+      setLoadingDiscounts(false)
+    }
+  }
+
   // Handle coupon input focus/click
   const handleCouponInputFocus = () => {
     setShowCouponDropdown(true)
@@ -308,6 +474,12 @@ function CheckoutWeb() {
       ) {
         setShowCouponDropdown(false)
       }
+      if (
+        discountDropdownRef.current &&
+        !discountDropdownRef.current.contains(event.target)
+      ) {
+        setShowDiscountDropdown(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
@@ -316,11 +488,7 @@ function CheckoutWeb() {
     }
   }, [])
 
-  // Calculate totals
-  const subtotal = cartItems.reduce((sum, item) => {
-    const price = item.product?.price || item.price || 0
-    return sum + (price * item.quantity)
-  }, 0)
+  // Calculate totals (subtotal already calculated above with useMemo)
   const shipping = shippingCosts[formData.shippingMethod] || 0
   const tax = subtotal * 0.18
   
@@ -371,8 +539,47 @@ function CheckoutWeb() {
   } else {
     console.log('No coupon applied')
   }
+
+  // Calculate discount discount based on instruction
+  let discountDiscount = 0
+  if (appliedDiscount) {
+    console.log('=== Calculating discount discount ===')
+    console.log('Applied discount:', JSON.stringify(appliedDiscount, null, 2))
+    
+    const discountType = appliedDiscount.type
+    
+    if (discountType === 'percentage') {
+      discountDiscount = (subtotal * parseFloat(appliedDiscount.value)) / 100
+      if (appliedDiscount.maxDiscount && discountDiscount > parseFloat(appliedDiscount.maxDiscount)) {
+        discountDiscount = parseFloat(appliedDiscount.maxDiscount)
+      }
+    } else if (discountType === 'fixed') {
+      discountDiscount = parseFloat(appliedDiscount.value)
+      if (discountDiscount > subtotal) {
+        discountDiscount = subtotal
+      }
+    } else if (discountType === 'custom' && appliedDiscount.calculatedDiscount !== undefined) {
+      // Use calculated discount from instruction parser
+      discountDiscount = parseFloat(appliedDiscount.calculatedDiscount || 0)
+    } else if (appliedDiscount.instruction) {
+      // Parse instruction if not already calculated
+      discountDiscount = parseDiscountInstruction(appliedDiscount.instruction, cartItems, subtotal)
+    }
+    
+    console.log(`Final discount discount: ₹${discountDiscount.toFixed(2)}`)
+  }
   
-  const total = Math.max(0, subtotal + shipping + tax - couponDiscount)
+  const total = Math.max(0, subtotal + shipping + tax - couponDiscount - discountDiscount - coinDiscount)
+  
+  // Calculate coins that will be earned from this purchase
+  const coinsToEarn = useMemo(() => {
+    if (!isAuthenticated || !coinRules.earning) return 0
+    if (total >= coinRules.earning.threshold) {
+      return coinRules.earning.coins
+    }
+    return 0
+  }, [total, coinRules.earning, isAuthenticated])
+  
   console.log(`=== Total Calculation ===`)
   console.log(`Subtotal: ₹${subtotal.toFixed(2)}`)
   console.log(`Shipping: ₹${shipping.toFixed(2)}`)
@@ -426,6 +633,72 @@ function CheckoutWeb() {
     setAppliedCoupon(null)
     setCouponCode('')
     setCouponError('')
+  }
+
+  // Handle discount input focus/click
+  const handleDiscountInputFocus = () => {
+    setShowDiscountDropdown(true)
+    if (availableDiscounts.length === 0 && !loadingDiscounts) {
+      loadAvailableDiscounts()
+    }
+  }
+
+  // Handle discount selection from dropdown
+  const handleSelectDiscount = async (discount) => {
+    setDiscountCode(discount.code)
+    setShowDiscountDropdown(false)
+    setValidatingDiscount(true)
+    setDiscountError('')
+    try {
+      const result = await discountsAPI.validate(discount.code, subtotal, cartItems)
+      if (result.valid && result.discount) {
+        setAppliedDiscount(result.discount)
+        setDiscountError('')
+        success('Discount applied successfully!')
+      } else {
+        setDiscountError('Invalid discount code')
+        setAppliedDiscount(null)
+      }
+    } catch (err) {
+      console.error('Failed to validate discount:', err)
+      setDiscountError(err.message || 'Invalid discount code')
+      setAppliedDiscount(null)
+    } finally {
+      setValidatingDiscount(false)
+    }
+  }
+
+  // Handle apply discount button
+  const handleApplyDiscount = async () => {
+    if (!discountCode.trim()) {
+      setDiscountError('Please enter a discount code')
+      return
+    }
+    setValidatingDiscount(true)
+    setDiscountError('')
+    try {
+      const result = await discountsAPI.validate(discountCode.toUpperCase(), subtotal, cartItems)
+      if (result.valid && result.discount) {
+        setAppliedDiscount(result.discount)
+        setDiscountError('')
+        success('Discount applied successfully!')
+      } else {
+        setDiscountError(result.message || 'Invalid discount code')
+        setAppliedDiscount(null)
+      }
+    } catch (err) {
+      console.error('Failed to validate discount:', err)
+      setDiscountError(err.message || 'Invalid discount code')
+      setAppliedDiscount(null)
+    } finally {
+      setValidatingDiscount(false)
+    }
+  }
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null)
+    setDiscountCode('')
+    setDiscountError('')
   }
 
   const handleNext = () => {
@@ -666,6 +939,21 @@ function CheckoutWeb() {
 
   const processOrderAfterPayment = async (razorpayResponse, total, savedMethod = null) => {
     try {
+      // Redeem coins if any were selected
+      let redeemedCoins = 0
+      if (coinsToRedeem > 0 && coinBalance >= coinsToRedeem) {
+        try {
+          await coinsAPI.redeem(coinsToRedeem)
+          redeemedCoins = coinsToRedeem
+          // Reload coin balance
+          await loadCoinBalance()
+        } catch (err) {
+          console.error('Failed to redeem coins:', err)
+          showError('Failed to redeem coins. Please try again.')
+          throw err
+        }
+      }
+
       // Prepare order items
       const orderItems = cartItems.map(item => ({
         productId: item.product?._id || item.productId || item.id,
@@ -710,7 +998,10 @@ function CheckoutWeb() {
         payment: paymentData,
         shippingMethod: formData.shippingMethod || 'free',
         couponCode: appliedCoupon?.code || null,
-        discount: appliedCoupon ? (orderItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0) * (appliedCoupon.discountPercent / 100)) : 0
+        discountCode: appliedDiscount?.code || null,
+        discount: couponDiscount || 0,
+        discountDiscount: discountDiscount || 0,
+        coinsRedeemed: redeemedCoins
       }
 
       // Create order via API
@@ -1493,6 +1784,246 @@ function CheckoutWeb() {
                   </div>
                 </div>
 
+                {/* Coin Redemption Section */}
+                {isAuthenticated && coinBalance > 0 && (
+                  <div className="coupon-section-new-web" style={{ marginBottom: '1.5rem' }}>
+                    {coinsToRedeem === 0 ? (
+                      <div className="coupon-wrapper-new-web">
+                        <div className="coupon-header-new-web">
+                          <div className="coupon-icon-wrapper-new-web">
+                            <Coins size={24} />
+                          </div>
+                          <div className="coupon-header-text-new-web">
+                            <h3>Redeem Coins</h3>
+                            <p>You have {coinBalance} coins available. {coinRules.redemption.coins} coins = {coinRules.redemption.discountPercent}% discount</p>
+                          </div>
+                        </div>
+                        <div className="coupon-input-container-new-web">
+                          <div className="coupon-input-field-new-web">
+                            <input
+                              type="number"
+                              placeholder="Enter coins to redeem"
+                              value={coinsToRedeem}
+                              onChange={(e) => handleCoinRedeemChange(e.target.value)}
+                              min="0"
+                              max={coinBalance}
+                              className="coupon-input-new-web"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleMaxCoinsRedeem}
+                              className="btn-apply-coupon-new-web"
+                              disabled={coinBalance === 0}
+                            >
+                              Max
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="coupon-applied-new-web">
+                        <div className="coupon-applied-content-new-web">
+                          <div className="coupon-applied-icon-new-web">
+                            <Coins size={24} />
+                          </div>
+                          <div className="coupon-applied-info-new-web">
+                            <div className="coupon-applied-label-new-web">Coins Redeemed</div>
+                            <div className="coupon-applied-code-new-web">{coinsToRedeem} coins = ₹{coinDiscount.toFixed(2)} discount</div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoins}
+                          className="coupon-remove-btn-new-web"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Coin Earning Preview Section */}
+                {isAuthenticated && (
+                  <div className="coin-earning-preview-section" style={{ marginBottom: '1.5rem' }}>
+                    {coinsToEarn > 0 ? (
+                      <div className="coin-earning-preview-card">
+                        <div className="coin-earning-preview-icon">
+                          <TrendingUp size={24} />
+                        </div>
+                        <div className="coin-earning-preview-content">
+                          <div className="coin-earning-preview-label">You will earn</div>
+                          <div className="coin-earning-preview-amount">
+                            <Coins size={20} />
+                            <span>{coinsToEarn} coins</span>
+                          </div>
+                          <div className="coin-earning-preview-info">from this purchase</div>
+                        </div>
+                      </div>
+                    ) : total > 0 && coinRules.earning ? (
+                      <div className="coin-earning-preview-card coin-earning-preview-card-info">
+                        <div className="coin-earning-preview-icon">
+                          <Coins size={24} />
+                        </div>
+                        <div className="coin-earning-preview-content">
+                          <div className="coin-earning-preview-label">Earn {coinRules.earning.coins} coins</div>
+                          <div className="coin-earning-preview-info">
+                            Add ₹{(coinRules.earning.threshold - total).toFixed(2)} more to earn coins
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Discount Section - Redesigned for Web */}
+                <div className="coupon-section-new-web" style={{ marginBottom: '1.5rem' }}>
+                  {!appliedDiscount ? (
+                    <div className="coupon-wrapper-new-web">
+                      <div className="coupon-header-new-web">
+                        <div className="coupon-icon-wrapper-new-web">
+                          <Tag size={24} />
+                        </div>
+                        <div className="coupon-header-text-new-web">
+                          <h3>Apply Discount Code</h3>
+                          <p>Enter discount code or browse available discounts</p>
+                        </div>
+                      </div>
+                      
+                      <div className="coupon-input-container-new-web">
+                        <div className="coupon-input-field-new-web">
+                          <input
+                            type="text"
+                            placeholder="Enter discount code"
+                            value={discountCode}
+                            onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                            onFocus={handleDiscountInputFocus}
+                            className={`coupon-input-new-web ${discountError ? 'error' : ''}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleApplyDiscount}
+                            disabled={validatingDiscount || !discountCode.trim()}
+                            className="btn-apply-coupon-new-web"
+                          >
+                            {validatingDiscount ? (
+                              <span className="loading-spinner-web"></span>
+                            ) : (
+                              'Apply'
+                            )}
+                          </button>
+                        </div>
+                        
+                        {discountError && (
+                          <div className="coupon-error-new-web">
+                            <span className="error-icon-web">⚠️</span>
+                            <span>{discountError}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn-view-coupons-new-web"
+                        onClick={() => {
+                          setShowDiscountDropdown(!showDiscountDropdown)
+                          if (!showDiscountDropdown && availableDiscounts.length === 0) {
+                            loadAvailableDiscounts()
+                          }
+                        }}
+                      >
+                        {showDiscountDropdown ? 'Hide' : 'View'} Available Discounts ({availableDiscounts.length})
+                      </button>
+
+                      {showDiscountDropdown && (
+                        <div className="coupon-panel-new-web" ref={discountDropdownRef}>
+                          <div className="coupon-panel-header-new-web">
+                            <Tag size={20} />
+                            <h4>Available Discounts</h4>
+                            <button
+                              type="button"
+                              className="coupon-panel-close-new-web"
+                              onClick={() => setShowDiscountDropdown(false)}
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                          <div className="coupon-panel-content-new-web">
+                            {loadingDiscounts ? (
+                              <div className="coupon-loading-new-web">
+                                <div className="loading-spinner-web-large"></div>
+                                <p>Loading discounts...</p>
+                              </div>
+                            ) : availableDiscounts.length === 0 ? (
+                              <div className="coupon-empty-new-web">
+                                <Tag size={40} />
+                                <p>No discounts available</p>
+                              </div>
+                            ) : (
+                              <div className="coupon-grid-new-web">
+                                {availableDiscounts.map((discount) => (
+                                  <div
+                                    key={discount.id}
+                                    className="coupon-card-new-web"
+                                    onClick={() => handleSelectDiscount(discount)}
+                                  >
+                                    <div className="coupon-card-top-new-web">
+                                      <div className="coupon-card-icon-new-web">
+                                        <Tag size={20} />
+                                      </div>
+                                      <div className="coupon-card-code-new-web">{discount.code}</div>
+                                    </div>
+                                    <div className="coupon-card-name-new-web">{discount.name}</div>
+                                    {discount.instruction && (
+                                      <div className="coupon-card-description-new-web">{discount.instruction}</div>
+                                    )}
+                                    <div className="coupon-card-discount-new-web">
+                                      {discount.type === 'percentage' ? (
+                                        <span>{discount.value}% OFF</span>
+                                      ) : discount.type === 'fixed' ? (
+                                        <span>₹{discount.value} OFF</span>
+                                      ) : (
+                                        <span>Special Offer</span>
+                                      )}
+                                    </div>
+                                    {discount.minOrder > 0 && (
+                                      <div className="coupon-card-min-new-web">
+                                        Min. order: ₹{discount.minOrder.toLocaleString()}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="coupon-applied-new-web">
+                      <div className="coupon-applied-content-new-web">
+                        <div className="coupon-applied-icon-new-web">
+                          <Tag size={24} />
+                        </div>
+                        <div className="coupon-applied-info-new-web">
+                          <div className="coupon-applied-label-new-web">Discount Applied</div>
+                          <div className="coupon-applied-code-new-web">{appliedDiscount.code} - {appliedDiscount.name}</div>
+                          {appliedDiscount.instruction && (
+                            <div className="coupon-applied-description-new-web">{appliedDiscount.instruction}</div>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveDiscount}
+                        className="coupon-remove-btn-new-web"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Coupon Section - Redesigned for Web */}
                 <div className="coupon-section-new-web">
                   {!appliedCoupon ? (
@@ -1652,9 +2183,39 @@ function CheckoutWeb() {
                     <div className="summary-row-enhanced discount-row">
                       <span className="summary-label">
                         <Tag size={16} />
-                        Coupon Discount
+                        Coupon Discount ({appliedCoupon.code})
                       </span>
                       <span className="summary-value discount-value">-₹{couponDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {appliedDiscount && discountDiscount > 0 && (
+                    <div className="summary-row-enhanced discount-row">
+                      <span className="summary-label">
+                        <Tag size={16} />
+                        Discount ({appliedDiscount.code})
+                      </span>
+                      <span className="summary-value discount-value">-₹{discountDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {coinDiscount > 0 && (
+                    <div className="summary-row-enhanced discount-row">
+                      <span className="summary-label">
+                        <Coins size={16} />
+                        Coin Discount ({coinsToRedeem} coins)
+                      </span>
+                      <span className="summary-value discount-value">-₹{coinDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {isAuthenticated && coinsToEarn > 0 && (
+                    <div className="summary-row-enhanced coin-earning-row">
+                      <span className="summary-label">
+                        <TrendingUp size={16} />
+                        Coins You'll Earn
+                      </span>
+                      <span className="summary-value coin-earning-value">
+                        <Coins size={14} />
+                        +{coinsToEarn} coins
+                      </span>
                     </div>
                   )}
                   <div className="summary-row-enhanced">
@@ -1716,6 +2277,53 @@ function CheckoutWeb() {
                 })}
               </div>
               <div className="summary-divider"></div>
+              {/* Coin Redemption Section in Sidebar */}
+              {isAuthenticated && coinBalance > 0 && (
+                <div className="coupon-section-new-web coupon-section-sidebar-web" style={{ marginBottom: '1rem' }}>
+                  {coinsToRedeem === 0 ? (
+                    <div className="coupon-wrapper-new-web coupon-wrapper-sidebar-web">
+                      <div className="coupon-header-new-web coupon-header-sidebar-web">
+                        <Coins size={18} />
+                        <span>Redeem Coins ({coinBalance})</span>
+                      </div>
+                      <div className="coupon-input-container-new-web">
+                        <div className="coupon-input-field-new-web coupon-input-field-sidebar-web">
+                          <input
+                            type="number"
+                            placeholder="Coins"
+                            value={coinsToRedeem}
+                            onChange={(e) => handleCoinRedeemChange(e.target.value)}
+                            min="0"
+                            max={coinBalance}
+                            className="coupon-input-new-web coupon-input-sidebar-web"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleMaxCoinsRedeem}
+                            className="btn-apply-coupon-new-web btn-apply-sidebar-web"
+                            disabled={coinBalance === 0}
+                          >
+                            Max
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="coupon-applied-new-web coupon-applied-sidebar-web">
+                      <Coins size={16} />
+                      <span>{coinsToRedeem} coins</span>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoins}
+                        className="coupon-remove-btn-new-web"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Coupon Section in Sidebar - Compact Version */}
               <div className="coupon-section-new-web coupon-section-sidebar-web">
                 {!appliedCoupon ? (
@@ -1861,9 +2469,39 @@ function CheckoutWeb() {
                 <div className="summary-row-enhanced discount-row">
                   <span className="summary-label">
                     <Tag size={14} />
-                    Discount
+                    Coupon ({appliedCoupon.code})
                   </span>
                   <span className="summary-value discount-value">-₹{couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {appliedDiscount && discountDiscount > 0 && (
+                <div className="summary-row-enhanced discount-row">
+                  <span className="summary-label">
+                    <Tag size={14} />
+                    Discount ({appliedDiscount.code})
+                  </span>
+                  <span className="summary-value discount-value">-₹{discountDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {coinDiscount > 0 && (
+                <div className="summary-row-enhanced discount-row">
+                  <span className="summary-label">
+                    <Coins size={14} />
+                    Coin Discount
+                  </span>
+                  <span className="summary-value discount-value">-₹{coinDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {isAuthenticated && coinsToEarn > 0 && (
+                <div className="summary-row-enhanced coin-earning-row">
+                  <span className="summary-label">
+                    <TrendingUp size={14} />
+                    Coins You'll Earn
+                  </span>
+                  <span className="summary-value coin-earning-value">
+                    <Coins size={12} />
+                    +{coinsToEarn} coins
+                  </span>
                 </div>
               )}
               <div className="summary-row-enhanced">

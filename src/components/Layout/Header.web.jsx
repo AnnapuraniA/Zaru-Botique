@@ -1,9 +1,10 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp, GitCompare } from 'lucide-react'
+import { ShoppingCart, Heart, User, Search, ChevronDown, ChevronUp, GitCompare, Coins } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useHeaderData } from '../../hooks/useHeaderData'
 import { useLoginModal } from '../../context/LoginModalContext'
+import { coinsAPI } from '../../utils/api'
 
 function HeaderWeb() {
   const { isAuthenticated, user } = useAuth()
@@ -13,9 +14,31 @@ function HeaderWeb() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchExpanded, setIsSearchExpanded] = useState(false)
   const [categories, setCategories] = useState([])
+  const [coinBalance, setCoinBalance] = useState(0)
   const navigate = useNavigate()
   const location = useLocation()
   const isHomePage = location.pathname === '/'
+
+  // Load coin balance
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadCoinBalance()
+    } else {
+      setCoinBalance(0)
+    }
+  }, [isAuthenticated, user])
+
+  const loadCoinBalance = async () => {
+    if (!isAuthenticated) return
+    try {
+      const data = await coinsAPI.getBalance()
+      setCoinBalance(data.balance || 0)
+    } catch (err) {
+      console.error('Failed to load coin balance:', err)
+      // Set to 0 on error so icon still shows
+      setCoinBalance(0)
+    }
+  }
 
   // Fetch categories from API
   useEffect(() => {
@@ -192,6 +215,14 @@ function HeaderWeb() {
                     <span className="badge show"></span>
                   )}
                 </Link>
+                {isAuthenticated && (
+                  <Link to="/dashboard" state={{ tab: 'coins' }} className="icon-btn" title={`${coinBalance} Coins`}>
+                    <Coins size={20} />
+                    {coinBalance > 0 && (
+                      <span className="coin-badge">{coinBalance}</span>
+                    )}
+                  </Link>
+                )}
                 {isAuthenticated ? (
                   <Link to="/dashboard" className="icon-btn" title={user?.name || 'Profile'}>
                     <User size={20} />

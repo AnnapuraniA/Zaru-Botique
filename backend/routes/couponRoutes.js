@@ -32,12 +32,19 @@ router.get('/available', optionalAuth, async (req, res) => {
     
     // Get user's coupon usage if authenticated
     let userCouponUsage = []
+    let userCouponUsageCounts = {}
     if (userId) {
       const usageRecords = await CouponUsage.findAll({
         where: { userId },
         attributes: ['couponId']
       })
       userCouponUsage = usageRecords.map(u => u.couponId)
+      
+      // Count usage per coupon
+      usageRecords.forEach(record => {
+        userCouponUsageCounts[record.couponId] = (userCouponUsageCounts[record.couponId] || 0) + 1
+      })
+      
       console.log(`User has used ${userCouponUsage.length} coupons`)
     }
     
@@ -48,6 +55,7 @@ router.get('/available', optionalAuth, async (req, res) => {
         console.log(`  - validFrom: ${coupon.validFrom} (type: ${typeof coupon.validFrom})`)
         console.log(`  - validUntil: ${coupon.validUntil} (type: ${typeof coupon.validUntil})`)
         console.log(`  - used: ${coupon.used}, limit: ${coupon.usageLimit}`)
+        console.log(`  - userUsageLimit: ${coupon.userUsageLimit}`)
         console.log(`  - minPurchase: ${coupon.minPurchase}`)
         
         // Check date validity - be more lenient with date comparisons
@@ -75,6 +83,14 @@ router.get('/available', optionalAuth, async (req, res) => {
           }
         }
         
+        // Check if user has already used this coupon (single-use logic)
+        if (userId && coupon.userUsageLimit === 'once') {
+          if (userCouponUsage.includes(coupon.id)) {
+            console.log(`  - Rejected: User has already used this coupon (single-use)`)
+            return false
+          }
+        }
+        
         // Check per-user usage limit if user is authenticated
         if (userId && coupon.usageLimit) {
           const userUsageCount = userCouponUsageCounts[coupon.id] || 0
@@ -82,6 +98,12 @@ router.get('/available', optionalAuth, async (req, res) => {
             console.log(`  - Rejected: User has reached usage limit (${userUsageCount}/${coupon.usageLimit})`)
             return false
           }
+        }
+        
+        // Check global usage limit
+        if (coupon.usageLimit && coupon.used >= coupon.usageLimit) {
+          console.log(`  - Rejected: Global usage limit reached (${coupon.used}/${coupon.usageLimit})`)
+          return false
         }
         
         // Check minimum purchase if orderTotal is provided

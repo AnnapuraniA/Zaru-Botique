@@ -5,6 +5,9 @@ import Cart from '../models/Cart.js'
 import User from '../models/User.js'
 import Coupon from '../models/Coupon.js'
 import CouponUsage from '../models/CouponUsage.js'
+import Discount from '../models/Discount.js'
+import CoinTransaction from '../models/CoinTransaction.js'
+import Setting from '../models/Setting.js'
 import { protect } from '../middleware/auth.js'
 import { generateInvoicePDF } from '../utils/invoiceGenerator.js'
 import { sendEmailWithPDF, sendOrderConfirmationEmail } from '../services/emailService.js'
@@ -25,7 +28,7 @@ const router = express.Router()
 // @access  Private
 router.post('/', protect, async (req, res) => {
   try {
-    const { shippingAddress, payment, shippingMethod, couponCode, discount } = req.body
+    const { shippingAddress, payment, shippingMethod, couponCode, discountCode, discount, discountDiscount, coinsRedeemed } = req.body
 
     // Verify Razorpay payment if provided
     if (payment.razorpayPaymentId && payment.razorpayOrderId && payment.razorpaySignature) {
@@ -80,9 +83,11 @@ router.post('/', protect, async (req, res) => {
     else if (shippingMethod === 'express') shippingCost = 200
     else if (subtotal < 2000) shippingCost = 100
 
-    const appliedDiscount = discount || 0
-    const tax = (subtotal - appliedDiscount) * 0.18
-    const total = subtotal - appliedDiscount + shippingCost + tax
+    const appliedCouponDiscount = discount || 0
+    const appliedDiscountDiscount = discountDiscount || 0
+    const totalDiscount = appliedCouponDiscount + appliedDiscountDiscount
+    const tax = (subtotal - totalDiscount) * 0.18
+    const total = subtotal - totalDiscount + shippingCost + tax
 
     // Generate order ID and tracking
     const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
@@ -113,6 +118,22 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
+    // Validate discount usage if discount code is provided
+    if (discountCode) {
+      const discount = await Discount.findOne({
+        where: { code: discountCode.toUpperCase() }
+      })
+
+      if (discount) {
+        // Check global usage limit
+        if (discount.usageLimit && discount.used >= discount.usageLimit) {
+          return res.status(400).json({ 
+            message: 'Discount usage limit reached' 
+          })
+        }
+      }
+    }
+
     // Create order
     const order = await Order.create({
       orderId,
@@ -132,12 +153,14 @@ router.post('/', protect, async (req, res) => {
         status: payment.razorpayPaymentId ? 'paid' : 'pending'
       },
       subtotal,
-      discount: appliedDiscount,
+      discount: totalDiscount,
       shippingCost,
       tax,
       total,
       tracking,
       couponCode: couponCode || null,
+      discountCode: discountCode || null,
+      coinsRedeemed: coinsRedeemed || 0,
       status: payment.razorpayPaymentId ? 'Processing' : 'Pending Payment',
       statusHistory: [{
         status: payment.razorpayPaymentId ? 'Processing' : 'Pending Payment',
@@ -166,9 +189,75 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
+    // Record discount usage if discount was used
+    if (discountCode) {
+      const discount = await Discount.findOne({
+        where: { code: discountCode.toUpperCase() }
+      })
+
+      if (discount) {
+        // Increment discount used count
+        discount.used = (discount.used || 0) + 1
+        await discount.save()
+      }
+    }
+
     // Clear cart
     cart.items = []
     await cart.save()
+
+    // Award coins based on purchase amount (only if payment is successful)
+    if (payment.razorpayPaymentId && total > 0) {
+      try {
+        // Get coin earning rules
+        const earningRule = await Setting.findOne({ where: { key: 'coin_earning_rule' } })
+        const defaultRule = { threshold: 5000, coins: 10 }
+        const rule = earningRule ? JSON.parse(earningRule.value) : defaultRule
+
+        // Check if order qualifies for coins
+        if (total >= rule.threshold) {
+          const user = await User.findByPk(req.user.id)
+          if (user) {
+            const coinsToAward = rule.coins
+            const newBalance = (user.coins || 0) + coinsToAward
+            
+            user.coins = newBalance
+            await user.save()
+
+            // Create coin transaction record
+            await CoinTransaction.create({
+              userId: user.id,
+              type: 'earned',
+              amount: coinsToAward,
+              balanceAfter: newBalance,
+              description: `Earned from order ${order.orderId}`,
+              orderId: order.orderId,
+              metadata: {
+                orderTotal: total,
+                threshold: rule.threshold
+              }
+            })
+          }
+        }
+      } catch (coinError) {
+        // Don't fail order creation if coin awarding fails
+        console.error('Error awarding coins:', coinError)
+      }
+    }
+
+    // Handle coin redemption if coins were used
+    if (req.body.coinsRedeemed && req.body.coinsRedeemed > 0) {
+      try {
+        const user = await User.findByPk(req.user.id)
+        if (user && user.coins >= req.body.coinsRedeemed) {
+          // Coins are already redeemed via coin redemption endpoint before order creation
+          // This is just a safety check/log
+          console.log(`Coins redeemed for order ${order.orderId}: ${req.body.coinsRedeemed}`)
+        }
+      } catch (coinError) {
+        console.error('Error processing coin redemption:', coinError)
+      }
+    }
 
     // Send order confirmation email/SMS (non-blocking)
     try {

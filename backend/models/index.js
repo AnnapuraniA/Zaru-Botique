@@ -21,6 +21,7 @@ import InventoryLog from './InventoryLog.js'
 import NewArrival from './NewArrival.js'
 import Testimonial from './Testimonial.js'
 import SaleStrip from './SaleStrip.js'
+import CoinTransaction from './CoinTransaction.js'
 
 // Set up associations
 User.hasOne(Cart, { foreignKey: 'userId', as: 'cart' })
@@ -28,10 +29,13 @@ User.hasMany(Order, { foreignKey: 'userId', as: 'orders' })
 User.hasMany(Review, { foreignKey: 'userId', as: 'userReviews' })
 User.hasMany(Return, { foreignKey: 'userId', as: 'returns' })
 User.hasMany(CouponUsage, { foreignKey: 'userId', as: 'couponUsages' })
+User.hasMany(CoinTransaction, { foreignKey: 'userId', as: 'coinTransactions' })
 
 Cart.belongsTo(User, { foreignKey: 'userId', as: 'user' })
 
 Order.belongsTo(User, { foreignKey: 'userId', as: 'user' })
+
+CoinTransaction.belongsTo(User, { foreignKey: 'userId', as: 'user' })
 
 Product.hasMany(Review, { foreignKey: 'productId', as: 'productReviews' })
 Product.hasMany(Return, { foreignKey: 'productId', as: 'productReturns' })
@@ -84,5 +88,6 @@ export {
   InventoryLog,
   NewArrival,
   Testimonial,
-  SaleStrip
+  SaleStrip,
+  CoinTransaction
 }
