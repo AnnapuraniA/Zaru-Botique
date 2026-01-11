@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useDevice } from '../hooks/useDevice'
 import DashboardMobile from './Dashboard.mobile'
 import DashboardWeb from './Dashboard.web'
-import { ordersAPI, addressesAPI, paymentAPI, authAPI, newsletterAPI } from '../utils/api'
+import { ordersAPI, addressesAPI, paymentAPI, authAPI, newsletterAPI, returnsAPI } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useLoginModal } from '../context/LoginModalContext'
 import { useToast } from '../components/Toast/ToastContainer'
 
 function Dashboard() {
   const isMobile = useDevice()
+  const location = useLocation()
   const { user, logout, isAuthenticated, updateProfile, changePassword } = useAuth()
   const { openModal } = useLoginModal()
   const { success: showSuccessToast, error: showError } = useToast()
@@ -65,6 +67,25 @@ function Dashboard() {
   })
   const [newsletterStatus, setNewsletterStatus] = useState({ subscribed: false, email: null })
   const [loadingPreferences, setLoadingPreferences] = useState(false)
+  const [showReturnForm, setShowReturnForm] = useState(false)
+  const [selectedOrderForReturn, setSelectedOrderForReturn] = useState(null)
+  const [returnForm, setReturnForm] = useState({
+    orderId: '',
+    productId: '',
+    productName: '',
+    reason: '',
+    amount: ''
+  })
+  const [returns, setReturns] = useState([])
+
+  // Handle tab from location state
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab)
+      // Clear the state to prevent reopening on refresh
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state])
 
   // Load data when authenticated
   useEffect(() => {
@@ -74,8 +95,111 @@ function Dashboard() {
       loadPaymentMethods()
       loadPreferences()
       loadNewsletterStatus()
+      loadReturns()
     }
   }, [isAuthenticated])
+
+  const loadReturns = async () => {
+    try {
+      if (isAuthenticated) {
+        const returnsData = await returnsAPI.getAll()
+        setReturns(Array.isArray(returnsData) ? returnsData : [])
+      }
+    } catch (err) {
+      console.error('Failed to load returns:', err)
+    }
+  }
+
+  // Helper function to check if order can be returned (within 24 hours of delivery)
+  const canReturnOrder = (order) => {
+    if (order.status !== 'Delivered') {
+      return { canReturn: false, message: 'Return requests can only be made for delivered orders' }
+    }
+
+    // Find when order was marked as "Delivered" from statusHistory
+    let deliveredDate = null
+    if (order.statusHistory && Array.isArray(order.statusHistory)) {
+      const deliveredStatus = order.statusHistory.find(
+        entry => entry.status === 'Delivered'
+      )
+      if (deliveredStatus && deliveredStatus.date) {
+        deliveredDate = new Date(deliveredStatus.date)
+      }
+    }
+
+    // If not found in statusHistory, use updatedAt as fallback
+    if (!deliveredDate && order.updatedAt) {
+      deliveredDate = new Date(order.updatedAt)
+    }
+
+    if (!deliveredDate) {
+      return { canReturn: false, message: 'Unable to determine delivery date' }
+    }
+
+    // Calculate hours since delivery
+    const now = new Date()
+    const hoursSinceDelivery = (now - deliveredDate) / (1000 * 60 * 60)
+
+    if (hoursSinceDelivery > 24) {
+      return { 
+        canReturn: false, 
+        message: 'Return requests must be submitted within 24 hours of delivery. The 24-hour window has expired.' 
+      }
+    }
+
+    return { canReturn: true }
+  }
+
+  const handleOrderSelectForReturn = (order) => {
+    const returnCheck = canReturnOrder(order)
+    if (!returnCheck.canReturn) {
+      showError(returnCheck.message)
+      return
+    }
+    setSelectedOrderForReturn(order)
+    setShowReturnForm(true)
+  }
+
+  const handleProductSelectForReturn = (item) => {
+    setReturnForm(prev => ({
+      ...prev,
+      orderId: selectedOrderForReturn.orderId || selectedOrderForReturn._id || selectedOrderForReturn.id,
+      productId: item.product || item.productId,
+      productName: item.name,
+      amount: item.price * item.quantity
+    }))
+  }
+
+  const handleSubmitReturn = async (e) => {
+    e.preventDefault()
+    if (!returnForm.orderId || !returnForm.productId || !returnForm.reason || !returnForm.amount) {
+      showError('Please fill in all required fields')
+      return
+    }
+
+    // Double-check 24-hour window before submitting
+    if (selectedOrderForReturn) {
+      const returnCheck = canReturnOrder(selectedOrderForReturn)
+      if (!returnCheck.canReturn) {
+        showError(returnCheck.message)
+        return
+      }
+    }
+
+    try {
+      await returnsAPI.create(returnForm)
+      showSuccessToast('Return request submitted successfully')
+      setShowReturnForm(false)
+      setReturnForm({ orderId: '', productId: '', productName: '', reason: '', amount: '' })
+      setSelectedOrderForReturn(null)
+      loadReturns()
+      loadOrders()
+    } catch (err) {
+      console.error('Failed to submit return:', err)
+      const errorMessage = err.message || 'Failed to submit return request'
+      showError(errorMessage)
+    }
+  }
 
   // Load Razorpay script
   useEffect(() => {
@@ -265,7 +389,74 @@ function Dashboard() {
 
   // Render mobile or web version
   if (isMobile) {
-    return <DashboardMobile />
+    return (
+      <DashboardMobile
+        orders={orders}
+        addresses={addresses}
+        paymentMethods={paymentMethods}
+        loading={loading}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        showAddAddress={showAddAddress}
+        setShowAddAddress={setShowAddAddress}
+        editingAddressId={editingAddressId}
+        setEditingAddressId={setEditingAddressId}
+        showAddPayment={showAddPayment}
+        setShowAddPayment={setShowAddPayment}
+        editingPaymentId={editingPaymentId}
+        setEditingPaymentId={setEditingPaymentId}
+        newAddress={newAddress}
+        setNewAddress={setNewAddress}
+        newPayment={newPayment}
+        setNewPayment={setNewPayment}
+        razorpayLoaded={razorpayLoaded}
+        paymentFormRef={paymentFormRef}
+        profileForm={profileForm}
+        setProfileForm={setProfileForm}
+        showChangePassword={showChangePassword}
+        setShowChangePassword={setShowChangePassword}
+        passwordForm={passwordForm}
+        setPasswordForm={setPasswordForm}
+        showCurrentPassword={showCurrentPassword}
+        setShowCurrentPassword={setShowCurrentPassword}
+        showNewPassword={showNewPassword}
+        setShowNewPassword={setShowNewPassword}
+        showConfirmPassword={showConfirmPassword}
+        setShowConfirmPassword={setShowConfirmPassword}
+        error={error}
+        setError={setError}
+        successMessage={successMessage}
+        setSuccessMessage={setSuccessMessage}
+        searchOrderQuery={searchOrderQuery}
+        setSearchOrderQuery={setSearchOrderQuery}
+        preferences={preferences}
+        setPreferences={setPreferences}
+        newsletterStatus={newsletterStatus}
+        loadingPreferences={loadingPreferences}
+        handleLogout={handleLogout}
+        handleUpdateProfile={handleUpdateProfile}
+        handleChangePassword={handleChangePassword}
+        handlePreferenceChange={handlePreferenceChange}
+        loadAddresses={loadAddresses}
+        loadPaymentMethods={loadPaymentMethods}
+        showDeleteModal={showDeleteModal}
+        setShowDeleteModal={setShowDeleteModal}
+        showSuccessToast={showSuccessToast}
+        showError={showError}
+        user={user}
+        isAuthenticated={isAuthenticated}
+        openModal={openModal}
+        showReturnForm={showReturnForm}
+        setShowReturnForm={setShowReturnForm}
+        selectedOrderForReturn={selectedOrderForReturn}
+        handleOrderSelectForReturn={handleOrderSelectForReturn}
+        returnForm={returnForm}
+        setReturnForm={setReturnForm}
+        handleProductSelectForReturn={handleProductSelectForReturn}
+        handleSubmitReturn={handleSubmitReturn}
+        returns={returns}
+      />
+    )
   }
 
                       return (
@@ -325,6 +516,15 @@ function Dashboard() {
       user={user}
       isAuthenticated={isAuthenticated}
       openModal={openModal}
+      showReturnForm={showReturnForm}
+      setShowReturnForm={setShowReturnForm}
+      selectedOrderForReturn={selectedOrderForReturn}
+      handleOrderSelectForReturn={handleOrderSelectForReturn}
+      returnForm={returnForm}
+      setReturnForm={setReturnForm}
+      handleProductSelectForReturn={handleProductSelectForReturn}
+      handleSubmitReturn={handleSubmitReturn}
+      returns={returns}
     />
   )
 }

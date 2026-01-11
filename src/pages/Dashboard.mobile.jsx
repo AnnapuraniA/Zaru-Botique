@@ -1,28 +1,91 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle, ChevronRight, Edit2, Trash2, X } from 'lucide-react'
+import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle, ChevronRight, Edit2, Trash2, X, RotateCcw } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLoginModal } from '../context/LoginModalContext'
 import ConfirmationModal from '../components/Modal/ConfirmationModal'
 import { useToast } from '../components/Toast/ToastContainer'
-import { ordersAPI, addressesAPI, paymentAPI, cartAPI, authAPI, newsletterAPI } from '../utils/api'
+import { ordersAPI, addressesAPI, paymentAPI, cartAPI, authAPI, newsletterAPI, returnsAPI } from '../utils/api'
 
-function DashboardMobile() {
-  const { user, logout, isAuthenticated, updateProfile, changePassword } = useAuth()
-  const { openModal } = useLoginModal()
+function DashboardMobile({
+  orders = [],
+  addresses = [],
+  paymentMethods = [],
+  loading = false,
+  activeTab = 'orders',
+  setActiveTab,
+  showAddAddress,
+  setShowAddAddress,
+  editingAddressId,
+  setEditingAddressId,
+  showAddPayment,
+  setShowAddPayment,
+  editingPaymentId,
+  setEditingPaymentId,
+  newAddress,
+  setNewAddress,
+  newPayment,
+  setNewPayment,
+  razorpayLoaded,
+  paymentFormRef,
+  profileForm,
+  setProfileForm,
+  showChangePassword,
+  setShowChangePassword,
+  passwordForm,
+  setPasswordForm,
+  showCurrentPassword,
+  setShowCurrentPassword,
+  showNewPassword,
+  setShowNewPassword,
+  showConfirmPassword,
+  setShowConfirmPassword,
+  error,
+  setError,
+  successMessage,
+  setSuccessMessage,
+  searchOrderQuery,
+  setSearchOrderQuery,
+  preferences,
+  setPreferences,
+  newsletterStatus,
+  loadingPreferences,
+  handleLogout,
+  handleUpdateProfile,
+  handleChangePassword,
+  handlePreferenceChange,
+  loadAddresses,
+  loadPaymentMethods,
+  showDeleteModal,
+  setShowDeleteModal,
+  showSuccessToast,
+  showError,
+  user,
+  isAuthenticated,
+  openModal,
+  showReturnForm,
+  setShowReturnForm,
+  selectedOrderForReturn,
+  handleOrderSelectForReturn,
+  returnForm,
+  setReturnForm,
+  handleProductSelectForReturn,
+  handleSubmitReturn,
+  returns = []
+}) {
+  const { logout, updateProfile, changePassword } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { success: showSuccessToast, error: showError } = useToast()
-  const [activeTab, setActiveTab] = useState('orders')
-  const [orders, setOrders] = useState([])
-  const [addresses, setAddresses] = useState([])
-  const [paymentMethods, setPaymentMethods] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [showAddAddress, setShowAddAddress] = useState(false)
-  const [editingAddressId, setEditingAddressId] = useState(null)
-  const [showAddPayment, setShowAddPayment] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [newAddress, setNewAddress] = useState({
+  const [localActiveTab, setLocalActiveTab] = useState(activeTab || 'orders')
+  const [localOrders, setLocalOrders] = useState(orders || [])
+  const [localLoading, setLocalLoading] = useState(loading || false)
+  const [localAddresses, setLocalAddresses] = useState(addresses || [])
+  const [localPaymentMethods, setLocalPaymentMethods] = useState(paymentMethods || [])
+  const [localShowAddAddress, setLocalShowAddAddress] = useState(showAddAddress || false)
+  const [localEditingAddressId, setLocalEditingAddressId] = useState(editingAddressId || null)
+  const [localShowAddPayment, setLocalShowAddPayment] = useState(showAddPayment || false)
+  const [localEditingPaymentId, setLocalEditingPaymentId] = useState(editingPaymentId || null)
+  const [localNewAddress, setLocalNewAddress] = useState(newAddress || {
     type: 'Home',
     name: user?.name || '',
     address: '',
@@ -32,50 +95,138 @@ function DashboardMobile() {
     isDefault: false,
     otherDetail: ''
   })
-  const [newPayment, setNewPayment] = useState({
+  const [localNewPayment, setLocalNewPayment] = useState(newPayment || {
     methodType: 'card',
     cardName: '',
     upiId: '',
     netBankingBank: '',
     walletProvider: ''
   })
-  const [razorpayLoaded, setRazorpayLoaded] = useState(false)
-  const razorpayFormRef = useRef(null)
-  const paymentFormRef = useRef(null)
-  const [editingPaymentId, setEditingPaymentId] = useState(null)
-  const [profileForm, setProfileForm] = useState({
+  const [localRazorpayLoaded, setLocalRazorpayLoaded] = useState(razorpayLoaded || false)
+  const [localProfileForm, setLocalProfileForm] = useState(profileForm || {
     name: user?.name || '',
     email: user?.email || '',
     mobile: user?.mobile || ''
   })
-  const [showChangePassword, setShowChangePassword] = useState(false)
-  const [passwordForm, setPasswordForm] = useState({
+  const [localShowChangePassword, setLocalShowChangePassword] = useState(showChangePassword || false)
+  const [localPasswordForm, setLocalPasswordForm] = useState(passwordForm || {
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   })
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
-  const [searchOrderQuery, setSearchOrderQuery] = useState('')
-  const [preferences, setPreferences] = useState({
+  const [localShowCurrentPassword, setLocalShowCurrentPassword] = useState(showCurrentPassword || false)
+  const [localShowNewPassword, setLocalShowNewPassword] = useState(showNewPassword || false)
+  const [localShowConfirmPassword, setLocalShowConfirmPassword] = useState(showConfirmPassword || false)
+  const [localError, setLocalError] = useState(error || '')
+  const [localSuccessMessage, setLocalSuccessMessage] = useState(successMessage || '')
+  const [localSearchOrderQuery, setLocalSearchOrderQuery] = useState(searchOrderQuery || '')
+  const [localPreferences, setLocalPreferences] = useState(preferences || {
     emailNotifications: true,
     smsNotifications: false,
     newsletter: false
   })
-  const [newsletterStatus, setNewsletterStatus] = useState({ subscribed: false, email: null })
-  const [loadingPreferences, setLoadingPreferences] = useState(false)
+  const [localNewsletterStatus, setLocalNewsletterStatus] = useState(newsletterStatus || { subscribed: false, email: null })
+  const [localLoadingPreferences, setLocalLoadingPreferences] = useState(loadingPreferences || false)
+  const [localShowDeleteModal, setLocalShowDeleteModal] = useState(showDeleteModal || false)
+  const [localShowReturnForm, setLocalShowReturnForm] = useState(showReturnForm || false)
+  const [localSelectedOrderForReturn, setLocalSelectedOrderForReturn] = useState(selectedOrderForReturn || null)
+  const [localReturnForm, setLocalReturnForm] = useState(returnForm || {
+    orderId: '',
+    productId: '',
+    productName: '',
+    reason: '',
+    amount: ''
+  })
+  const [localReturns, setLocalReturns] = useState(returns || [])
+  
+  // Local state fallbacks (only used if props not provided)
+  const [localAddressesState, setLocalAddressesState] = useState([])
+  const [localPaymentMethodsState, setLocalPaymentMethodsState] = useState([])
+  const [localLoadingState, setLocalLoadingState] = useState(false)
+  const [localShowAddAddressState, setLocalShowAddAddressState] = useState(false)
+  const [localEditingAddressIdState, setLocalEditingAddressIdState] = useState(null)
+  const [localShowAddPaymentState, setLocalShowAddPaymentState] = useState(false)
+  const [localEditingPaymentIdState, setLocalEditingPaymentIdState] = useState(null)
+  const [localNewAddressState, setLocalNewAddressState] = useState({
+    type: 'Home',
+    name: user?.name || '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    isDefault: false,
+    otherDetail: ''
+  })
+  const [localNewPaymentState, setLocalNewPaymentState] = useState({
+    methodType: 'card',
+    cardName: '',
+    upiId: '',
+    netBankingBank: '',
+    walletProvider: ''
+  })
+  const [localRazorpayLoadedState, setLocalRazorpayLoadedState] = useState(false)
+  const razorpayFormRef = useRef(null)
+  const localPaymentFormRef = useRef(null)
+  const [localEditingPaymentIdState2, setLocalEditingPaymentIdState2] = useState(null)
+  const [localProfileFormState, setLocalProfileFormState] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    mobile: user?.mobile || ''
+  })
+  const [localShowChangePasswordState, setLocalShowChangePasswordState] = useState(false)
+  const [localPasswordFormState, setLocalPasswordFormState] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [localShowCurrentPasswordState, setLocalShowCurrentPasswordState] = useState(false)
+  const [localShowNewPasswordState, setLocalShowNewPasswordState] = useState(false)
+  const [localShowConfirmPasswordState, setLocalShowConfirmPasswordState] = useState(false)
+  const [localErrorState, setLocalErrorState] = useState('')
+  const [localSuccessMessageState, setLocalSuccessMessageState] = useState('')
+  const [localSearchOrderQueryState, setLocalSearchOrderQueryState] = useState('')
+  const [localPreferencesState, setLocalPreferencesState] = useState({
+    emailNotifications: true,
+    smsNotifications: false,
+    newsletter: false
+  })
+  const [localNewsletterStatusState, setLocalNewsletterStatusState] = useState({ subscribed: false, email: null })
+  const [localLoadingPreferencesState, setLocalLoadingPreferencesState] = useState(false)
+  const [localShowDeleteModalState, setLocalShowDeleteModalState] = useState(false)
+  
+  // Use props if available, otherwise use local state
+  const currentAddresses = addresses.length > 0 ? addresses : localAddressesState
+  const currentPaymentMethods = paymentMethods.length > 0 ? paymentMethods : localPaymentMethodsState
+  const currentLoading = loading !== undefined ? loading : localLoadingState
+  const currentShowAddAddress = showAddAddress !== undefined ? showAddAddress : localShowAddAddressState
+  const currentEditingAddressId = editingAddressId !== undefined ? editingAddressId : localEditingAddressIdState
+  const currentShowAddPayment = showAddPayment !== undefined ? showAddPayment : localShowAddPaymentState
+  const currentEditingPaymentId = editingPaymentId !== undefined ? editingPaymentId : localEditingPaymentIdState2
+  const currentNewAddress = newAddress ? newAddress : localNewAddressState
+  const currentNewPayment = newPayment ? newPayment : localNewPaymentState
+  const currentRazorpayLoaded = razorpayLoaded !== undefined ? razorpayLoaded : localRazorpayLoadedState
+  const currentProfileForm = profileForm ? profileForm : localProfileFormState
+  const currentShowChangePassword = showChangePassword !== undefined ? showChangePassword : localShowChangePasswordState
+  const currentPasswordForm = passwordForm ? passwordForm : localPasswordFormState
+  const currentShowCurrentPassword = showCurrentPassword !== undefined ? showCurrentPassword : localShowCurrentPasswordState
+  const currentShowNewPassword = showNewPassword !== undefined ? showNewPassword : localShowNewPasswordState
+  const currentShowConfirmPassword = showConfirmPassword !== undefined ? showConfirmPassword : localShowConfirmPasswordState
+  const currentError = error !== undefined ? error : localErrorState
+  const currentSuccessMessage = successMessage !== undefined ? successMessage : localSuccessMessageState
+  const currentSearchOrderQuery = searchOrderQuery !== undefined ? searchOrderQuery : localSearchOrderQueryState
+  const currentPreferences = preferences ? preferences : localPreferencesState
+  const currentNewsletterStatus = newsletterStatus ? newsletterStatus : localNewsletterStatusState
+  const currentLoadingPreferences = loadingPreferences !== undefined ? loadingPreferences : localLoadingPreferencesState
+  const currentShowDeleteModal = showDeleteModal !== undefined ? showDeleteModal : localShowDeleteModalState
 
   // Load data when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      loadOrders()
-      loadAddresses()
-      loadPaymentMethods()
-      loadPreferences()
-      loadNewsletterStatus()
+      loadOrdersFinal()
+      loadAddressesFinal()
+      loadPaymentMethodsFinal()
+      loadPreferencesFinal()
+      loadNewsletterStatusFinal()
     }
   }, [isAuthenticated])
 
@@ -83,7 +234,11 @@ function DashboardMobile() {
   useEffect(() => {
     const loadRazorpay = () => {
       if (window.Razorpay) {
-        setRazorpayLoaded(true)
+        if (setRazorpayLoaded) {
+          setRazorpayLoaded(true)
+        } else {
+          setLocalRazorpayLoadedState(true)
+        }
         return
       }
 
@@ -91,7 +246,11 @@ function DashboardMobile() {
       script.src = 'https://checkout.razorpay.com/v1/checkout.js'
       script.async = true
       script.onload = () => {
-        setRazorpayLoaded(true)
+        if (setRazorpayLoaded) {
+          setRazorpayLoaded(true)
+        } else {
+          setLocalRazorpayLoadedState(true)
+        }
       }
       script.onerror = () => {
         console.error('Failed to load Razorpay script')
@@ -114,100 +273,188 @@ function DashboardMobile() {
   // Update profile form when user changes
   useEffect(() => {
     if (user) {
-      setProfileForm({
-        name: user.name || '',
-        email: user.email || '',
-        mobile: user.mobile || ''
-      })
-      setNewAddress(prev => ({ ...prev, name: user.name || '' }))
+      if (setProfileForm) {
+        setProfileForm({
+          name: user.name || '',
+          email: user.email || '',
+          mobile: user.mobile || ''
+        })
+      } else {
+        setLocalProfileFormState({
+          name: user.name || '',
+          email: user.email || '',
+          mobile: user.mobile || ''
+        })
+      }
+      if (setNewAddress) {
+        setNewAddress(prev => ({ ...prev, name: user.name || '' }))
+      } else {
+        setLocalNewAddressState(prev => ({ ...prev, name: user.name || '' }))
+      }
     }
   }, [user])
 
-  // Handle tab from location state
+  // Handle tab from location state or props
   useEffect(() => {
     if (location.state?.tab) {
-      setActiveTab(location.state.tab)
+      const tab = location.state.tab
+      if (setActiveTab) {
+        setActiveTab(tab)
+      } else {
+        setLocalActiveTab(tab)
+      }
     }
-  }, [location.state])
+  }, [location.state, setActiveTab])
 
-  const loadOrders = async () => {
+  // Sync activeTab with props
+  useEffect(() => {
+    if (activeTab && activeTab !== localActiveTab) {
+      setLocalActiveTab(activeTab)
+    }
+  }, [activeTab])
+
+  const loadOrdersLocal = async () => {
     try {
-      setLoading(true)
+      if (setLoading) {
+        setLoading(true)
+      } else {
+        setLocalLoadingState(true)
+      }
       const response = await ordersAPI.getAll()
-      setOrders(Array.isArray(response) ? response : (response.orders || []))
+      const ordersList = Array.isArray(response) ? response : (response.orders || [])
+      // Orders are managed by parent component, update local state for fallback
+      setLocalOrders(ordersList)
     } catch (err) {
       console.error('Failed to load orders:', err)
-      setOrders([])
+      // Orders are managed by parent component, update local state for fallback
+      setLocalOrders([])
     } finally {
-      setLoading(false)
+      if (setLoading) {
+        setLoading(false)
+      } else {
+        setLocalLoadingState(false)
+      }
     }
   }
 
-  const loadAddresses = async () => {
+  const loadAddressesLocal = async () => {
     try {
       const response = await addressesAPI.getAll()
       const addressesList = Array.isArray(response) ? response : (response.addresses || [])
-      setAddresses(addressesList)
+      if (setAddresses) {
+        setAddresses(addressesList)
+      } else {
+        setLocalAddressesState(addressesList)
+      }
       return addressesList
     } catch (err) {
       console.error('Failed to load addresses:', err)
-      setAddresses([])
+      if (setAddresses) {
+        setAddresses([])
+      } else {
+        setLocalAddressesState([])
+      }
       throw err
     }
   }
 
-  const loadPaymentMethods = async () => {
+  const loadPaymentMethodsLocal = async () => {
     try {
       const response = await paymentAPI.getAll()
-      setPaymentMethods(Array.isArray(response) ? response : (response.paymentMethods || []))
+      const methods = Array.isArray(response) ? response : (response.paymentMethods || [])
+      if (setPaymentMethods) {
+        setPaymentMethods(methods)
+      } else {
+        setLocalPaymentMethodsState(methods)
+      }
     } catch (err) {
       console.error('Failed to load payment methods:', err)
-      setPaymentMethods([])
+      if (setPaymentMethods) {
+        setPaymentMethods([])
+      } else {
+        setLocalPaymentMethodsState([])
+      }
     }
   }
 
-  const loadPreferences = async () => {
+  const loadPreferencesLocal = async () => {
     try {
-      setLoadingPreferences(true)
+      if (setLoadingPreferences) {
+        setLoadingPreferences(true)
+      } else {
+        setLocalLoadingPreferencesState(true)
+      }
       const prefs = await authAPI.getPreferences()
-      setPreferences(prefs)
+      if (setPreferences) {
+        setPreferences(prefs)
+      } else {
+        setLocalPreferencesState(prefs)
+      }
     } catch (err) {
       console.error('Failed to load preferences:', err)
     } finally {
-      setLoadingPreferences(false)
+      if (setLoadingPreferences) {
+        setLoadingPreferences(false)
+      } else {
+        setLocalLoadingPreferencesState(false)
+      }
     }
   }
 
-  const loadNewsletterStatus = async () => {
+  const loadNewsletterStatusLocal = async () => {
     try {
       const status = await newsletterAPI.getStatus()
-      setNewsletterStatus(status)
+      if (setNewsletterStatus) {
+        setNewsletterStatus(status)
+      } else {
+        setLocalNewsletterStatusState(status)
+      }
       if (status.subscribed !== undefined) {
-        setPreferences(prev => ({ ...prev, newsletter: status.subscribed }))
+        if (setPreferences) {
+          setPreferences(prev => ({ ...prev, newsletter: status.subscribed }))
+        } else {
+          setLocalPreferencesState(prev => ({ ...prev, newsletter: status.subscribed }))
+        }
       }
     } catch (err) {
       console.error('Failed to load newsletter status:', err)
     }
   }
 
-  const handlePreferenceChange = async (key, value) => {
+  // Wrapper functions - use props if available, otherwise use local
+  const loadOrdersFinal = (typeof loadOrders !== 'undefined' && loadOrders) ? loadOrders : loadOrdersLocal
+  const loadAddressesFinal = (typeof loadAddresses !== 'undefined' && loadAddresses) ? loadAddresses : loadAddressesLocal
+  const loadPaymentMethodsFinal = (typeof loadPaymentMethods !== 'undefined' && loadPaymentMethods) ? loadPaymentMethods : loadPaymentMethodsLocal
+  const loadPreferencesFinal = (typeof loadPreferences !== 'undefined' && loadPreferences) ? loadPreferences : loadPreferencesLocal
+  const loadNewsletterStatusFinal = (typeof loadNewsletterStatus !== 'undefined' && loadNewsletterStatus) ? loadNewsletterStatus : loadNewsletterStatusLocal
+
+  const handlePreferenceChangeLocal = async (key, value) => {
     try {
-      const updatedPreferences = { ...preferences, [key]: value }
-      setPreferences(updatedPreferences)
+      const currentPrefs = preferences || localPreferencesState
+      const updatedPreferences = { ...currentPrefs, [key]: value }
+      if (setPreferences) {
+        setPreferences(updatedPreferences)
+      } else {
+        setLocalPreferencesState(updatedPreferences)
+      }
       
       if (key === 'newsletter') {
         if (value) {
           if (!user?.email) {
             showError('Please add an email address to your account first')
-            setPreferences(prev => ({ ...prev, newsletter: false }))
+            if (setPreferences) {
+              setPreferences(prev => ({ ...prev, newsletter: false }))
+            } else {
+              setLocalPreferencesState(prev => ({ ...prev, newsletter: false }))
+            }
             return
           }
           await newsletterAPI.subscribeUser()
-          await loadNewsletterStatus()
+          await loadNewsletterStatusFinal()
           showSuccessToast('Subscribed to newsletter successfully')
         } else {
           await newsletterAPI.unsubscribeUser()
-          await loadNewsletterStatus()
+          await loadNewsletterStatusFinal()
           showSuccessToast('Unsubscribed from newsletter')
         }
       } else {
@@ -217,58 +464,119 @@ function DashboardMobile() {
     } catch (err) {
       console.error('Failed to update preference:', err)
       showError(err.response?.data?.message || 'Failed to update preference')
-      setPreferences(prev => ({ ...prev, [key]: !value }))
+      if (setPreferences) {
+        setPreferences(prev => ({ ...prev, [key]: !value }))
+      } else {
+        setLocalPreferencesState(prev => ({ ...prev, [key]: !value }))
+      }
     }
   }
 
-  const handleLogout = () => {
+  const handleLogoutLocal = () => {
     logout()
-    setActiveTab('login')
+    if (setActiveTab) {
+      setActiveTab('login')
+    } else {
+      setLocalActiveTab('login')
+    }
     navigate('/')
   }
+  
+  // Use prop handlers if provided, otherwise use local
+  const handleLogoutFinal = handleLogout || handleLogoutLocal
+  const handleUpdateProfileFinal = handleUpdateProfile || handleUpdateProfileLocal
+  const handleChangePasswordFinal = handleChangePassword || handleChangePasswordLocal
+  const handlePreferenceChangeFinal = handlePreferenceChange || handlePreferenceChangeLocal
 
-  const handleUpdateProfile = async (e) => {
+  const handleUpdateProfileLocal = async (e) => {
     e.preventDefault()
-    setError('')
-    setSuccessMessage('')
+    const currentError = error !== undefined ? setError : setLocalErrorState
+    const currentSuccessMessage = successMessage !== undefined ? setSuccessMessage : setLocalSuccessMessageState
+    if (currentError === setError) {
+      setError('')
+    } else {
+      setLocalErrorState('')
+    }
+    if (currentSuccessMessage === setSuccessMessage) {
+      setSuccessMessage('')
+    } else {
+      setLocalSuccessMessageState('')
+    }
     
     try {
-      await updateProfile(profileForm)
+      const currentProfileForm = profileForm || localProfileFormState
+      await updateProfile(currentProfileForm)
       showSuccessToast('Profile updated successfully!')
     } catch (err) {
-      setError(err.message)
+      if (currentError === setError) {
+        setError(err.message)
+      } else {
+        setLocalErrorState(err.message)
+      }
       showError(err.message)
     }
   }
 
-  const handleChangePassword = async (e) => {
+  const handleChangePasswordLocal = async (e) => {
     e.preventDefault()
-    setError('')
-    setSuccessMessage('')
+    if (setError) {
+      setError('')
+    } else {
+      setLocalErrorState('')
+    }
+    if (setSuccessMessage) {
+      setSuccessMessage('')
+    } else {
+      setLocalSuccessMessageState('')
+    }
     
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setError('New passwords do not match')
-      showError('New passwords do not match')
+    const currentPasswordForm = passwordForm || localPasswordFormState
+    if (currentPasswordForm.newPassword !== currentPasswordForm.confirmPassword) {
+      const errorMsg = 'New passwords do not match'
+      if (setError) {
+        setError(errorMsg)
+      } else {
+        setLocalErrorState(errorMsg)
+      }
+      showError(errorMsg)
       return
     }
     
-    if (passwordForm.newPassword.length < 8) {
-      setError('Password must be at least 8 characters')
-      showError('Password must be at least 8 characters')
+    if (currentPasswordForm.newPassword.length < 8) {
+      const errorMsg = 'Password must be at least 8 characters'
+      if (setError) {
+        setError(errorMsg)
+      } else {
+        setLocalErrorState(errorMsg)
+      }
+      showError(errorMsg)
       return
     }
     
     try {
-      await changePassword(passwordForm.currentPassword, passwordForm.newPassword)
+      await changePassword(currentPasswordForm.currentPassword, currentPasswordForm.newPassword)
       showSuccessToast('Password changed successfully!')
-      setShowChangePassword(false)
-      setPasswordForm({
+      if (setShowChangePassword) {
+        setShowChangePassword(false)
+      } else {
+        setLocalShowChangePasswordState(false)
+      }
+      const resetForm = {
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
-      })
+      }
+      if (setPasswordForm) {
+        setPasswordForm(resetForm)
+      } else {
+        setLocalPasswordFormState(resetForm)
+      }
     } catch (err) {
-      setError(err.message)
+      if (setError) {
+        setError(err.message)
+      } else {
+        setLocalErrorState(err.message)
+      }
       showError(err.message)
     }
   }
@@ -280,6 +588,7 @@ function DashboardMobile() {
     { id: 'addresses', label: 'Addresses', icon: MapPin },
     { id: 'payment', label: 'Payment', icon: CreditCard },
     { id: 'track', label: 'Track', icon: Truck },
+    { id: 'returns', label: 'Returns', icon: RotateCcw },
     { id: 'settings', label: 'Settings', icon: Settings }
   ]
 
@@ -323,7 +632,7 @@ function DashboardMobile() {
       {/* Mobile Header */}
       <div className="dashboard-mobile-header">
         <h1>My Account</h1>
-        <button className="logout-btn-mobile" onClick={handleLogout} title="Logout">
+        <button className="logout-btn-mobile" onClick={handleLogoutFinal} title="Logout">
           <LogOut size={20} />
         </button>
       </div>
@@ -445,7 +754,7 @@ function DashboardMobile() {
               <div className="card-header-mobile">
                 <h3>Account Details</h3>
               </div>
-              <form onSubmit={handleUpdateProfile} className="form-mobile">
+              <form onSubmit={handleUpdateProfileFinal} className="form-mobile">
                 <div className="form-group-mobile">
                   <label>Full Name</label>
                   <input
@@ -504,7 +813,7 @@ function DashboardMobile() {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleChangePassword} className="form-mobile">
+                <form onSubmit={handleChangePasswordFinal} className="form-mobile">
                   <div className="form-group-mobile">
                     <label>Current Password</label>
                     <div className="password-input-wrapper-mobile">
@@ -638,7 +947,7 @@ function DashboardMobile() {
                               if (window.confirm('Delete this address?')) {
                                 try {
                                   await addressesAPI.delete(address._id || address.id)
-                                  await loadAddresses()
+                                  await loadAddressesFinal()
                                   showSuccessToast('Address deleted')
                                 } catch (err) {
                                   showError('Failed to delete address')
@@ -663,7 +972,7 @@ function DashboardMobile() {
                             onClick={async () => {
                               try {
                                 await addressesAPI.update(address._id || address.id, { isDefault: true })
-                                await loadAddresses()
+                                await loadAddressesFinal()
                                 showSuccessToast('Default address updated')
                               } catch (err) {
                                 showError('Failed to update default address')
@@ -759,11 +1068,11 @@ function DashboardMobile() {
 
                     if (editingAddressId) {
                       await addressesAPI.update(editingAddressId, addressData)
-                      await loadAddresses()
+                      await loadAddressesFinal()
                       showSuccessToast('Address updated successfully!')
                     } else {
                       await addressesAPI.add(addressData)
-                      await loadAddresses()
+                      await loadAddressesFinal()
                       showSuccessToast('Address added successfully!')
                     }
                     
@@ -969,7 +1278,7 @@ function DashboardMobile() {
                               if (window.confirm('Delete this payment method?')) {
                                 try {
                                   await paymentAPI.delete(method._id || method.id)
-                                  loadPaymentMethods()
+                                  loadPaymentMethodsFinal()
                                   showSuccessToast('Payment method deleted')
                                 } catch (err) {
                                   showError('Failed to delete payment method')
@@ -1052,7 +1361,7 @@ function DashboardMobile() {
                         }
                         
                         await paymentAPI.update(editingPaymentId, paymentData)
-                        await loadPaymentMethods()
+                        await loadPaymentMethodsFinal()
                         showSuccessToast('Payment method updated successfully!')
                         setShowAddPayment(false)
                         setEditingPaymentId(null)
@@ -1089,7 +1398,7 @@ function DashboardMobile() {
                             }
                             
                             await paymentAPI.add(paymentData)
-                            await loadPaymentMethods()
+                            await loadPaymentMethodsFinal()
                             showSuccessToast('Payment method saved successfully!')
                             setShowAddPayment(false)
                             setEditingPaymentId(null)
@@ -1160,7 +1469,7 @@ function DashboardMobile() {
                         showSuccessToast('Payment method saved successfully!')
                       }
                       
-                      await loadPaymentMethods()
+                            await loadPaymentMethodsFinal()
                       setShowAddPayment(false)
                       setEditingPaymentId(null)
                       setNewPayment({ methodType: 'card', cardName: '', upiId: '', netBankingBank: '', walletProvider: '' })
@@ -1454,6 +1763,266 @@ function DashboardMobile() {
           </div>
         )}
 
+        {/* Returns & Exchanges Tab */}
+        {(activeTab || localActiveTab) === 'returns' && (
+          <div className="dashboard-section-mobile">
+            <div className="section-header-mobile">
+              <h2>Returns & Exchanges</h2>
+            </div>
+
+            {/* My Returns Section */}
+            {(returns || localReturns).length > 0 && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ marginBottom: '0.75rem', fontSize: '1.1rem' }}>My Return Requests</h3>
+                <div className="orders-list-mobile">
+                  {(returns || localReturns).map(ret => (
+                    <div key={ret.id} className="order-card-mobile">
+                      <div className="order-card-header-mobile">
+                        <div>
+                          <h3>{ret.returnId}</h3>
+                          <p className="order-date-mobile">
+                            {new Date(ret.requestedAt || ret.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className={`order-status-badge-mobile ${ret.status}`}>
+                          {ret.status}
+                        </span>
+                      </div>
+                      <div className="order-card-body-mobile">
+                        <div className="order-info-row-mobile">
+                          <span className="order-info-label">Order ID:</span>
+                          <span className="order-info-value">{ret.orderId}</span>
+                        </div>
+                        <div className="order-info-row-mobile">
+                          <span className="order-info-label">Product:</span>
+                          <span className="order-info-value">{ret.productName}</span>
+                        </div>
+                        <div className="order-info-row-mobile">
+                          <span className="order-info-label">Reason:</span>
+                          <span className="order-info-value">{ret.reason}</span>
+                        </div>
+                        <div className="order-info-row-mobile">
+                          <span className="order-info-label">Amount:</span>
+                          <span className="order-info-value">₹{parseFloat(ret.amount).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {(loading || localLoading) ? (
+              <div className="loading-state-mobile">
+                <div className="loading-spinner"></div>
+                <p>Loading orders...</p>
+              </div>
+            ) : (orders || localOrders).length === 0 ? (
+              <div className="empty-state-mobile">
+                <RotateCcw size={64} />
+                <h3>No orders yet</h3>
+                <p>Start shopping to see your orders here</p>
+                <Link to="/products/women" className="btn btn-primary">
+                  Start Shopping
+                </Link>
+              </div>
+            ) : (
+              <div className="orders-list-mobile">
+                {(orders || localOrders).filter(order => order.status !== 'Cancelled').map(order => {
+                  const orderId = order._id || order.id
+                  return (
+                    <div key={orderId} className="order-card-mobile">
+                      <div className="order-card-header-mobile">
+                        <div>
+                          <h3>Order #{orderId.slice(-8).toUpperCase()}</h3>
+                          <p className="order-date-mobile">
+                            {new Date(order.createdAt || order.date).toLocaleDateString('en-IN', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </p>
+                        </div>
+                        <span className={`order-status-badge-mobile ${(order.status || 'Processing').toLowerCase()}`}>
+                          {order.status || 'Processing'}
+                        </span>
+                      </div>
+                      <div className="order-card-body-mobile">
+                        <div className="order-info-row-mobile">
+                          <span className="order-info-label">Items:</span>
+                          <span className="order-info-value">{order.items?.length || 0}</span>
+                        </div>
+                        <div className="order-info-row-mobile">
+                          <span className="order-info-label">Total:</span>
+                          <span className="order-info-value">₹{(Number(order.total) || 0).toFixed(2)}</span>
+                        </div>
+                        {order.items?.slice(0, 2).map((item, idx) => (
+                          <div key={idx} className="order-info-row-mobile">
+                            <span className="order-info-label">{item.name}:</span>
+                            <span className="order-info-value">{item.quantity}x</span>
+                          </div>
+                        ))}
+                        {order.items?.length > 2 && (
+                          <div className="order-info-row-mobile">
+                            <span className="order-info-label">+{order.items.length - 2} more:</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="order-card-actions-mobile">
+                        <Link to={`/order/${orderId}`} className="btn btn-outline btn-sm-mobile">
+                          View Details
+                        </Link>
+                        <button 
+                          onClick={() => {
+                            if (handleOrderSelectForReturn) {
+                              handleOrderSelectForReturn(order)
+                            } else {
+                              setLocalSelectedOrderForReturn(order)
+                              setLocalShowReturnForm(true)
+                            }
+                          }}
+                          className="btn btn-primary btn-sm-mobile"
+                        >
+                          Request Return
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Return Form Modal */}
+            {(showReturnForm || localShowReturnForm) && (selectedOrderForReturn || localSelectedOrderForReturn) && (
+              <div className="modal-overlay" onClick={() => {
+                if (setShowReturnForm) {
+                  setShowReturnForm(false)
+                } else {
+                  setLocalShowReturnForm(false)
+                }
+              }}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h2>Request Return</h2>
+                    <button className="modal-close" onClick={() => {
+                      if (setShowReturnForm) {
+                        setShowReturnForm(false)
+                      } else {
+                        setLocalShowReturnForm(false)
+                      }
+                    }}>
+                      ×
+                    </button>
+                  </div>
+                  <form onSubmit={(e) => {
+                    if (handleSubmitReturn) {
+                      handleSubmitReturn(e)
+                    } else {
+                      e.preventDefault()
+                      const currentReturnForm = returnForm || localReturnForm
+                      const currentSelectedOrder = selectedOrderForReturn || localSelectedOrderForReturn
+                      if (!currentReturnForm.orderId || !currentReturnForm.productId || !currentReturnForm.reason || !currentReturnForm.amount) {
+                        showError('Please fill in all required fields')
+                        return
+                      }
+                      returnsAPI.create(currentReturnForm)
+                        .then(() => {
+                          showSuccessToast('Return request submitted successfully')
+                          setLocalShowReturnForm(false)
+                          setLocalReturnForm({ orderId: '', productId: '', productName: '', reason: '', amount: '' })
+                          setLocalSelectedOrderForReturn(null)
+                          loadOrdersFinal()
+                        })
+                        .catch((err) => {
+                          console.error('Failed to submit return:', err)
+                          showError('Failed to submit return request')
+                        })
+                    }
+                  }} className="modal-body">
+                    <div className="form-group">
+                      <label>Select Product *</label>
+                      <select
+                        value={(returnForm || localReturnForm).productId}
+                        onChange={(e) => {
+                          const currentSelectedOrder = selectedOrderForReturn || localSelectedOrderForReturn
+                          const item = currentSelectedOrder.items?.find(i => 
+                            (i.product || i.productId) === e.target.value
+                          )
+                          if (item) {
+                            if (handleProductSelectForReturn) {
+                              handleProductSelectForReturn(item)
+                            } else {
+                              setLocalReturnForm(prev => ({
+                                ...prev,
+                                orderId: currentSelectedOrder.orderId || currentSelectedOrder._id || currentSelectedOrder.id,
+                                productId: item.product || item.productId,
+                                productName: item.name,
+                                amount: item.price * item.quantity
+                              }))
+                            }
+                          }
+                        }}
+                        required
+                      >
+                        <option value="">Select a product</option>
+                        {(selectedOrderForReturn || localSelectedOrderForReturn).items?.map((item, idx) => (
+                          <option key={idx} value={item.product || item.productId}>
+                            {item.name} - ₹{parseFloat(item.price * item.quantity).toLocaleString()}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Reason for Return *</label>
+                      <select
+                        value={(returnForm || localReturnForm).reason}
+                        onChange={(e) => {
+                          if (setReturnForm) {
+                            setReturnForm(prev => ({ ...prev, reason: e.target.value }))
+                          } else {
+                            setLocalReturnForm(prev => ({ ...prev, reason: e.target.value }))
+                          }
+                        }}
+                        required
+                      >
+                        <option value="">Select reason</option>
+                        <option value="Size not fitting">Size not fitting</option>
+                        <option value="Changed mind">Changed mind</option>
+                        <option value="Defective item">Defective item</option>
+                        <option value="Wrong item received">Wrong item received</option>
+                        <option value="Quality issues">Quality issues</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Refund Amount</label>
+                      <input
+                        type="text"
+                        value={`₹${parseFloat((returnForm || localReturnForm).amount || 0).toLocaleString()}`}
+                        disabled
+                      />
+                    </div>
+                    <div className="modal-footer">
+                      <button type="button" className="btn btn-outline" onClick={() => {
+                        if (setShowReturnForm) {
+                          setShowReturnForm(false)
+                        } else {
+                          setLocalShowReturnForm(false)
+                        }
+                      }}>
+                        Cancel
+                      </button>
+                      <button type="submit" className="btn btn-primary">
+                        Submit Return Request
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Settings Tab */}
         {activeTab === 'settings' && (
           <div className="dashboard-section-mobile">
@@ -1480,7 +2049,7 @@ function DashboardMobile() {
                       <input 
                         type="checkbox" 
                         checked={preferences.emailNotifications || false}
-                        onChange={(e) => handlePreferenceChange('emailNotifications', e.target.checked)}
+                        onChange={(e) => handlePreferenceChangeFinal('emailNotifications', e.target.checked)}
                         disabled={loadingPreferences}
                       />
                       <span></span>
@@ -1498,7 +2067,7 @@ function DashboardMobile() {
                       <input 
                         type="checkbox" 
                         checked={preferences.smsNotifications || false}
-                        onChange={(e) => handlePreferenceChange('smsNotifications', e.target.checked)}
+                        onChange={(e) => handlePreferenceChangeFinal('smsNotifications', e.target.checked)}
                         disabled={loadingPreferences}
                       />
                       <span></span>
@@ -1524,7 +2093,7 @@ function DashboardMobile() {
                       <input 
                         type="checkbox" 
                         checked={preferences.newsletter || false}
-                        onChange={(e) => handlePreferenceChange('newsletter', e.target.checked)}
+                        onChange={(e) => handlePreferenceChangeFinal('newsletter', e.target.checked)}
                         disabled={loadingPreferences || !user?.email}
                       />
                       <span></span>

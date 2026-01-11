@@ -48,6 +48,44 @@ router.post('/', protect, async (req, res) => {
       return res.status(404).json({ message: 'Order not found' })
     }
 
+    // Check if order is delivered
+    if (order.status !== 'Delivered') {
+      return res.status(400).json({ 
+        message: 'Return requests can only be made for delivered orders' 
+      })
+    }
+
+    // Check 24-hour return window
+    let deliveredDate = null
+    
+    // Find when order was marked as "Delivered" from statusHistory
+    if (order.statusHistory && Array.isArray(order.statusHistory)) {
+      const deliveredStatus = order.statusHistory.find(
+        entry => entry.status === 'Delivered'
+      )
+      if (deliveredStatus && deliveredStatus.date) {
+        deliveredDate = new Date(deliveredStatus.date)
+      }
+    }
+    
+    // If not found in statusHistory, use updatedAt as fallback (when status was last changed)
+    // But we need to check if status is actually "Delivered"
+    if (!deliveredDate) {
+      // If status is "Delivered" but no history entry, use updatedAt
+      // This is a fallback - ideally statusHistory should always have the entry
+      deliveredDate = order.updatedAt
+    }
+
+    // Calculate hours since delivery
+    const now = new Date()
+    const hoursSinceDelivery = (now - deliveredDate) / (1000 * 60 * 60)
+
+    if (hoursSinceDelivery > 24) {
+      return res.status(400).json({ 
+        message: 'Return requests must be submitted within 24 hours of delivery. The 24-hour window has expired.' 
+      })
+    }
+
     // Generate return ID
     const returnId = `RET-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
 

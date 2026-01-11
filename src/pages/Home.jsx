@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
-import Newsletter from '../components/Newsletter/Newsletter'
+import { useNewsletter } from '../context/NewsletterContext'
 import ProductCard from '../components/ProductCard/ProductCard'
 import { HeroBanner } from '../components/HeroBanner'
 import { NewArrivalsCarousel } from '../components/NewArrivalsCarousel'
@@ -10,7 +10,7 @@ import { useDevice } from '../hooks/useDevice'
 
 function Home() {
   const isMobile = useDevice()
-  const [showNewsletter, setShowNewsletter] = useState(false)
+  const { openNewsletter } = useNewsletter()
   const [banners, setBanners] = useState([])
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
   const [bannerHeights, setBannerHeights] = useState({})
@@ -44,7 +44,7 @@ function Home() {
     const hasSeenNewsletter = localStorage.getItem('newsletterShown')
     if (!hasSeenNewsletter) {
       const timer = setTimeout(() => {
-        setShowNewsletter(true)
+        openNewsletter()
         localStorage.setItem('newsletterShown', 'true')
       }, 3000)
       return () => clearTimeout(timer)
@@ -426,9 +426,6 @@ function Home() {
         </section>
       )}
 
-      {showNewsletter && (
-        <Newsletter onClose={() => setShowNewsletter(false)} />
-      )}
 
     </div>
   )

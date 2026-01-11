@@ -1,158 +1,234 @@
+import { useState } from 'react'
+import { Ruler, Info } from 'lucide-react'
+
 function SizeGuide() {
-  const womenSizes = {
-    XS: { Bust: '76-80 cm', Waist: '60-64 cm', Hip: '84-88 cm', Indian: '28' },
-    S: { Bust: '80-84 cm', Waist: '64-68 cm', Hip: '88-92 cm', Indian: '30' },
-    M: { Bust: '84-88 cm', Waist: '68-72 cm', Hip: '92-96 cm', Indian: '32' },
-    L: { Bust: '88-92 cm', Waist: '72-76 cm', Hip: '96-100 cm', Indian: '34' },
-    XL: { Bust: '92-96 cm', Waist: '76-80 cm', Hip: '100-104 cm', Indian: '36' },
-    XXL: { Bust: '96-100 cm', Waist: '80-84 cm', Hip: '104-108 cm', Indian: '38' }
+  const [activeMeasurement, setActiveMeasurement] = useState(null)
+
+  // Unified size chart - applies to both Churidhar Sets and Western Wear
+  const sizeChart = {
+    M: { 
+      Bust: '84-88 cm', 
+      Waist: '68-72 cm', 
+      Hip: '92-96 cm' 
+    },
+    L: { 
+      Bust: '88-92 cm', 
+      Waist: '72-76 cm', 
+      Hip: '96-100 cm' 
+    },
+    XL: { 
+      Bust: '92-96 cm', 
+      Waist: '76-80 cm', 
+      Hip: '100-104 cm' 
+    },
+    XXL: { 
+      Bust: '96-100 cm', 
+      Waist: '80-84 cm', 
+      Hip: '104-108 cm' 
+    }
   }
 
-  const teenSizes = {
-    XS: { Bust: '72-76 cm', Waist: '56-60 cm', Hip: '80-84 cm', Indian: '26' },
-    S: { Bust: '76-80 cm', Waist: '60-64 cm', Hip: '84-88 cm', Indian: '28' },
-    M: { Bust: '80-84 cm', Waist: '64-68 cm', Hip: '88-92 cm', Indian: '30' },
-    L: { Bust: '84-88 cm', Waist: '68-72 cm', Hip: '92-96 cm', Indian: '32' },
-    XL: { Bust: '88-92 cm', Waist: '72-76 cm', Hip: '96-100 cm', Indian: '34' }
+  // Bottom measurements for Churidhar
+  const bottomMeasurements = {
+    M: { 
+      Waist: '68-72 cm', 
+      Hip: '92-96 cm', 
+      Length: '95-100 cm' 
+    },
+    L: { 
+      Waist: '72-76 cm', 
+      Hip: '96-100 cm', 
+      Length: '100-105 cm' 
+    },
+    XL: { 
+      Waist: '76-80 cm', 
+      Hip: '100-104 cm', 
+      Length: '105-110 cm' 
+    },
+    XXL: { 
+      Waist: '80-84 cm', 
+      Hip: '104-108 cm', 
+      Length: '110-115 cm' 
+    }
   }
 
-  const girlsSizes = {
-    4: { Chest: '56-60 cm', Waist: '54-58 cm', Height: '96-106 cm', Age: '4-5 years' },
-    6: { Chest: '60-64 cm', Waist: '58-62 cm', Height: '106-116 cm', Age: '6-7 years' },
-    8: { Chest: '64-68 cm', Waist: '62-66 cm', Height: '116-126 cm', Age: '8-9 years' },
-    10: { Chest: '68-72 cm', Waist: '66-70 cm', Height: '126-136 cm', Age: '10-11 years' },
-    12: { Chest: '72-76 cm', Waist: '70-74 cm', Height: '136-146 cm', Age: '12-13 years' }
-  }
+  const measurementPoints = [
+    {
+      id: 'bust',
+      label: 'Bust',
+      position: { top: '33%', left: '50%' },
+      description: 'Measure around the fullest part of your chest, keeping the tape measure level and parallel to the floor.'
+    },
+    {
+      id: 'waist',
+      label: 'Waist',
+      position: { top: '48%', left: '50%' },
+      description: 'Measure around the narrowest part of your waist, usually just above the belly button. Keep the tape snug but not tight.'
+    },
+    {
+      id: 'hip',
+      label: 'Hip',
+      position: { top: '63%', left: '50%' },
+      description: 'Measure around the fullest part of your hips, usually 7-9 inches below your waist. Stand with feet together.'
+    }
+  ]
 
   return (
-    <div className="size-guide-page">
+    <div className="size-guide-page-new">
       <div className="container">
-        <h1>Size Guide</h1>
-        <p className="page-intro">
-          Use our size guide to find the perfect fit. All measurements are in centimeters (cm) with Indian size numbers. 
-          If you're between sizes, we recommend sizing up.
-        </p>
-
-        <div className="size-guide-sections">
-          <section className="size-section">
-            <h2>Women's Sizes</h2>
-            <div className="size-table-wrapper">
-              <table className="size-table">
-                <thead>
-                  <tr>
-                    <th>Size</th>
-                    <th>Bust (cm)</th>
-                    <th>Waist (cm)</th>
-                    <th>Hip (cm)</th>
-                    <th>Indian Size</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(womenSizes).map(([size, measurements]) => (
-                    <tr key={size}>
-                      <td><strong>{size}</strong></td>
-                      <td>{measurements.Bust}</td>
-                      <td>{measurements.Waist}</td>
-                      <td>{measurements.Hip}</td>
-                      <td>{measurements.Indian}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="size-section">
-            <h2>Teen's Sizes</h2>
-            <div className="size-table-wrapper">
-              <table className="size-table">
-                <thead>
-                  <tr>
-                    <th>Size</th>
-                    <th>Bust (cm)</th>
-                    <th>Waist (cm)</th>
-                    <th>Hip (cm)</th>
-                    <th>Indian Size</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(teenSizes).map(([size, measurements]) => (
-                    <tr key={size}>
-                      <td><strong>{size}</strong></td>
-                      <td>{measurements.Bust}</td>
-                      <td>{measurements.Waist}</td>
-                      <td>{measurements.Hip}</td>
-                      <td>{measurements.Indian}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="size-section">
-            <h2>Girls' Sizes</h2>
-            <div className="size-table-wrapper">
-              <table className="size-table">
-                <thead>
-                  <tr>
-                    <th>Size</th>
-                    <th>Chest (cm)</th>
-                    <th>Waist (cm)</th>
-                    <th>Height (cm)</th>
-                    <th>Age</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(girlsSizes).map(([size, measurements]) => (
-                    <tr key={size}>
-                      <td><strong>{size}</strong></td>
-                      <td>{measurements.Chest}</td>
-                      <td>{measurements.Waist}</td>
-                      <td>{measurements.Height}</td>
-                      <td>{measurements.Age}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+        <div className="size-guide-header">
+          <h1>Size Guide</h1>
+          <p className="page-intro">
+            Use our size guide to find the perfect fit. All measurements are in centimeters (cm).
+            If you're between sizes, we recommend sizing up.
+          </p>
         </div>
 
-        <div className="size-tips">
+        {/* Measurement Instructions */}
+        <div className="visual-measurement-section">
           <h2>How to Measure</h2>
-          <div className="tips-grid">
-            <div className="tip-card">
-              <h3>Bust/Chest</h3>
-              <p>Measure around the fullest part of your chest, keeping the tape measure level.</p>
+          <div className="measurement-instructions">
+            {measurementPoints.map((point) => (
+              <div
+                key={point.id}
+                className={`instruction-item ${activeMeasurement === point.id ? 'active' : ''}`}
+                onMouseEnter={() => setActiveMeasurement(point.id)}
+                onMouseLeave={() => setActiveMeasurement(null)}
+              >
+                <div className="instruction-icon">
+                  <Ruler size={20} />
+                </div>
+                <div className="instruction-content">
+                  <h3>{point.label}</h3>
+                  <p>{point.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Unified Size Chart */}
+        <div className="size-chart-section">
+          <div className="size-chart-header">
+            <h2>Size Chart</h2>
+            <p className="chart-subtitle">
+              This size chart applies to <strong>Churidhar Sets</strong> (Kurti, 2-piece, 3-piece) and <strong>Western Wear</strong> (Crop Top, Short Kurti, Long Gown, Short Gown)
+            </p>
+          </div>
+
+          <div className="size-table-wrapper">
+            <table className="size-table-unified">
+              <thead>
+                <tr>
+                  <th>Size</th>
+                  <th>Bust (cm)</th>
+                  <th>Waist (cm)</th>
+                  <th>Hip (cm)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(sizeChart).map(([size, measurements]) => (
+                  <tr key={size}>
+                    <td><strong>{size}</strong></td>
+                    <td>{measurements.Bust}</td>
+                    <td>{measurements.Waist}</td>
+                    <td>{measurements.Hip}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Bottom Measurements for Churidhar */}
+        <div className="bottom-measurements-section">
+          <div className="section-header-with-icon">
+            <Info size={20} />
+            <h2>Bottom Measurements (Churidhar Sets)</h2>
+          </div>
+          <p className="section-note">
+            For churidhar sets (2-piece and 3-piece), use these measurements for the bottom piece:
+          </p>
+
+          <div className="size-table-wrapper">
+            <table className="size-table-unified">
+              <thead>
+                <tr>
+                  <th>Size</th>
+                  <th>Waist (cm)</th>
+                  <th>Hip (cm)</th>
+                  <th>Length (cm)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(bottomMeasurements).map(([size, measurements]) => (
+                  <tr key={size}>
+                    <td><strong>{size}</strong></td>
+                    <td>{measurements.Waist}</td>
+                    <td>{measurements.Hip}</td>
+                    <td>{measurements.Length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Product-Specific Notes */}
+        <div className="size-notes-section">
+          <h2>Size Notes by Product Type</h2>
+          <div className="notes-grid">
+            <div className="note-card">
+              <h3>Churidhar Sets</h3>
+              <ul>
+                <li>For <strong>Kurti/Top</strong>: Use Bust, Waist measurements</li>
+                <li>For <strong>Bottom/Churidhar</strong>: Use Bottom Measurements table above</li>
+                <li>2-piece sets: Top + Bottom</li>
+                <li>3-piece sets: Top + Bottom + Dupatta (one-size)</li>
+              </ul>
             </div>
-            <div className="tip-card">
-              <h3>Waist</h3>
-              <p>Measure around the narrowest part of your waist, usually just above the belly button.</p>
+
+            <div className="note-card">
+              <h3>Western Wear</h3>
+              <ul>
+                <li><strong>Crop Top</strong>: Focus on Bust and Waist measurements</li>
+                <li><strong>Short Kurti</strong>: Use Bust, Waist measurements</li>
+                <li><strong>Long Gown</strong>: Use all measurements (Bust, Waist, Hip)</li>
+                <li><strong>Short Gown</strong>: Use Bust, Waist, Hip measurements</li>
+              </ul>
             </div>
-            <div className="tip-card">
-              <h3>Hip</h3>
-              <p>Measure around the fullest part of your hips, usually 7-9 inches below your waist.</p>
+
+            <div className="note-card">
+              <h3>Sarees</h3>
+              <ul>
+                <li>Sarees come in standard length (5.5m - 6m)</li>
+                <li>No size selection needed for saree length</li>
+                <li>One-size fits all</li>
+              </ul>
             </div>
-            <div className="tip-card">
+
+            <div className="note-card">
               <h3>General Tips</h3>
-              <p>
-                Wear form-fitting clothing when measuring. Keep the tape measure snug but not tight. 
-                If you're between sizes, we recommend sizing up.
-              </p>
+              <ul>
+                <li>Wear form-fitting clothing when measuring</li>
+                <li>Keep the tape measure snug but not tight</li>
+                <li>If you're between sizes, we recommend sizing up</li>
+                <li>For loose-fit items, you may size down</li>
+              </ul>
             </div>
           </div>
         </div>
 
-        <div className="size-help">
-          <h2>Need Help?</h2>
+        {/* Help Section */}
+        <div className="size-help-section">
+          <h2>Need Help Finding Your Size?</h2>
           <p>If you're unsure about your size, our customer service team is here to help!</p>
           <div className="help-actions">
-            <a href="mailto:support@zaruboutique.com" className="btn btn-primary">
+            <a href="mailto:support@arudhraboutique.com" className="btn btn-primary">
               Contact Us
             </a>
-            <a href="tel:+1234567890" className="btn btn-outline">
-              Call Us
+            <a href="/contact" className="btn btn-outline">
+              Get Help
             </a>
           </div>
         </div>
@@ -162,4 +238,3 @@ function SizeGuide() {
 }
 
 export default SizeGuide
-

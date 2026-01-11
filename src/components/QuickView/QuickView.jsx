@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react'
 import { X, ShoppingCart, Check } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../Toast/ToastContainer'
+import { cartAPI } from '../../utils/api'
+import { useAuth } from '../../context/AuthContext'
 
 function QuickView({ product, isOpen, onClose }) {
   const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState('')
-  const { success } = useToast()
+  const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const { success, error: showError } = useToast()
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
 
   // Normalize product data
   const productImage = product.images && product.images.length > 0 
@@ -31,14 +36,51 @@ function QuickView({ product, isOpen, onClose }) {
 
   if (!isOpen || !product) return null
 
-  const handleAddToCart = () => {
-    if (productSizes.length > 0 && !selectedSize) {
-      success('Please select a size', 'warning')
+  const handleAddToCart = async () => {
+    if (!isAuthenticated) {
+      showError('Please login to add items to cart')
+      navigate('/dashboard', { state: { tab: 'login', redirectPath: window.location.pathname } })
+      onClose()
       return
     }
-    // Add to cart logic
-    success('Added to cart!')
-    onClose()
+
+    if (productSizes.length > 0 && !selectedSize) {
+      showError('Please select a size')
+      return
+    }
+
+    try {
+      setIsAddingToCart(true)
+      const productId = product._id || product.id
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        showError('Please login again')
+        return
+      }
+
+      await cartAPI.addItem(productId, 1, selectedSize || null, selectedColor || null)
+      success('Product added to cart!')
+      
+      // Dispatch cart update event
+      window.dispatchEvent(new Event('cartUpdated'))
+      
+      // Close modal after a short delay
+      setTimeout(() => {
+        onClose()
+      }, 500)
+    } catch (err) {
+      console.error('Failed to add to cart:', err)
+      const errorMessage = err.message || 'Failed to add product to cart'
+      showError(errorMessage)
+      
+      // If unauthorized, might need to re-login
+      if (errorMessage.includes('authorized') || errorMessage.includes('401')) {
+        showError('Session expired. Please login again.')
+      }
+    } finally {
+      setIsAddingToCart(false)
+    }
   }
 
   const discountPercent = product.onSale && product.originalPrice && typeof product.originalPrice === 'number'
@@ -129,10 +171,10 @@ function QuickView({ product, isOpen, onClose }) {
               <button 
                 className="btn btn-primary btn-large quick-view-add-cart" 
                 onClick={handleAddToCart}
-                disabled={!product.inStock}
+                disabled={!product.inStock || isAddingToCart}
               >
                 <ShoppingCart size={20} />
-                {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+                {isAddingToCart ? 'Adding...' : (product.inStock ? 'Add to Cart' : 'Out of Stock')}
               </button>
               <Link 
                 to={`/product/${product._id || product.id}`} 

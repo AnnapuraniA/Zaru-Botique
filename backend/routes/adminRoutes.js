@@ -3,6 +3,7 @@ import { Op } from 'sequelize'
 import Product from '../models/Product.js'
 import Order from '../models/Order.js'
 import User from '../models/User.js'
+import Return from '../models/Return.js'
 import InventoryLog from '../models/InventoryLog.js'
 import { adminProtect } from '../middleware/adminAuth.js'
 import { generateInvoicePDF } from '../utils/invoiceGenerator.js'
@@ -140,6 +141,218 @@ router.get('/top-products', async (req, res) => {
     res.json(topProducts)
   } catch (error) {
     console.error('Get top products error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/admin/revenue-chart
+// @desc    Get revenue chart data for selected period
+// @access  Admin
+router.get('/revenue-chart', async (req, res) => {
+  try {
+    const { period = '7days' } = req.query
+    
+    // Calculate date range based on period
+    const now = new Date()
+    let startDate = new Date()
+    
+    switch (period) {
+      case '7days':
+        startDate.setDate(now.getDate() - 7)
+        break
+      case '30days':
+        startDate.setDate(now.getDate() - 30)
+        break
+      case '3months':
+        startDate.setMonth(now.getMonth() - 3)
+        break
+      case 'year':
+        startDate.setFullYear(now.getFullYear() - 1)
+        break
+      default:
+        startDate.setDate(now.getDate() - 7)
+    }
+    
+    // Get orders in the date range
+    const orders = await Order.findAll({
+      where: {
+        status: { [Op.ne]: 'Cancelled' },
+        createdAt: {
+          [Op.gte]: startDate,
+          [Op.lte]: now
+        }
+      },
+      order: [['createdAt', 'ASC']]
+    })
+    
+    // Group revenue by day
+    const revenueByDay = {}
+    
+    orders.forEach(order => {
+      const orderDate = new Date(order.createdAt)
+      const dateKey = orderDate.toISOString().split('T')[0] // YYYY-MM-DD
+      
+      if (!revenueByDay[dateKey]) {
+        revenueByDay[dateKey] = 0
+      }
+      revenueByDay[dateKey] += parseFloat(order.total || 0)
+    })
+    
+    // Convert to array format for chart
+    const chartData = []
+    const currentDate = new Date(startDate)
+    
+    while (currentDate <= now) {
+      const dateKey = currentDate.toISOString().split('T')[0]
+      const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'short' })
+      const dayNumber = currentDate.getDate()
+      
+      chartData.push({
+        date: dateKey,
+        day: dayName,
+        dayNumber: dayNumber,
+        revenue: revenueByDay[dateKey] || 0
+      })
+      
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+    
+    // Calculate max revenue for percentage calculation
+    const maxRevenue = Math.max(...chartData.map(d => d.revenue), 1)
+    
+    // Add percentage for bar height
+    const chartDataWithPercentages = chartData.map(item => ({
+      ...item,
+      percentage: maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0
+    }))
+    
+    res.json({
+      period,
+      data: chartDataWithPercentages,
+      totalRevenue: chartData.reduce((sum, item) => sum + item.revenue, 0)
+    })
+  } catch (error) {
+    console.error('Get revenue chart error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/admin/order-status-breakdown
+// @desc    Get order status breakdown for dashboard
+// @access  Admin
+router.get('/order-status-breakdown', async (req, res) => {
+  try {
+    const orders = await Order.findAll({
+      attributes: ['status']
+    })
+    
+    const statusCounts = {
+      'Pending': 0,
+      'Processing': 0,
+      'Shipped': 0,
+      'Delivered': 0,
+      'Cancelled': 0,
+      'Returned': 0
+    }
+    
+    orders.forEach(order => {
+      const status = order.status || 'Pending'
+      if (statusCounts.hasOwnProperty(status)) {
+        statusCounts[status]++
+      } else {
+        statusCounts['Pending']++
+      }
+    })
+    
+    const total = orders.length
+    const breakdown = Object.keys(statusCounts).map(status => ({
+      status,
+      count: statusCounts[status],
+      percentage: total > 0 ? ((statusCounts[status] / total) * 100).toFixed(1) : 0
+    })).filter(item => item.count > 0)
+    
+    res.json({
+      breakdown,
+      total
+    })
+  } catch (error) {
+    console.error('Get order status breakdown error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/admin/returns-summary
+// @desc    Get returns and refunds summary for dashboard
+// @access  Admin
+router.get('/returns-summary', async (req, res) => {
+  try {
+    const returns = await Return.findAll({
+      attributes: ['status', 'amount']
+    })
+    
+    const totalReturns = returns.length
+    const pendingReturns = returns.filter(r => r.status === 'pending' || r.status === 'approved').length
+    const refundedReturns = returns.filter(r => r.status === 'refunded').length
+    const totalRefundedAmount = returns
+      .filter(r => r.status === 'refunded')
+      .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0)
+    const pendingRefundAmount = returns
+      .filter(r => r.status === 'pending' || r.status === 'approved')
+      .reduce((sum, r) => sum + parseFloat(r.amount || 0), 0)
+    
+    res.json({
+      totalReturns,
+      pendingReturns,
+      refundedReturns,
+      totalRefundedAmount,
+      pendingRefundAmount
+    })
+  } catch (error) {
+    console.error('Get returns summary error:', error)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// @route   GET /api/admin/top-customers
+// @desc    Get top customers by total spent
+// @access  Admin
+router.get('/top-customers', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5
+    
+    const users = await User.findAll({
+      attributes: ['id', 'name', 'email', 'mobile']
+    })
+    
+    const customerStats = await Promise.all(users.map(async (user) => {
+      const orders = await Order.findAll({
+        where: {
+          userId: user.id,
+          status: { [Op.ne]: 'Cancelled' }
+        }
+      })
+      
+      const totalSpent = orders.reduce((sum, order) => sum + parseFloat(order.total || 0), 0)
+      const totalOrders = orders.length
+      
+      return {
+        id: user.id,
+        name: user.name || 'Guest',
+        email: user.email || '',
+        mobile: user.mobile || '',
+        totalSpent,
+        totalOrders
+      }
+    }))
+    
+    const topCustomers = customerStats
+      .filter(customer => customer.totalSpent > 0)
+      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .slice(0, limit)
+    
+    res.json(topCustomers)
+  } catch (error) {
+    console.error('Get top customers error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })

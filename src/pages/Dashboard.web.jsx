@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle } from 'lucide-react'
+import { returnsAPI } from '../utils/api'
+import { Package, User, MapPin, CreditCard, Settings, LogOut, Lock, Truck, Search, CheckCircle, Download, Eye, EyeOff, LogIn, Plus, Shield, Smartphone, Building2, Wallet, Mail, MessageSquare, AlertTriangle, RotateCcw } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLoginModal } from '../context/LoginModalContext'
 import ConfirmationModal from '../components/Modal/ConfirmationModal'
@@ -20,7 +21,9 @@ function DashboardWeb({
   preferences, setPreferences, newsletterStatus, loadingPreferences,
   handleLogout, handleUpdateProfile, handleChangePassword, handlePreferenceChange,
   loadAddresses, loadPaymentMethods, showDeleteModal, setShowDeleteModal,
-  showSuccessToast, showError, user, isAuthenticated, openModal
+  showSuccessToast, showError, user, isAuthenticated, openModal,
+  showReturnForm, setShowReturnForm, selectedOrderForReturn, handleOrderSelectForReturn,
+  returnForm, setReturnForm, handleProductSelectForReturn, handleSubmitReturn, returns
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -76,6 +79,13 @@ function DashboardWeb({
                 >
                   <Truck size={20} />
                   <span>Track Order</span>
+                </button>
+                <button
+                  className={`nav-item ${activeTab === 'returns' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('returns')}
+                >
+                  <RotateCcw size={20} />
+                  <span>Returns & Exchanges</span>
                 </button>
                 <button
                   className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
@@ -1208,6 +1218,178 @@ function DashboardWeb({
                     )
                   })()}
                 </div>
+              </div>
+            )}
+
+            {/* Returns & Exchanges Tab */}
+            {isAuthenticated && activeTab === 'returns' && (
+              <div className="dashboard-section">
+                <div className="track-order-header">
+                  <div>
+                    <h2>Returns & Exchanges</h2>
+                    <p className="section-description">Select an order to request a return or exchange</p>
+                  </div>
+                </div>
+
+                {/* My Returns Section */}
+                {returns.length > 0 && (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ marginBottom: '1rem' }}>My Return Requests</h3>
+                    <div className="orders-list">
+                      {returns.map(ret => (
+                        <div key={ret.id} className="order-card">
+                          <div className="order-header">
+                            <div>
+                              <h3>{ret.returnId}</h3>
+                              <p className="order-date">
+                                {new Date(ret.requestedAt || ret.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <span className={`order-status ${ret.status}`}>
+                              {ret.status}
+                            </span>
+                          </div>
+                          <div className="order-details">
+                            <p><strong>Order ID:</strong> {ret.orderId}</p>
+                            <p><strong>Product:</strong> {ret.productName}</p>
+                            <p><strong>Reason:</strong> {ret.reason}</p>
+                            <p><strong>Amount:</strong> ₹{parseFloat(ret.amount).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {loading ? (
+                  <div className="loading-spinner">
+                    <p>Loading orders...</p>
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="empty-state">
+                    <RotateCcw size={48} />
+                    <h3>No orders yet</h3>
+                    <p>Start shopping to see your orders here</p>
+                    <Link to="/products/women" className="btn btn-primary">
+                      Start Shopping
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="orders-list">
+                    {orders.filter(order => order.status !== 'Cancelled').map(order => {
+                      const orderId = order._id || order.id
+                      return (
+                        <div key={orderId} className="order-card">
+                          <div className="order-header">
+                            <div>
+                              <h3>Order {orderId.slice(-8).toUpperCase()}</h3>
+                              <p className="order-date">Placed on {new Date(order.createdAt || order.date).toLocaleDateString('en-IN', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })}</p>
+                            </div>
+                            <span className={`order-status ${(order.status || 'Processing').toLowerCase()}`}>
+                              {order.status || 'Processing'}
+                            </span>
+                          </div>
+                          <div className="order-details">
+                            <p>{order.items?.length || 0} item(s) • Total: ₹{(Number(order.total) || 0).toFixed(2)}</p>
+                            {order.items?.slice(0, 3).map((item, idx) => (
+                              <p key={idx} className="order-item-preview">
+                                {item.name} - {item.quantity}x
+                              </p>
+                            ))}
+                            {order.items?.length > 3 && (
+                              <p className="order-item-preview">+{order.items.length - 3} more item(s)</p>
+                            )}
+                          </div>
+                          <div className="order-actions">
+                            <Link to={`/order/${orderId}`} className="btn btn-outline">
+                              View Details
+                            </Link>
+                            <button 
+                              onClick={() => handleOrderSelectForReturn(order)}
+                              className="btn btn-primary"
+                            >
+                              Request Return/Exchange
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Return Form Modal */}
+                {showReturnForm && selectedOrderForReturn && (
+                  <div className="modal-overlay" onClick={() => setShowReturnForm(false)}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                      <div className="modal-header">
+                        <h2>Request Return</h2>
+                        <button className="modal-close" onClick={() => setShowReturnForm(false)}>
+                          ×
+                        </button>
+                      </div>
+                      <form onSubmit={handleSubmitReturn} className="modal-body">
+                        <div className="form-group">
+                          <label>Select Product *</label>
+                          <select
+                            value={returnForm.productId}
+                            onChange={(e) => {
+                              const item = selectedOrderForReturn.items?.find(i => 
+                                (i.product || i.productId) === e.target.value
+                              )
+                              if (item) {
+                                handleProductSelectForReturn(item)
+                              }
+                            }}
+                            required
+                          >
+                            <option value="">Select a product</option>
+                            {selectedOrderForReturn.items?.map((item, idx) => (
+                              <option key={idx} value={item.product || item.productId}>
+                                {item.name} - ₹{parseFloat(item.price * item.quantity).toLocaleString()}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Reason for Return *</label>
+                          <select
+                            value={returnForm.reason}
+                            onChange={(e) => setReturnForm(prev => ({ ...prev, reason: e.target.value }))}
+                            required
+                          >
+                            <option value="">Select reason</option>
+                            <option value="Size not fitting">Size not fitting</option>
+                            <option value="Changed mind">Changed mind</option>
+                            <option value="Defective item">Defective item</option>
+                            <option value="Wrong item received">Wrong item received</option>
+                            <option value="Quality issues">Quality issues</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Refund Amount</label>
+                          <input
+                            type="text"
+                            value={`₹${parseFloat(returnForm.amount || 0).toLocaleString()}`}
+                            disabled
+                          />
+                        </div>
+                        <div className="modal-footer">
+                          <button type="button" className="btn btn-outline" onClick={() => setShowReturnForm(false)}>
+                            Cancel
+                          </button>
+                          <button type="submit" className="btn btn-primary">
+                            Submit Return Request
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

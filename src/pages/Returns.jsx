@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Package, Clock, CheckCircle, XCircle } from 'lucide-react'
-import { useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Video, AlertCircle, RefreshCw, Ban } from 'lucide-react'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { returnsAPI, ordersAPI } from '../utils/api'
 import { useToast } from '../components/Toast/ToastContainer'
 
 function Returns() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { isAuthenticated } = useAuth()
   const { success, error: showError } = useToast()
   const [returns, setReturns] = useState([])
@@ -111,266 +112,171 @@ function Returns() {
           <p>Our hassle-free return and exchange policy</p>
         </div>
 
-        {isAuthenticated && (
-          <>
-            {/* My Returns Section */}
-            <section className="my-returns-section">
-              <h2>My Return Requests</h2>
-              {loading ? (
-                <p>Loading...</p>
-              ) : returns.length > 0 ? (
-                <div className="returns-list">
-                  {returns.map(ret => (
-                    <div key={ret.id} className="return-card">
-                      <div className="return-header">
-                        <div>
-                          <strong>{ret.returnId}</strong>
-                          <span className={`status-badge status-${ret.status}`}>
-                            {getStatusIcon(ret.status)}
-                            {ret.status}
-                          </span>
-                        </div>
-                        <span className="return-date">
-                          {new Date(ret.requestedAt || ret.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="return-details">
-                        <p><strong>Order ID:</strong> {ret.orderId}</p>
-                        <p><strong>Product:</strong> {ret.productName}</p>
-                        <p><strong>Reason:</strong> {ret.reason}</p>
-                        <p><strong>Amount:</strong> ₹{parseFloat(ret.amount).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted">No return requests yet</p>
-              )}
-
-              {/* Request New Return */}
-              <div className="request-return-section">
-                <h3>Request a Return</h3>
-                {orders.length > 0 ? (
-                  <div className="orders-list">
-                    {orders.filter(order => order.status !== 'Cancelled').map(order => (
-                      <div key={order.id} className="order-card">
-                        <div className="order-header">
-                          <div>
-                            <strong>Order: {order.orderId}</strong>
-                            <span className="order-date">
-                              {new Date(order.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <button 
-                            className="btn btn-outline btn-small"
-                            onClick={() => handleOrderSelect(order)}
-                          >
-                            Request Return
-                          </button>
-                        </div>
-                        <div className="order-items">
-                          {order.items?.map((item, idx) => (
-                            <div key={idx} className="order-item">
-                              <span>{item.name} - {item.quantity}x</span>
-                              <span>₹{parseFloat(item.price * item.quantity).toLocaleString()}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted">No orders available for return</p>
-                )}
-              </div>
-            </section>
-
-            {/* Return Form Modal */}
-            {showReturnForm && selectedOrder && (
-              <div className="modal-overlay" onClick={() => setShowReturnForm(false)}>
-                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h2>Request Return</h2>
-                    <button className="modal-close" onClick={() => setShowReturnForm(false)}>
-                      ×
-                    </button>
-                  </div>
-                  <form onSubmit={handleSubmitReturn} className="modal-body">
-                    <div className="form-group">
-                      <label>Select Product *</label>
-                      <select
-                        value={returnForm.productId}
-                        onChange={(e) => {
-                          const item = selectedOrder.items.find(i => 
-                            (i.product || i.productId) === e.target.value
-                          )
-                          if (item) {
-                            handleProductSelect(item)
-                          }
-                        }}
-                        required
-                      >
-                        <option value="">Select a product</option>
-                        {selectedOrder.items?.map((item, idx) => (
-                          <option key={idx} value={item.product || item.productId}>
-                            {item.name} - ₹{parseFloat(item.price * item.quantity).toLocaleString()}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Reason for Return *</label>
-                      <select
-                        value={returnForm.reason}
-                        onChange={(e) => setReturnForm(prev => ({ ...prev, reason: e.target.value }))}
-                        required
-                      >
-                        <option value="">Select reason</option>
-                        <option value="Size not fitting">Size not fitting</option>
-                        <option value="Changed mind">Changed mind</option>
-                        <option value="Defective item">Defective item</option>
-                        <option value="Wrong item received">Wrong item received</option>
-                        <option value="Quality issues">Quality issues</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Refund Amount</label>
-                      <input
-                        type="text"
-                        value={`₹${parseFloat(returnForm.amount || 0).toLocaleString()}`}
-                        disabled
-                      />
-                    </div>
-                    <div className="modal-footer">
-                      <button type="button" className="btn btn-outline" onClick={() => setShowReturnForm(false)}>
-                        Cancel
-                      </button>
-                      <button type="submit" className="btn btn-primary">
-                        Submit Return Request
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-          </>
+        {!isAuthenticated && (
+          <div className="auth-prompt" style={{ 
+            padding: '2rem', 
+            textAlign: 'center', 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: '8px',
+            marginBottom: '2rem'
+          }}>
+            <h2 style={{ marginBottom: '1rem' }}>Login Required</h2>
+            <p style={{ marginBottom: '1.5rem', fontSize: '1.1rem' }}>
+              Please <Link to="/dashboard" style={{ color: '#7A5051', fontWeight: 'bold' }}>login</Link> to access returns and exchanges.
+            </p>
+            <Link to="/dashboard" className="btn btn-primary">
+              Go to Dashboard
+            </Link>
+          </div>
         )}
 
-        {!isAuthenticated && (
-          <div className="auth-prompt">
-            <p>Please <Link to="/dashboard">login</Link> to view your return requests or submit a new return.</p>
+        {isAuthenticated && (
+          <div className="auth-prompt" style={{ 
+            padding: '2rem', 
+            textAlign: 'center', 
+            backgroundColor: '#e7f3ff', 
+            borderRadius: '8px',
+            marginBottom: '2rem',
+            border: '1px solid #b3d9ff'
+          }}>
+            <h2 style={{ marginBottom: '1rem' }}>Returns & Exchanges</h2>
+            <p style={{ marginBottom: '1.5rem', fontSize: '1.1rem' }}>
+              To request a return or exchange, please visit your <Link to="/dashboard" state={{ tab: 'returns' }} style={{ color: '#7A5051', fontWeight: 'bold' }}>Dashboard</Link> and navigate to the "Returns & Exchanges" section.
+            </p>
+            <Link to="/dashboard" state={{ tab: 'returns' }} className="btn btn-primary">
+              Go to Dashboard
+            </Link>
           </div>
         )}
 
         <div className="info-sections">
           <section className="info-section">
-            <h2>Return Policy</h2>
-            <p>We want you to love your purchase! If you're not completely satisfied, you can return most items within <strong>7 days</strong> of delivery.</p>
+            <h2>Return & Exchange Policy</h2>
+            <p style={{ marginBottom: '2rem', fontSize: '1.1rem', lineHeight: '1.6' }}>
+              We want you to love every purchase from Arudhra Fashions. If there's any issue, please read the policy below carefully before requesting a return or exchange.
+            </p>
             
-            <div className="policy-box">
-              <h3>Items Eligible for Return:</h3>
-              <ul className="info-list">
-                <li>Items must be unworn, unwashed, and unused</li>
-                <li>Original tags must be attached</li>
-                <li>Items must be in original packaging</li>
-                <li>Proof of purchase required</li>
-              </ul>
+            <div className="policy-box" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
+                <Clock size={24} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '0.25rem' }} />
+                <div>
+                  <h3 style={{ marginBottom: '0.5rem' }}>Return Timeframe</h3>
+                  <p style={{ margin: 0, fontSize: '1rem', lineHeight: '1.6' }}>
+                    Return requests must be raised within <strong>24 hours</strong> of receiving your order. Requests submitted after this timeframe will not be accepted.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="policy-box warning">
-              <h3>Non-Returnable Items:</h3>
-              <ul className="info-list">
-                <li>Sale items (unless defective)</li>
-                <li>Items without original tags</li>
-                <li>Damaged items due to misuse</li>
-                <li>Items returned after 7 days</li>
+            <div className="policy-box" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
+                <Video size={24} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '0.25rem' }} />
+                <div>
+                  <h3 style={{ marginBottom: '0.5rem' }}>Unboxing Video Requirement</h3>
+                  <p style={{ margin: 0, fontSize: '1rem', lineHeight: '1.6' }}>
+                    A complete video of unpacking the delivery must be submitted for return requests. The video must be <strong>continuous without any cuts, pauses, or edits</strong>. Return requests without a complete unboxing video will not be accepted.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="policy-box" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
+                <RefreshCw size={24} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '0.25rem' }} />
+                <div>
+                  <h3 style={{ marginBottom: '0.5rem' }}>Exchange Only Policy</h3>
+                  <p style={{ margin: 0, fontSize: '1rem', lineHeight: '1.6' }}>
+                    <strong>No refunds will be initiated.</strong> Only product exchanges are available. If you need to return an item, we will exchange it for another product of your choice (subject to availability).
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="policy-box" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
+                <CheckCircle size={24} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '0.25rem' }} />
+                <div>
+                  <h3 style={{ marginBottom: '0.5rem' }}>Valid Reasons for Return</h3>
+                  <p style={{ margin: 0, fontSize: '1rem', lineHeight: '1.6', marginBottom: '0.5rem' }}>
+                    Returns can only be made for the following reasons:
+                  </p>
+                  <ul className="info-list" style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                    <li>Size does not fit</li>
+                    <li>Product damaged during delivery</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="policy-box warning" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem' }}>
+                <Ban size={24} style={{ color: '#dc3545', flexShrink: 0, marginTop: '0.25rem' }} />
+                <div>
+                  <h3 style={{ marginBottom: '0.5rem' }}>Non-Acceptable Reasons</h3>
+                  <p style={{ margin: 0, fontSize: '1rem', lineHeight: '1.6' }}>
+                    <strong>No other reasons will be accepted</strong> by our company for returning products. Returns will only be processed for size issues or delivery damage as mentioned above.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="policy-box" style={{ marginBottom: '1.5rem', backgroundColor: '#f8f9fa', padding: '1.5rem', borderRadius: '8px' }}>
+              <h3 style={{ marginBottom: '1rem' }}>Important Notes:</h3>
+              <ul className="info-list" style={{ margin: 0, paddingLeft: '1.5rem' }}>
+                <li>Items must be unused, unwashed, and in original packaging</li>
+                <li>Original tags must be attached</li>
+                <li>All return requests must include the unboxing video</li>
+                <li>Only exchanges are available - no refunds will be processed</li>
               </ul>
             </div>
           </section>
 
           <section className="info-section">
-            <h2>How to Return an Item</h2>
+            <h2>How to Request a Return/Exchange</h2>
             <div className="steps-list">
               <div className="step-item">
                 <div className="step-number">1</div>
                 <div className="step-content">
                   <h3>Log into Your Account</h3>
-                  <p>Go to your Dashboard and click on "Orders"</p>
+                  <p>Go to your Dashboard and navigate to "Returns & Exchanges"</p>
                 </div>
               </div>
               <div className="step-item">
                 <div className="step-number">2</div>
                 <div className="step-content">
                   <h3>Select the Order</h3>
-                  <p>Find the order containing the item you want to return</p>
+                  <p>Find the order containing the item you want to return/exchange</p>
                 </div>
               </div>
               <div className="step-item">
                 <div className="step-number">3</div>
                 <div className="step-content">
-                  <h3>Initiate Return</h3>
-                  <p>Click "Return Item" and select the reason for return</p>
+                  <h3>Upload Unboxing Video</h3>
+                  <p>Upload the complete unboxing video (no cuts, pauses, or edits)</p>
                 </div>
               </div>
               <div className="step-item">
                 <div className="step-number">4</div>
                 <div className="step-content">
-                  <h3>Print Return Label</h3>
-                  <p>Download and print the return shipping label</p>
+                  <h3>Select Reason</h3>
+                  <p>Choose either "Size not fit" or "Product damaged during delivery"</p>
                 </div>
               </div>
               <div className="step-item">
                 <div className="step-number">5</div>
                 <div className="step-content">
-                  <h3>Pack & Ship</h3>
-                  <p>Pack the item securely with the return label and drop it off at the courier service</p>
+                  <h3>Submit Request</h3>
+                  <p>Submit your return request within 24 hours of delivery</p>
                 </div>
               </div>
             </div>
-          </section>
-
-          <section className="info-section">
-            <h2>Exchange Policy</h2>
-            <p>You can exchange items for a different size or color within 7 days of delivery.</p>
-            <ul className="info-list">
-              <li>Exchanges are subject to availability</li>
-              <li>If the desired size/color is unavailable, we'll process a refund</li>
-              <li>Price difference will be charged or refunded accordingly</li>
-              <li>Free return shipping for exchanges</li>
-            </ul>
-          </section>
-
-          <section className="info-section">
-            <h2>Refund Process</h2>
-            <div className="refund-info">
-              <p><strong>Processing Time:</strong> 5-7 business days after we receive your return</p>
-              <p><strong>Refund Method:</strong> Refunded to your original payment method</p>
-              <p><strong>Shipping Charges:</strong> Original shipping charges are non-refundable unless the item is defective</p>
-            </div>
-          </section>
-
-          <section className="info-section">
-            <h2>Return Shipping</h2>
-            <p>Return shipping charges apply unless the item is defective or incorrect. For exchanges, return shipping is free.</p>
-            <p>You can use our prepaid return label or arrange your own shipping. If using your own shipping, please use a trackable service.</p>
-          </section>
-
-          <section className="info-section">
-            <h2>Damaged or Defective Items</h2>
-            <p>If you receive a damaged or defective item, please contact us immediately within 48 hours:</p>
-            <ul className="info-list">
-              <li>Email photos of the damage to support@arudhraboutique.com</li>
-              <li>We'll arrange for a free return and replacement</li>
-              <li>Full refund available if replacement is not possible</li>
-            </ul>
           </section>
 
           <section className="info-section">
             <h2>Questions?</h2>
             <p>If you have any questions about returns or exchanges, please contact us:</p>
             <p><strong>Email:</strong> support@arudhraboutique.com</p>
-            <p><strong>Phone:</strong> +91 98765 43210</p>
+            <p><strong>Phone:</strong> +91 63847 37391</p>
           </section>
         </div>
       </div>

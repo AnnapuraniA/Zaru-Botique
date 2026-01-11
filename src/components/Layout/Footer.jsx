@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom'
 import { Facebook, Instagram, Mail } from 'lucide-react'
 import { useDevice } from '../../hooks/useDevice'
 import { useLoginModal } from '../../context/LoginModalContext'
+import { useNewsletter } from '../../context/NewsletterContext'
 
 function Footer() {
   const isMobile = useDevice()
   const { openModal } = useLoginModal()
+  const { openNewsletter } = useNewsletter()
 
   const handleSignIn = () => {
     openModal('login')
@@ -33,6 +35,7 @@ function Footer() {
                       <li><Link to="/returns">Returns</Link></li>
                       <li><Link to="/faq">FAQ</Link></li>
                       <li><Link to="/contact">Contact Us</Link></li>
+                      <li><button onClick={openNewsletter} className="footer-link-btn">Newsletter</button></li>
                     </ul>
                   </div>
 
@@ -43,7 +46,7 @@ function Footer() {
                       <li><button onClick={handleCreateAccount} className="footer-link-btn">Create Account</button></li>
                       <li><Link to="/dashboard">My Account</Link></li>
                       <li><Link to="/wishlist">Wishlist</Link></li>
-                      <li><Link to="/order-tracking">Track Order</Link></li>
+                      <li><Link to="/dashboard" state={{ tab: 'track' }}>Track Order</Link></li>
                     </ul>
                   </div>
                 </div>
@@ -72,6 +75,7 @@ function Footer() {
                       <li><Link to="/returns">Returns</Link></li>
                       <li><Link to="/faq">FAQ</Link></li>
                       <li><Link to="/contact">Contact Us</Link></li>
+                      <li><button onClick={openNewsletter} className="footer-link-btn">Newsletter</button></li>
                     </ul>
                   </div>
 
@@ -82,7 +86,7 @@ function Footer() {
                       <li><button onClick={handleCreateAccount} className="footer-link-btn">Create Account</button></li>
                       <li><Link to="/dashboard">My Account</Link></li>
                       <li><Link to="/wishlist">Wishlist</Link></li>
-                      <li><Link to="/order-tracking">Track Order</Link></li>
+                      <li><Link to="/dashboard" state={{ tab: 'track' }}>Track Order</Link></li>
                     </ul>
                   </div>
                 </div>

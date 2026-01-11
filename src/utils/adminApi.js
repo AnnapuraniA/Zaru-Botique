@@ -84,7 +84,11 @@ export const adminAuthAPI = {
 export const adminDashboardAPI = {
   getStats: () => apiCall('/admin/stats'),
   getRecentOrders: (limit = 10) => apiCall(`/admin/recent-orders?limit=${limit}`),
-  getTopProducts: () => apiCall('/admin/top-products')
+  getTopProducts: () => apiCall('/admin/top-products'),
+  getRevenueChart: (period = '7days') => apiCall(`/admin/revenue-chart?period=${period}`),
+  getOrderStatusBreakdown: () => apiCall('/admin/order-status-breakdown'),
+  getReturnsSummary: () => apiCall('/admin/returns-summary'),
+  getTopCustomers: (limit = 5) => apiCall(`/admin/top-customers?limit=${limit}`)
 }
 
 // Admin Upload API

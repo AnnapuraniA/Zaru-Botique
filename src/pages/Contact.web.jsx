@@ -18,9 +18,9 @@ function ContactWeb() {
   const [submitted, setSubmitted] = useState(false)
   const [contactInfo, setContactInfo] = useState({
     email: 'support@arudhraboutique.com',
-    phone: '+91 98765 43210',
-    address: '123 Fashion Street, Mumbai, Maharashtra 400001, India',
-    hours: 'Monday - Saturday: 10 AM - 8 PM\nSunday: 11 AM - 6 PM'
+    phone: '+91 63847 37391',
+    address: '11A, Appavu street, Pudhupalyam, Cuddalore - 607001',
+    hours: 'Mon - Fri ( 10 to 6 )\nSaturday & Sunday ( 10 to 8 )'
   })
 
   useEffect(() => {

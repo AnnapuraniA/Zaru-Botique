@@ -4,9 +4,11 @@ import { AuthProvider } from './context/AuthContext'
 import { AdminAuthProvider } from './context/AdminAuthContext'
 import { ToastProvider } from './components/Toast/ToastContainer'
 import { LoginModalProvider, useLoginModal } from './context/LoginModalContext'
+import { NewsletterProvider, useNewsletter } from './context/NewsletterContext'
 import { Header, Footer, SaleStrip } from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoginModal from './components/LoginModal'
+import Newsletter from './components/Newsletter/Newsletter'
 import Home from './pages/Home'
 import Products from './pages/Products'
 import ProductDetail from './pages/ProductDetail'
@@ -41,6 +43,7 @@ function ScrollToTop() {
 // Layout wrapper for public pages
 function PublicLayout({ children }) {
   const { isOpen, closeModal, initialMode } = useLoginModal()
+  const { showNewsletter, closeNewsletter } = useNewsletter()
   
   return (
     <div className="App">
@@ -49,6 +52,7 @@ function PublicLayout({ children }) {
       <main>{children}</main>
       <Footer />
       <LoginModal isOpen={isOpen} onClose={closeModal} initialMode={initialMode} />
+      {showNewsletter && <Newsletter onClose={closeNewsletter} />}
     </div>
   )
 }
@@ -60,7 +64,8 @@ function App() {
         <AdminAuthProvider>
           <ToastProvider>
             <LoginModalProvider>
-              <Router>
+              <NewsletterProvider>
+                <Router>
               <ScrollToTop />
               <Routes>
                 {/* Admin Routes - No Header/Footer */}
@@ -89,6 +94,7 @@ function App() {
                 <Route path="*" element={<PublicLayout><NotFound /></PublicLayout>} />
               </Routes>
             </Router>
+              </NewsletterProvider>
             </LoginModalProvider>
           </ToastProvider>
         </AdminAuthProvider>
